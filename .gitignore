@@ -12,7 +12,9 @@ node_modules/
 wwwroot/lib/
 
 # Logs
+Logs/
 *.log
 
 # Env
 .env
+/SourceCode/EV_ERP/EV_ERP/Logs/log-20260404.txt

@@ -1,8 +1,98 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@model EV_ERP.Helpers.CurrentUser
+@{
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="row g-4 mb-4">
+    <!-- Welcome card -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #1a2d4e, #2563eb); color:#fff;">
+            <div class="card-body py-4 px-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.2);
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:1.5rem;font-weight:700;">
+                        @Model.FullName[0].ToString().ToUpper()
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold">Xin chào, @Model.FullName!</h5>
+                        <small style="opacity:0.8;">@Model.RoleName &bull; @Model.UserCode</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary cards (placeholder — will be populated when modules are implemented) -->
+<div class="row g-3 mb-4">
+    @{
+        var cards = new[]
+        {
+            new { Icon = "bi-building", Label = "Khách hàng", Value = "--", Color = "#2563eb", Bg = "#eff6ff" },
+            new { Icon = "bi-cart3", Label = "Đơn hàng tháng này", Value = "--", Color = "#16a34a", Bg = "#f0fdf4" },
+            new { Icon = "bi-file-earmark-text", Label = "Báo giá chờ xác nhận", Value = "--", Color = "#d97706", Bg = "#fffbeb" },
+            new { Icon = "bi-archive", Label = "Sản phẩm sắp hết kho", Value = "--", Color = "#dc2626", Bg = "#fef2f2" },
+        };
+    }
+    @foreach (var c in cards)
+    {
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div style="width:46px;height:46px;border-radius:12px;background:@c.Bg;
+                                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi @c.Icon" style="font-size:1.3rem;color:@c.Color;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.4rem;font-weight:700;color:#1e293b;">@c.Value</div>
+                        <div class="text-muted small">@c.Label</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Module shortcuts -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom py-3">
+        <h6 class="mb-0 fw-semibold text-muted">
+            <i class="bi bi-grid me-2"></i>Các module
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            @{
+                var modules = new[]
+                {
+                    new { Icon = "bi-building", Name = "Khách hàng", Url = "#", Active = false },
+                    new { Icon = "bi-truck", Name = "Nhà cung cấp", Url = "#", Active = false },
+                    new { Icon = "bi-box-seam", Name = "Sản phẩm", Url = "#", Active = false },
+                    new { Icon = "bi-file-earmark-text", Name = "Báo giá / Sales", Url = "#", Active = false },
+                    new { Icon = "bi-cart3", Name = "Mua hàng", Url = "#", Active = false },
+                    new { Icon = "bi-archive", Name = "Quản lý kho", Url = "#", Active = false },
+                    new { Icon = "bi-bar-chart-line", Name = "Báo cáo", Url = "#", Active = false },
+                    new { Icon = "bi-people", Name = "Quản lý User", Url = "/User", Active = true },
+                };
+            }
+            @foreach (var m in modules)
+            {
+                <div class="col-6 col-sm-4 col-md-3">
+                    <a href="@m.Url"
+                       class="d-block text-center p-3 rounded-3 text-decoration-none @(m.Active ? "" : "opacity-50 pe-none")"
+                       style="background:#f8fafc; border: 1px solid #e2e8f0; transition: all 0.15s;"
+                       onmouseover="if(@m.Active.ToString().ToLower()) this.style.background='#eff6ff'"
+                       onmouseout="if(@m.Active.ToString().ToLower()) this.style.background='#f8fafc'">
+                        <i class="bi @m.Icon" style="font-size:1.6rem; color: @(m.Active ? "#2563eb" : "#94a3b8");"></i>
+                        <div class="mt-1 small fw-semibold" style="color: @(m.Active ? "#1e293b" : "#94a3b8"); font-size:0.8rem;">@m.Name</div>
+                        @if (!m.Active)
+                        {
+                            <div style="font-size:0.65rem; color:#cbd5e1;">Sắp có</div>
+                        }
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
 </div>

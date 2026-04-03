@@ -2,6 +2,8 @@ using EV_ERP.Data;
 using EV_ERP.Repositories;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Middleware;
+using EV_ERP.Services;
+using EV_ERP.Services.Interfaces;
 using Serilog;
 using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
@@ -33,7 +35,10 @@ builder.Services.AddControllersWithViews();
 // REPOSITORIES — Generic Repository + Unit of Work
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-// SERVICES — Đăng ký thêm khi implement từng module
+// SERVICES
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+// Đăng ký thêm khi implement từng module
 // builder.Services.AddScoped<ICustomerService, CustomerService>();
 // builder.Services.AddScoped<IVendorService, VendorService>();
 // builder.Services.AddScoped<IProductService, ProductService>();

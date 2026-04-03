@@ -1,49 +1,257 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+@using EV_ERP.Helpers
+@{
+    var currentUser = Context.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser);
+    var currentPath = Context.Request.Path.Value ?? "";
+
+    string NavClass(string path) =>
+        currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+
+    bool IsAdmin() => currentUser?.RoleCode == "ADMIN";
+}
+<!DOCTYPE html>
+<html lang="vi">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - EV_ERP</title>
+    <title>@ViewData["Title"] - ERP Eastern Vision</title>
+    <link rel="icon" type="image/jpeg" href="/erp.png">
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/EV_ERP.styles.css" asp-append-version="true" />
+    <style>
+        :root {
+            --sidebar-bg: #0f1f3d;
+            --sidebar-hover: #1e3a6e;
+            --sidebar-active: #2563eb;
+            --sidebar-width: 230px;
+            --topbar-height: 56px;
+            --text-muted-sidebar: #94a3b8;
+        }
+        body { overflow-x: hidden; font-family: 'Segoe UI', sans-serif; background: #f1f5f9; }
+
+        /* ── Sidebar ── */
+        #sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            display: flex; flex-direction: column;
+            z-index: 1040;
+            transition: width 0.25s;
+        }
+        .sidebar-brand {
+            padding: 0 1.2rem;
+            height: var(--topbar-height);
+            display: flex; align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            text-decoration: none;
+        }
+        .sidebar-brand .brand-name {
+            font-size: 1.2rem; font-weight: 700;
+            color: #fff; letter-spacing: -0.5px;
+            white-space: nowrap;
+        }
+        .sidebar-brand .brand-name span { color: #60a5fa; }
+
+        .sidebar-nav { flex: 1; overflow-y: auto; padding: 0.75rem 0; }
+        .nav-section-label {
+            font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em;
+            color: var(--text-muted-sidebar); text-transform: uppercase;
+            padding: 0.75rem 1.2rem 0.25rem;
+        }
+        .sidebar-link {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.55rem 1.2rem;
+            color: #cbd5e1; text-decoration: none;
+            border-radius: 6px; margin: 1px 0.5rem;
+            font-size: 0.875rem;
+            transition: background 0.15s, color 0.15s;
+            white-space: nowrap;
+        }
+        .sidebar-link i { font-size: 1rem; width: 1.1rem; flex-shrink: 0; }
+        .sidebar-link:hover { background: var(--sidebar-hover); color: #fff; }
+        .sidebar-link.active { background: var(--sidebar-active); color: #fff; font-weight: 500; }
+        .sidebar-link.disabled { opacity: 0.4; pointer-events: none; }
+
+        .sidebar-footer {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+
+        /* ── Top bar ── */
+        #topbar {
+            position: fixed; top: 0;
+            left: var(--sidebar-width); right: 0;
+            height: var(--topbar-height);
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex; align-items: center; padding: 0 1.5rem;
+            z-index: 1030;
+            gap: 1rem;
+        }
+        .page-title {
+            font-size: 1rem; font-weight: 600; color: #1e293b;
+            margin: 0; flex: 1;
+        }
+        .user-menu .dropdown-toggle {
+            background: none; border: none; padding: 0;
+            display: flex; align-items: center; gap: 0.5rem;
+            cursor: pointer; text-decoration: none; color: #374151;
+        }
+        .user-avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: var(--sidebar-active);
+            color: #fff; font-weight: 600; font-size: 0.85rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .user-name { font-size: 0.875rem; font-weight: 500; }
+        .user-role { font-size: 0.72rem; color: #6b7280; }
+
+        /* ── Main content ── */
+        #main-content {
+            margin-left: var(--sidebar-width);
+            margin-top: var(--topbar-height);
+            padding: 1.5rem;
+            min-height: calc(100vh - var(--topbar-height));
+        }
+
+        /* ── Alerts ── */
+        .alert-fixed {
+            position: fixed; top: calc(var(--topbar-height) + 0.75rem);
+            right: 1rem; z-index: 9999; max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+    </style>
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">EV_ERP</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+
+<!-- ── Sidebar ─────────────────────────────── -->
+<nav id="sidebar">
+    <a href="/" class="sidebar-brand">
+        <span class="brand-name">EV<span>ERP</span></span>
+    </a>
+
+    <div class="sidebar-nav">
+        <span class="nav-section-label">Tổng quan</span>
+        <a href="/Home/Index" class="sidebar-link @NavClass("/Home")">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+
+        <span class="nav-section-label">Nghiệp vụ</span>
+        <a href="/Customer" class="sidebar-link disabled @NavClass("/Customer")">
+            <i class="bi bi-building"></i> Khách hàng
+        </a>
+        <a href="/Vendor" class="sidebar-link disabled @NavClass("/Vendor")">
+            <i class="bi bi-truck"></i> Nhà cung cấp
+        </a>
+        <a href="/Product" class="sidebar-link disabled @NavClass("/Product")">
+            <i class="bi bi-box-seam"></i> Sản phẩm
+        </a>
+        <a href="/Quotation" class="sidebar-link disabled @NavClass("/Quotation")">
+            <i class="bi bi-file-earmark-text"></i> Báo giá / Sales
+        </a>
+        <a href="/Purchase" class="sidebar-link disabled @NavClass("/Purchase")">
+            <i class="bi bi-cart3"></i> Mua hàng
+        </a>
+        <a href="/Inventory" class="sidebar-link disabled @NavClass("/Inventory")">
+            <i class="bi bi-archive"></i> Quản lý kho
+        </a>
+        <a href="/Report" class="sidebar-link disabled @NavClass("/Report")">
+            <i class="bi bi-bar-chart-line"></i> Báo cáo
+        </a>
+
+        @if (IsAdmin())
+        {
+            <span class="nav-section-label">Hệ thống</span>
+            <a href="/User" class="sidebar-link @NavClass("/User")">
+                <i class="bi bi-people"></i> Quản lý User
+            </a>
+        }
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - EV_ERP - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <div class="sidebar-footer">
+        <div style="font-size:0.7rem; color: var(--text-muted-sidebar); text-align:center;">
+            v1.0 &bull; ERP
         </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+    </div>
+</nav>
+
+<!-- ── Top bar ─────────────────────────────── -->
+<header id="topbar">
+    <h1 class="page-title">@(ViewData["Title"] ?? "Dashboard")</h1>
+
+    @if (currentUser != null)
+    {
+        <div class="user-menu dropdown">
+            <button class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="user-avatar">
+                    @(currentUser.FullName.Length > 0 ? currentUser.FullName[0].ToString().ToUpper() : "U")
+                </div>
+                <div class="d-none d-sm-block text-start">
+                    <div class="user-name">@currentUser.FullName</div>
+                    <div class="user-role">@currentUser.RoleName</div>
+                </div>
+                <i class="bi bi-chevron-down ms-1" style="font-size:0.7rem;color:#9ca3af;"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                    <span class="dropdown-item-text">
+                        <small class="text-muted">@currentUser.Email</small><br/>
+                        <small class="badge bg-primary-subtle text-primary">@currentUser.UserCode</small>
+                    </span>
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                    <a class="dropdown-item" href="/Auth/ChangePassword">
+                        <i class="bi bi-key me-2"></i> Đổi mật khẩu
+                    </a>
+                </li>
+                <li>
+                    <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="dropdown-item text-danger">
+                            <i class="bi bi-box-arrow-right me-2"></i> Đăng xuất
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    }
+</header>
+
+<!-- ── Flash messages ─────────────────────── -->
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show alert-fixed" role="alert">
+        <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show alert-fixed" role="alert">
+        <i class="bi bi-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<!-- ── Main content ───────────────────────── -->
+<main id="main-content">
+    @RenderBody()
+</main>
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+<script>
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert-fixed').forEach(el => {
+            var bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+            bsAlert.close();
+        });
+    }, 4000);
+</script>
+@await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

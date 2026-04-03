@@ -1,0 +1,19 @@
+@model EV_ERP.Models.ErrorViewModel
+@{
+    ViewData["Title"] = "Lỗi";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-5 text-center">
+        <div style="font-size:5rem;color:#e5e7eb;"><i class="bi bi-exclamation-triangle"></i></div>
+        <h4 class="fw-bold mt-2">Đã xảy ra lỗi</h4>
+        <p class="text-muted">Hệ thống gặp sự cố. Vui lòng thử lại hoặc liên hệ quản trị viên.</p>
+        @if (Model.ShowRequestId)
+        {
+            <p><small class="text-muted">Request ID: <code>@Model.RequestId</code></small></p>
+        }
+        <a href="/Home/Index" class="btn btn-primary mt-2">
+            <i class="bi bi-house me-1"></i> Về trang chủ
+        </a>
+    </div>
+</div>

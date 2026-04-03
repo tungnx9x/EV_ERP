@@ -134,6 +134,7 @@ namespace EV_ERP.Data
 
             mb.Entity<LoginHistory>(e =>
             {
+                e.ToTable("LoginHistory");
                 e.HasKey(x => x.LoginHistoryId);
                 e.HasIndex(x => new { x.UserId, x.LoginAt });
                 e.HasOne(x => x.User).WithMany(u => u.LoginHistories).HasForeignKey(x => x.UserId);
@@ -301,6 +302,7 @@ namespace EV_ERP.Data
 
             mb.Entity<QuotationEmailHistory>(e =>
             {
+                e.ToTable("QuotationEmailHistory");
                 e.HasKey(x => x.EmailHistoryId);
                 e.HasOne(x => x.Quotation).WithMany(q => q.EmailHistories).HasForeignKey(x => x.QuotationId);
                 e.HasOne(x => x.SentByUser).WithMany().HasForeignKey(x => x.SentBy).OnDelete(DeleteBehavior.NoAction);

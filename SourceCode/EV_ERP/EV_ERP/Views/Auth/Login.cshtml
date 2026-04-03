@@ -1,0 +1,70 @@
+@model EV_ERP.Models.ViewModels.Auth.LoginViewModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+    Layout = "_LoginLayout";
+}
+
+<div class="text-center mb-4">
+    <div class="brand-logo">EV<span>ERP</span></div>
+    <p class="brand-tagline">Hệ thống quản lý cung ứng</p>
+</div>
+
+<h5 class="fw-600 mb-4 text-center" style="color:#1e293b; font-weight:600;">Đăng nhập hệ thống</h5>
+
+<form asp-action="Login" asp-controller="Auth" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="ReturnUrl" />
+
+    @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+    {
+        <div class="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <div>@ViewData.ModelState[string.Empty]?.Errors[0].ErrorMessage</div>
+        </div>
+    }
+
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label fw-500 small" style="font-weight:500; color:#374151;"></label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+            <input asp-for="Email" class="form-control" placeholder="admin@company.com"
+                   autocomplete="email" autofocus />
+        </div>
+        <span asp-validation-for="Email" class="text-danger small"></span>
+    </div>
+
+    <div class="mb-4">
+        <label asp-for="Password" class="form-label fw-500 small" style="font-weight:500; color:#374151;"></label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input asp-for="Password" class="form-control" placeholder="••••••••"
+                   autocomplete="current-password" id="passwordInput" />
+            <button class="input-group-text" type="button" onclick="togglePassword()"
+                    style="cursor:pointer;" title="Hiện/ẩn mật khẩu">
+                <i class="bi bi-eye" id="eyeIcon"></i>
+            </button>
+        </div>
+        <span asp-validation-for="Password" class="text-danger small"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-login w-100 text-white">
+        <i class="bi bi-box-arrow-in-right me-1"></i> Đăng nhập
+    </button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePassword() {
+            var input = document.getElementById('passwordInput');
+            var icon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        }
+    </script>
+}

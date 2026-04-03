@@ -1,0 +1,261 @@
+@model EV_ERP.Models.ViewModels.Users.UserListViewModel
+@{
+    ViewData["Title"] = "Quản lý tài khoản";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <p class="text-muted small mb-0">Tổng cộng @Model.TotalCount tài khoản</p>
+    </div>
+    <a href="/User/Create" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i> Tạo tài khoản
+    </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-sm-5">
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Họ tên, email, mã nhân viên..."
+                           value="@Model.SearchKeyword" />
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <label class="form-label small fw-semibold mb-1">Vai trò</label>
+                <select name="roleId" class="form-select form-select-sm">
+                    <option value="">Tất cả vai trò</option>
+                    @foreach (var role in Model.Roles)
+                    {
+                        <option value="@role.RoleId"
+                                selected="@(Model.FilterRoleId == role.RoleId)">
+                            @role.RoleName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm-2">
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    <option value="locked" selected="@(Model.FilterStatus == "locked")">Bị khóa</option>
+                    <option value="inactive" selected="@(Model.FilterStatus == "inactive")">Vô hiệu</option>
+                </select>
+            </div>
+            <div class="col-sm-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
+                <a href="/User" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!Model.Users.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-people" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">Không tìm thấy tài khoản nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Nhân viên</th>
+                            <th>Email</th>
+                            <th>Vai trò</th>
+                            <th>Trạng thái</th>
+                            <th>Đăng nhập cuối</th>
+                            <th style="width:130px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var u in Model.Users)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="user-avatar-sm">
+                                            @u.FullName[0].ToString().ToUpper()
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold">@u.FullName</div>
+                                            <div class="text-muted small">@u.UserCode</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-muted">@u.Email</td>
+                                <td>
+                                    <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
+                                        @u.RoleName
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-@u.StatusBadge-subtle text-@u.StatusBadge-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.45rem;vertical-align:middle;"></i>
+                                        @u.StatusText
+                                    </span>
+                                </td>
+                                <td class="text-muted small">
+                                    @(u.LastLoginAt.HasValue
+                                        ? u.LastLoginAt.Value.ToString("dd/MM/yyyy HH:mm")
+                                        : "Chưa đăng nhập")
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/User/Edit/@u.UserId"
+                                           class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button class="btn btn-sm @(u.IsLocked ? "btn-outline-success" : "btn-outline-warning")"
+                                                title="@(u.IsLocked ? "Mở khóa" : "Khóa tài khoản")"
+                                                onclick="toggleLock(@u.UserId, '@u.FullName', @u.IsLocked.ToString().ToLower())">
+                                            <i class="bi @(u.IsLocked ? "bi-unlock" : "bi-lock")"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                title="Đặt lại mật khẩu"
+                                                onclick="openResetPassword(@u.UserId, '@u.FullName')">
+                                            <i class="bi bi-key"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Đặt lại mật khẩu</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" id="resetPasswordDesc"></p>
+                <div class="mb-1">
+                    <label class="form-label small fw-semibold">Mật khẩu mới</label>
+                    <input type="text" id="newPasswordInput" class="form-control form-control-sm"
+                           placeholder="Tối thiểu 6 ký tự" />
+                    <div id="resetPasswordError" class="text-danger small mt-1" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="submitResetPassword()">
+                    <i class="bi bi-check-lg me-1"></i> Xác nhận
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-avatar-sm {
+        width: 32px; height: 32px; border-radius: 50%;
+        background: #2563eb; color: #fff;
+        font-size: 0.8rem; font-weight: 600;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #0369a1 !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    .text-warning-emphasis { color: #854d0e !important; }
+</style>
+
+@section Scripts {
+    <script>
+        var currentResetUserId = null;
+
+        function toggleLock(userId, name, isLocked) {
+            var action = isLocked ? 'mở khóa' : 'khóa';
+            if (!confirm('Bạn có chắc muốn ' + action + ' tài khoản "' + name + '"?')) return;
+
+            fetch('/User/ToggleLock/' + userId, { method: 'POST', headers: { 'RequestVerificationToken': getAntiForgeryToken() } })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) location.reload();
+                    else alert('Lỗi: ' + data.Message);
+                });
+        }
+
+        function openResetPassword(userId, name) {
+            currentResetUserId = userId;
+            document.getElementById('resetPasswordDesc').textContent = 'Đặt lại mật khẩu cho "' + name + '"';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('resetPasswordError').style.display = 'none';
+            new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+        }
+
+        function submitResetPassword() {
+            var pw = document.getElementById('newPasswordInput').value.trim();
+            var errEl = document.getElementById('resetPasswordError');
+
+            if (pw.length < 6) {
+                errEl.textContent = 'Mật khẩu phải có ít nhất 6 ký tự';
+                errEl.style.display = 'block';
+                return;
+            }
+            errEl.style.display = 'none';
+
+            var form = new FormData();
+            form.append('id', currentResetUserId);
+            form.append('newPassword', pw);
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/User/ResetPassword', { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) {
+                        bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+                        showToast('Đặt lại mật khẩu thành công', 'success');
+                    } else {
+                        errEl.textContent = data.Message;
+                        errEl.style.display = 'block';
+                    }
+                });
+        }
+
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+
+        function showToast(msg, type) {
+            var div = document.createElement('div');
+            div.className = 'alert alert-' + type + ' alert-fixed alert-dismissible fade show';
+            div.innerHTML = '<i class="bi bi-check-circle me-2"></i>' + msg +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+            document.body.appendChild(div);
+            setTimeout(() => { bootstrap.Alert.getOrCreateInstance(div).close(); }, 3500);
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

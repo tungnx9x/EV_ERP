@@ -20,3 +20,20 @@ html {
 body {
   margin-bottom: 60px;
 }
+
+/* ── Mobile table improvements ── */
+@media (max-width: 575.98px) {
+  .table th, .table td {
+    white-space: nowrap;
+    font-size: 0.8rem;
+  }
+  .card-body.p-4 {
+    padding: 1rem !important;
+  }
+  .card-header .d-flex {
+    flex-wrap: wrap;
+  }
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+}

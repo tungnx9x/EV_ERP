@@ -36,7 +36,7 @@
             background: var(--sidebar-bg);
             display: flex; flex-direction: column;
             z-index: 1040;
-            transition: width 0.25s;
+            transition: width 0.25s, transform 0.25s ease;
         }
         .sidebar-brand {
             padding: 0 1.2rem;
@@ -120,6 +120,60 @@
             right: 1rem; z-index: 9999; max-width: 400px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
+
+        /* ── Hamburger toggle ── */
+        .sidebar-toggle {
+            display: none;
+            background: none; border: none; padding: 0.25rem;
+            font-size: 1.25rem; color: #374151; cursor: pointer;
+            line-height: 1;
+        }
+
+        /* ── Overlay ── */
+        .sidebar-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1035;
+        }
+        .sidebar-overlay.show { display: block; }
+
+        /* ── Mobile responsive (< 992px) ── */
+        @@media (max-width: 991.98px) {
+            .sidebar-toggle { display: inline-flex; }
+
+            #sidebar {
+                transform: translateX(-100%);
+            }
+            #sidebar.show {
+                transform: translateX(0);
+            }
+
+            #topbar {
+                left: 0;
+            }
+
+            #main-content {
+                margin-left: 0;
+            }
+
+            .alert-fixed {
+                left: 1rem;
+                right: 1rem;
+                max-width: none;
+            }
+        }
+
+        /* ── Small phones (< 576px) ── */
+        @@media (max-width: 575.98px) {
+            #main-content {
+                padding: 1rem;
+            }
+
+            .page-title {
+                font-size: 0.9rem;
+            }
+        }
     </style>
     @await RenderSectionAsync("Styles", required: false)
 </head>
@@ -177,7 +231,12 @@
 </nav>
 
 <!-- ── Top bar ─────────────────────────────── -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <header id="topbar">
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Menu">
+        <i class="bi bi-list"></i>
+    </button>
     <h1 class="page-title">@(ViewData["Title"] ?? "Dashboard")</h1>
 
     @if (currentUser != null)
@@ -251,6 +310,20 @@
             bsAlert.close();
         });
     }, 4000);
+
+    // Sidebar toggle for mobile
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('show');
+        document.getElementById('sidebarOverlay').classList.toggle('show');
+    }
+    function closeSidebar() {
+        document.getElementById('sidebar').classList.remove('show');
+        document.getElementById('sidebarOverlay').classList.remove('show');
+    }
+    // Close sidebar when a nav link is clicked (mobile)
+    document.querySelectorAll('.sidebar-link').forEach(function(link) {
+        link.addEventListener('click', closeSidebar);
+    });
 </script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>

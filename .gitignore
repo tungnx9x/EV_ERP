@@ -1,0 +1,18 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+
+# Build
+bin/
+obj/
+
+# Frontend libs
+node_modules/
+wwwroot/lib/
+
+# Logs
+*.log
+
+# Env
+.env

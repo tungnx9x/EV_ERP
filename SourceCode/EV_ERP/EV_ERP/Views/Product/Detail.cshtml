@@ -1,0 +1,435 @@
+@model EV_ERP.Models.ViewModels.Products.ProductDetailViewModel
+@{
+    ViewData["Title"] = Model.ProductName;
+    bool canEdit = ViewBag.CanEdit == true;
+    bool canDelete = ViewBag.CanDelete == true;
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="/Product" class="btn btn-sm btn-light border">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h5 class="mb-0 fw-bold">@Model.ProductName</h5>
+            <div class="text-muted small">
+                @Model.ProductCode
+                @if (!string.IsNullOrEmpty(Model.CategoryName))
+                {
+                    <span class="ms-2 badge bg-info-subtle text-info-emphasis rounded-pill">@Model.CategoryName</span>
+                }
+                @if (Model.IsActive)
+                {
+                    <span class="ms-1 badge bg-success-subtle text-success-emphasis rounded-pill">
+                        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Hoạt động
+                    </span>
+                }
+                else
+                {
+                    <span class="ms-1 badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Vô hiệu</span>
+                }
+            </div>
+        </div>
+    </div>
+    @if (canEdit)
+    {
+        <a href="/Product/Edit/@Model.ProductId" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i> Chỉnh sửa
+        </a>
+    }
+</div>
+
+<!-- Content -->
+<div class="row g-3">
+    <!-- Left: Info cards -->
+    <div class="col-lg-4">
+        <!-- Product image -->
+        @if (!string.IsNullOrEmpty(Model.ImageUrl))
+        {
+            <div class="card border-0 shadow-sm mb-3 overflow-hidden">
+                <img src="@Model.ImageUrl" alt="@Model.ProductName"
+                     style="width:100%;max-height:240px;object-fit:contain;background:#f8fafc;" />
+            </div>
+        }
+
+        <!-- Barcode card -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body text-center">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    <i class="bi bi-upc-scan me-1"></i> Barcode
+                </h6>
+                @if (Model.HasBarcode)
+                {
+                    <div id="barcode-container" class="mb-2">
+                        <svg id="barcode-svg"></svg>
+                    </div>
+                    <div class="font-monospace small text-muted">
+                        @Model.Barcode
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size:0.6rem;">
+                            @Model.BarcodeType
+                        </span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="printBarcode()">
+                        <i class="bi bi-printer me-1"></i> In barcode
+                    </button>
+                }
+                else
+                {
+                    <div class="py-3 text-muted">
+                        <i class="bi bi-upc" style="font-size:2rem;opacity:.3;"></i>
+                        <p class="small mt-2 mb-0">Chưa có barcode</p>
+                    </div>
+                    @if (canEdit)
+                    {
+                        <button class="btn btn-sm btn-warning mt-1" onclick="generateBarcode(@Model.ProductId)">
+                            <i class="bi bi-upc-scan me-1"></i> Tạo barcode
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Price info -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    Giá & Tồn kho
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <div class="text-muted">Giá bán</div>
+                        <div class="fw-semibold text-success">
+                            @(Model.DefaultSalePrice.HasValue ? Model.DefaultSalePrice.Value.ToString("N0") + " ₫" : "—")
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Giá mua</div>
+                        <div class="fw-semibold text-primary">
+                            @(Model.DefaultPurchasePrice.HasValue ? Model.DefaultPurchasePrice.Value.ToString("N0") + " ₫" : "—")
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Tồn kho tối thiểu</div>
+                        <div class="fw-semibold">@Model.MinStockLevel @Model.UnitName</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">ĐVT</div>
+                        <div class="fw-semibold">@Model.UnitName (@Model.UnitCode)</div>
+                    </div>
+                    @if (Model.Weight.HasValue)
+                    {
+                        <div class="col-12">
+                            <div class="text-muted">Khối lượng</div>
+                            <div class="fw-semibold">@Model.Weight @Model.WeightUnit</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Description -->
+        @if (!string.IsNullOrEmpty(Model.Description))
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                        Mô tả
+                    </h6>
+                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.Description</p>
+                </div>
+            </div>
+        }
+
+        <!-- Meta -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body small text-muted">
+                <div class="d-flex justify-content-between">
+                    <span>Ngày tạo</span>
+                    <span>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                    <span>Cập nhật</span>
+                    <span>@Model.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Tabs -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <ul class="nav nav-tabs card-header-tabs" id="detailTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-images">
+                            <i class="bi bi-images me-1"></i>
+                            Hình ảnh
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" id="img-count-badge">@Model.Images.Count</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-vendor-prices">
+                            <i class="bi bi-truck me-1"></i>
+                            Giá NCC
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.VendorPrices.Count</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-customer-prices">
+                            <i class="bi bi-building me-1"></i>
+                            Giá KH
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.CustomerPrices.Count</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body tab-content p-0" id="detailTabsContent">
+
+                <!-- Tab: Images -->
+                <div class="tab-pane fade show active p-3" id="tab-images">
+                    <div class="d-flex flex-wrap gap-2" id="gallery-grid">
+                        @if (!Model.Images.Any())
+                        {
+                            <div class="text-center w-100 py-4 text-muted">
+                                <i class="bi bi-image" style="font-size:2rem;opacity:.3;"></i>
+                                <p class="small mt-2 mb-0">Chưa có ảnh nào</p>
+                            </div>
+                        }
+                        @foreach (var img in Model.Images)
+                        {
+                            <div class="gallery-item position-relative"
+                                 style="width:130px;height:130px;cursor:pointer;"
+                                 onclick="openLightbox('@img.ImageUrl')">
+                                <img src="@img.ImageUrl" alt=""
+                                     style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:2px solid @(img.IsPrimary ? "#2563eb" : "#e2e8f0");"
+                                     class="gallery-thumb" />
+                                @if (img.IsPrimary)
+                                {
+                                    <span class="position-absolute top-0 start-0 badge bg-primary"
+                                          style="font-size:0.6rem;border-radius:6px 0 4px 0 !important;">Avatar</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Lightbox Modal -->
+                <div class="modal fade" id="lightboxModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content bg-dark border-0">
+                            <div class="modal-header border-0 pb-0">
+                                <button type="button" class="btn-close btn-close-white"
+                                        data-bs-dismiss="modal" aria-label="Đóng"></button>
+                            </div>
+                            <div class="modal-body text-center p-2 pb-3">
+                                <img id="lightbox-img" src="" alt=""
+                                     style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:4px;" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Vendor Prices -->
+                <div class="tab-pane fade p-3" id="tab-vendor-prices">
+                    @if (!Model.VendorPrices.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-truck" style="font-size:2rem;opacity:.3;"></i>
+                            <p class="small mt-2 mb-0">Chưa có giá mua từ NCC nào</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" style="font-size:0.84rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nhà cung cấp</th>
+                                        <th class="text-end">Giá mua</th>
+                                        <th class="d-none d-md-table-cell text-center">SL tối thiểu</th>
+                                        <th class="d-none d-md-table-cell text-center">Thời gian giao</th>
+                                        <th class="d-none d-lg-table-cell">Hiệu lực</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var vp in Model.VendorPrices)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold">@vp.VendorName</div>
+                                                <div class="text-muted small">@vp.VendorCode</div>
+                                            </td>
+                                            <td class="text-end fw-semibold">@vp.PurchasePrice.ToString("N0") ₫</td>
+                                            <td class="d-none d-md-table-cell text-center">@(vp.MinOrderQty?.ToString() ?? "—")</td>
+                                            <td class="d-none d-md-table-cell text-center">
+                                                @(vp.LeadTimeDays.HasValue ? $"{vp.LeadTimeDays} ngày" : "—")
+                                            </td>
+                                            <td class="d-none d-lg-table-cell small text-muted">
+                                                @vp.EffectiveFrom.ToString("dd/MM/yyyy")
+                                                @if (vp.EffectiveTo.HasValue)
+                                                {
+                                                    @: → @vp.EffectiveTo.Value.ToString("dd/MM/yyyy")
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- Tab: Customer Prices -->
+                <div class="tab-pane fade p-3" id="tab-customer-prices">
+                    @if (!Model.CustomerPrices.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-building" style="font-size:2rem;opacity:.3;"></i>
+                            <p class="small mt-2 mb-0">Chưa có giá bán riêng cho KH nào</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" style="font-size:0.84rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Khách hàng / Nhóm</th>
+                                        <th class="text-end">Giá bán</th>
+                                        <th class="d-none d-md-table-cell text-center">SL tối thiểu</th>
+                                        <th class="d-none d-lg-table-cell">Hiệu lực</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var cp in Model.CustomerPrices)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(cp.CustomerName))
+                                                {
+                                                    <div class="fw-semibold">@cp.CustomerName</div>
+                                                    <div class="text-muted small">@cp.CustomerCode</div>
+                                                }
+                                                else if (!string.IsNullOrEmpty(cp.GroupName))
+                                                {
+                                                    <div class="fw-semibold">
+                                                        <i class="bi bi-people me-1"></i>@cp.GroupName
+                                                    </div>
+                                                    <div class="text-muted small">Nhóm KH</div>
+                                                }
+                                            </td>
+                                            <td class="text-end fw-semibold text-success">@cp.SalePrice.ToString("N0") ₫</td>
+                                            <td class="d-none d-md-table-cell text-center">@(cp.MinQty?.ToString() ?? "—")</td>
+                                            <td class="d-none d-lg-table-cell small text-muted">
+                                                @cp.EffectiveFrom.ToString("dd/MM/yyyy")
+                                                @if (cp.EffectiveTo.HasValue)
+                                                {
+                                                    @: → @cp.EffectiveTo.Value.ToString("dd/MM/yyyy")
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #0369a1 !important; }
+    .nav-tabs .nav-link { font-size: .875rem; }
+    .gallery-item { transition: opacity .15s; }
+    .gallery-item:hover { opacity: .85; }
+</style>
+
+@section Scripts {
+    <!-- JsBarcode CDN for rendering barcodes -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script>
+        // Render barcode on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            var barcodeValue = '@(Model.Barcode ?? "")';
+            var barcodeType = '@(Model.BarcodeType ?? "")';
+            if (barcodeValue) {
+                try {
+                    var format = 'CODE128';
+                    if (barcodeType === 'EAN13') format = 'EAN13';
+                    else if (barcodeType === 'EAN8') format = 'EAN8';
+                    else if (barcodeType === 'CODE128') format = 'CODE128';
+
+                    JsBarcode('#barcode-svg', barcodeValue, {
+                        format: format,
+                        width: 2,
+                        height: 60,
+                        displayValue: false,
+                        margin: 5
+                    });
+                } catch (e) {
+                    // Fallback to CODE128 if format-specific rendering fails
+                    JsBarcode('#barcode-svg', barcodeValue, {
+                        format: 'CODE128',
+                        width: 2,
+                        height: 60,
+                        displayValue: false,
+                        margin: 5
+                    });
+                }
+            }
+        });
+
+        // ── Gallery Lightbox ──────────────────────────
+        function openLightbox(url) {
+            document.getElementById('lightbox-img').src = url;
+            var modal = new bootstrap.Modal(document.getElementById('lightboxModal'));
+            modal.show();
+        }
+
+        function generateBarcode(id) {
+            if (!confirm('Tạo mã barcode EAN-13 cho sản phẩm này?')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/Product/GenerateBarcode/' + id, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) location.reload();
+                    else alert('Lỗi: ' + data.Message);
+                });
+        }
+
+        function printBarcode() {
+            var svgEl = document.getElementById('barcode-svg');
+            if (!svgEl) return;
+
+            var productName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProductName));
+            var productCode = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProductCode));
+            var barcodeText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Barcode ?? ""));
+
+            var printWin = window.open('', '_blank', 'width=400,height=300');
+            var doc = printWin.document;
+            doc.open();
+            doc.write('<html><head><title>Barcode - ' + productCode + '<\/title>');
+            doc.write('<style>body{text-align:center;font-family:monospace;padding:20px;} .product-name{font-size:12px;margin-bottom:5px;} .barcode-text{font-size:14px;letter-spacing:2px;margin-top:5px;}<\/style>');
+            doc.write('<\/head><body>');
+            doc.write('<div class="product-name">' + productName + '<\/div>');
+            doc.write(svgEl.outerHTML);
+            doc.write('<div class="barcode-text">' + barcodeText + '<\/div>');
+            doc.write('<\/body><\/html>');
+            doc.close();
+            printWin.focus();
+            printWin.print();
+        }
+
+    </script>
+}

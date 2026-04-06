@@ -1,0 +1,41 @@
+@model EV_ERP.Models.ViewModels.Products.ProductCategoryFormViewModel
+@{
+    ViewData["Title"] = "Thêm danh mục";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-6 col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/ProductCategory" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-plus-circle me-2 text-primary"></i>Thêm danh mục
+                    </h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Create" asp-controller="ProductCategory" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    @await Html.PartialAsync("_CategoryForm", Model)
+
+                    <hr class="my-4" />
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="/ProductCategory" class="btn btn-outline-secondary">Hủy</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Tạo danh mục
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

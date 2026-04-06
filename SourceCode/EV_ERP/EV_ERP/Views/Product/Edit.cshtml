@@ -1,0 +1,205 @@
+@model EV_ERP.Models.ViewModels.Products.ProductFormViewModel
+@{
+    ViewData["Title"] = "Chỉnh sửa sản phẩm";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/Product/Detail/@Model.ProductId" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-pencil me-2 text-primary"></i>Chỉnh sửa sản phẩm
+                    </h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Edit" asp-controller="Product" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="ProductId" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    @await Html.PartialAsync("_ProductForm", Model)
+
+                    @if (Model.IsEditMode)
+                    {
+                        <hr class="my-4" />
+
+                        <!-- Gallery section — Ajax, type="button" prevents form submit -->
+                        <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+                            <i class="bi bi-images me-1"></i> Hình ảnh sản phẩm
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" id="edit-img-count-badge">@Model.Images.Count</span>
+                        </h6>
+
+                        <div class="mb-3">
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <input type="file" id="gallery-file-input" class="form-control form-control-sm"
+                                       accept="image/jpeg,image/png,image/webp,image/gif" multiple
+                                       style="max-width:320px;" />
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="uploadImages()">
+                                    <i class="bi bi-cloud-upload me-1"></i> Upload
+                                </button>
+                            </div>
+                            <div class="form-text small">JPG, PNG, WebP, GIF — tối đa 5 MB mỗi ảnh</div>
+                            <div id="upload-error" class="text-danger small mt-1" style="display:none;"></div>
+                        </div>
+
+                        <div id="edit-gallery-grid" class="d-flex flex-wrap gap-2">
+                            @if (!Model.Images.Any())
+                            {
+                                <div id="edit-gallery-empty" class="text-center w-100 py-4 text-muted">
+                                    <i class="bi bi-image" style="font-size:2rem;opacity:.3;"></i>
+                                    <p class="small mt-2 mb-0">Chưa có ảnh nào</p>
+                                </div>
+                            }
+                            @foreach (var img in Model.Images)
+                            {
+                                <div class="edit-gallery-item position-relative" id="egimg-@img.ImageId"
+                                     style="width:130px;height:130px;">
+                                    <img src="@img.ImageUrl" alt=""
+                                         style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:2px solid @(img.IsPrimary ? "#2563eb" : "#e2e8f0");" />
+                                    @if (img.IsPrimary)
+                                    {
+                                        <span class="position-absolute top-0 start-0 badge bg-primary"
+                                              style="font-size:0.6rem;border-radius:6px 0 4px 0 !important;">Avatar</span>
+                                    }
+                                    <div class="edit-gallery-actions position-absolute bottom-0 start-0 end-0
+                                                d-flex gap-1 p-1 justify-content-center"
+                                         style="background:rgba(0,0,0,.45);border-radius:0 0 5px 5px;">
+                                        @if (!img.IsPrimary)
+                                        {
+                                            <button type="button" class="btn btn-xs btn-light" title="Đặt làm avatar"
+                                                    onclick="setAvatarEdit(@img.ImageId)">
+                                                <i class="bi bi-star" style="font-size:.7rem;"></i>
+                                            </button>
+                                        }
+                                        <button type="button" class="btn btn-xs btn-danger" title="Xóa ảnh"
+                                                onclick="deleteImageEdit(@img.ImageId)">
+                                            <i class="bi bi-trash" style="font-size:.7rem;"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <hr class="my-4" />
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="/Product/Detail/@Model.ProductId" class="btn btn-outline-secondary">Hủy</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Cập nhật
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.IsEditMode)
+{
+    <style>
+        .btn-xs { padding: .15rem .35rem; font-size: .75rem; }
+        .edit-gallery-item .edit-gallery-actions { display: none; }
+        .edit-gallery-item:hover .edit-gallery-actions { display: flex !important; }
+    </style>
+
+    <script>
+        var editProductId = @Model.ProductId;
+
+        function uploadImages() {
+            var input = document.getElementById('gallery-file-input');
+            if (!input || input.files.length === 0) {
+                showUploadError('Vui lòng chọn ít nhất một ảnh');
+                return;
+            }
+            var formData = new FormData();
+            formData.append('__RequestVerificationToken', getToken());
+            for (var i = 0; i < input.files.length; i++) {
+                formData.append('files', input.files[i]);
+            }
+            fetch('/Product/AddImages/' + editProductId, { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.Success) { showUploadError(data.Message); return; }
+                    hideUploadError();
+                    input.value = '';
+                    var grid = document.getElementById('edit-gallery-grid');
+                    var empty = document.getElementById('edit-gallery-empty');
+                    if (empty) empty.remove();
+                    data.Data.forEach(function (img) {
+                        grid.insertAdjacentHTML('beforeend', buildEditGalleryItem(img));
+                    });
+                    updateEditImgBadge(grid.querySelectorAll('.edit-gallery-item').length);
+                });
+        }
+
+        function deleteImageEdit(imageId) {
+            if (!confirm('Xóa ảnh này?')) return;
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getToken());
+            form.append('imageId', imageId);
+            fetch('/Product/DeleteImage/' + editProductId, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.Success) { alert(data.Message); return; }
+                    var el = document.getElementById('egimg-' + imageId);
+                    if (el) el.remove();
+                    var grid = document.getElementById('edit-gallery-grid');
+                    var count = grid.querySelectorAll('.edit-gallery-item').length;
+                    updateEditImgBadge(count);
+                    if (count === 0) {
+                        grid.insertAdjacentHTML('beforeend',
+                            '<div id="edit-gallery-empty" class="text-center w-100 py-4 text-muted">' +
+                            '<i class="bi bi-image" style="font-size:2rem;opacity:.3;"><\/i>' +
+                            '<p class="small mt-2 mb-0">Chưa có ảnh nào<\/p><\/div>');
+                    }
+                });
+        }
+
+        function setAvatarEdit(imageId) {
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getToken());
+            form.append('imageId', imageId);
+            fetch('/Product/SetAvatar/' + editProductId, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.Success) { alert(data.Message); return; }
+                    location.reload();
+                });
+        }
+
+        function buildEditGalleryItem(img) {
+            return '<div class="edit-gallery-item position-relative" id="egimg-' + img.ImageId + '" style="width:130px;height:130px;">' +
+                '<img src="' + img.ImageUrl + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:2px solid #e2e8f0;" \/>' +
+                '<div class="edit-gallery-actions position-absolute bottom-0 start-0 end-0 d-flex gap-1 p-1 justify-content-center" style="background:rgba(0,0,0,.45);border-radius:0 0 5px 5px;">' +
+                '<button type="button" class="btn btn-xs btn-light" title="Đặt làm avatar" onclick="setAvatarEdit(' + img.ImageId + ')"><i class="bi bi-star" style="font-size:.7rem;"><\/i><\/button>' +
+                '<button type="button" class="btn btn-xs btn-danger" title="Xóa ảnh" onclick="deleteImageEdit(' + img.ImageId + ')"><i class="bi bi-trash" style="font-size:.7rem;"><\/i><\/button>' +
+                '<\/div><\/div>';
+        }
+
+        function updateEditImgBadge(count) {
+            var badge = document.getElementById('edit-img-count-badge');
+            if (badge) badge.textContent = count;
+        }
+
+        function showUploadError(msg) {
+            var el = document.getElementById('upload-error');
+            if (el) { el.textContent = msg; el.style.display = ''; }
+        }
+        function hideUploadError() {
+            var el = document.getElementById('upload-error');
+            if (el) el.style.display = 'none';
+        }
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+    </script>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

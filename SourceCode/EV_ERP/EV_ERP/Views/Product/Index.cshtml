@@ -1,0 +1,275 @@
+@model EV_ERP.Models.ViewModels.Products.ProductListViewModel
+@{
+    ViewData["Title"] = "Quản lý sản phẩm";
+    bool canEdit = ViewBag.CanEdit == true;
+    bool canDelete = ViewBag.CanDelete == true;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <p class="text-muted small mb-0">
+            Tổng cộng @Model.TotalCount sản phẩm
+            @if (Model.NoBarcodeCount > 0)
+            {
+                <span class="text-warning ms-2">
+                    <i class="bi bi-exclamation-triangle me-1"></i>@Model.NoBarcodeCount SP chưa có barcode
+                </span>
+            }
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (canEdit && Model.NoBarcodeCount > 0)
+        {
+            <button class="btn btn-outline-warning btn-sm" onclick="generateAllBarcodes()">
+                <i class="bi bi-upc-scan me-1"></i> Tạo barcode hàng loạt
+            </button>
+        }
+        @if (canEdit)
+        {
+            <a href="/Product/Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Thêm sản phẩm
+            </a>
+        }
+    </div>
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-12 col-sm-5 col-lg-5">
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Tên, mã SP, barcode..."
+                           value="@Model.SearchKeyword" />
+                </div>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Danh mục</label>
+                <select name="categoryId" class="form-select form-select-sm">
+                    <option value="">Tất cả danh mục</option>
+                    @foreach (var c in Model.Categories)
+                    {
+                        <option value="@c.CategoryId"
+                                selected="@(Model.FilterCategoryId == c.CategoryId)">
+                            @c.CategoryName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Đang hoạt động</option>
+                    <option value="inactive" selected="@(Model.FilterStatus == "inactive")">Vô hiệu</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-2 col-lg-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
+                <a href="/Product" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!Model.Products.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-box-seam" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">Không tìm thấy sản phẩm nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Sản phẩm</th>
+                            <th class="d-none d-md-table-cell">Danh mục</th>
+                            <th class="d-none d-md-table-cell">ĐVT</th>
+                            <th class="d-none d-lg-table-cell">Barcode</th>
+                            <th class="d-none d-md-table-cell text-end">Giá bán</th>
+                            <th class="d-none d-lg-table-cell text-end">Giá mua</th>
+                            <th>Trạng thái</th>
+                            <th style="width:120px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var p in Model.Products)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    <div>
+                                        <a href="/Product/Detail/@p.ProductId"
+                                           class="fw-semibold text-decoration-none text-dark link-hover">
+                                            @p.ProductName
+                                        </a>
+                                        <div class="text-muted small">@p.ProductCode</div>
+                                    </div>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    @if (!string.IsNullOrEmpty(p.CategoryName))
+                                    {
+                                        <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
+                                            @p.CategoryName
+                                        </span>
+                                    }
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">@p.UnitName</td>
+                                <td class="d-none d-lg-table-cell">
+                                    @if (p.HasBarcode)
+                                    {
+                                        <span class="small font-monospace">@p.Barcode</span>
+                                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size:0.6rem;">@p.BarcodeType</span>
+                                    }
+                                    else if (canEdit)
+                                    {
+                                        <button class="btn btn-xs btn-outline-warning"
+                                                onclick="generateBarcode(@p.ProductId)"
+                                                title="Tạo barcode">
+                                            <i class="bi bi-upc-scan me-1"></i>Tạo
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+                                <td class="d-none d-md-table-cell text-end small">
+                                    @if (p.DefaultSalePrice.HasValue)
+                                    {
+                                        @p.DefaultSalePrice.Value.ToString("N0")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="d-none d-lg-table-cell text-end small">
+                                    @if (p.DefaultPurchasePrice.HasValue)
+                                    {
+                                        @p.DefaultPurchasePrice.Value.ToString("N0")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-@(p.StatusBadge)-subtle text-@(p.StatusBadge)-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.45rem;vertical-align:middle;"></i>
+                                        @p.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/Product/Detail/@p.ProductId"
+                                           class="btn btn-sm btn-outline-secondary" title="Xem chi tiết">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        @if (canEdit)
+                                        {
+                                            <a href="/Product/Edit/@p.ProductId"
+                                               class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        }
+                                        @if (canDelete)
+                                        {
+                                            <button class="btn btn-sm @(p.IsActive ? "btn-outline-warning" : "btn-outline-success")"
+                                                    title="@(p.IsActive ? "Vô hiệu hóa" : "Kích hoạt lại")"
+                                                    onclick="toggleActive(@p.ProductId, '@p.ProductName.Replace("'", "\\'")', @p.IsActive.ToString().ToLower())">
+                                                <i class="bi @(p.IsActive ? "bi-slash-circle" : "bi-check-circle")"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .link-hover:hover { color: #2563eb !important; }
+    .btn-xs { padding: .15rem .45rem; font-size: .75rem; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    .text-warning-emphasis { color: #854d0e !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #0369a1 !important; }
+</style>
+
+@section Scripts {
+    <script>
+        function toggleActive(id, name, isActive) {
+            var action = isActive ? 'vô hiệu hóa' : 'kích hoạt lại';
+            if (!confirm('Bạn có chắc muốn ' + action + ' sản phẩm "' + name + '"?')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/Product/ToggleActive/' + id, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) location.reload();
+                    else alert('Lỗi: ' + data.Message);
+                });
+        }
+
+        function generateBarcode(id) {
+            if (!confirm('Tạo mã barcode EAN-13 cho sản phẩm này?')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/Product/GenerateBarcode/' + id, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) location.reload();
+                    else alert('Lỗi: ' + data.Message);
+                });
+        }
+
+        function generateAllBarcodes() {
+            if (!confirm('Tạo barcode EAN-13 cho TẤT CẢ sản phẩm chưa có barcode?')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/Product/GenerateBarcodesForAll', { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) {
+                        alert(data.Message);
+                        location.reload();
+                    }
+                    else alert('Lỗi: ' + data.Message);
+                });
+        }
+
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

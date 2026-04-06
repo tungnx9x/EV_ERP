@@ -1,0 +1,466 @@
+@model EV_ERP.Models.ViewModels.Customers.CustomerDetailViewModel
+@{
+    ViewData["Title"] = Model.CustomerName;
+    bool canEdit = ViewBag.CanEdit == true;
+    bool canDelete = ViewBag.CanDelete == true;
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="/Customer" class="btn btn-sm btn-light border">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h5 class="mb-0 fw-bold">@Model.CustomerName</h5>
+            <div class="text-muted small">
+                @Model.CustomerCode
+                @if (!string.IsNullOrEmpty(Model.GroupName))
+                {
+                    <span class="ms-2 badge bg-warning-subtle text-warning-emphasis rounded-pill">@Model.GroupName</span>
+                }
+                @if (Model.IsActive)
+                {
+                    <span class="ms-1 badge bg-success-subtle text-success-emphasis rounded-pill">
+                        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Hoạt động
+                    </span>
+                }
+                else
+                {
+                    <span class="ms-1 badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Vô hiệu</span>
+                }
+            </div>
+        </div>
+    </div>
+    @if (canEdit)
+    {
+        <a href="/Customer/Edit/@Model.CustomerId" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i> Chỉnh sửa
+        </a>
+    }
+</div>
+
+<!-- Content -->
+<div class="row g-3">
+    <!-- Left: Info card -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    Thông tin liên hệ
+                </h6>
+                @if (!string.IsNullOrEmpty(Model.Phone))
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2 small">
+                        <i class="bi bi-telephone text-muted" style="width:16px;"></i>
+                        <span>@Model.Phone</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Email))
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2 small">
+                        <i class="bi bi-envelope text-muted" style="width:16px;"></i>
+                        <span>@Model.Email</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Website))
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2 small">
+                        <i class="bi bi-globe text-muted" style="width:16px;"></i>
+                        <span>@Model.Website</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Address) || !string.IsNullOrEmpty(Model.City))
+                {
+                    <div class="d-flex align-items-start gap-2 mb-2 small">
+                        <i class="bi bi-geo-alt text-muted mt-1" style="width:16px;flex-shrink:0;"></i>
+                        <span>
+                            @Model.Address
+                            @if (!string.IsNullOrEmpty(Model.Ward)) { @(", " + Model.Ward) }
+                            @if (!string.IsNullOrEmpty(Model.District)) { @(", " + Model.District) }
+                            @if (!string.IsNullOrEmpty(Model.City)) { @(", " + Model.City) }
+                        </span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.TaxCode))
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2 small">
+                        <i class="bi bi-receipt text-muted" style="width:16px;"></i>
+                        <span>MST: @Model.TaxCode</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    Thông tin thương mại
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <div class="text-muted">Phụ trách</div>
+                        <div class="fw-semibold">@(Model.SalesPersonName ?? "—")</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Hạn TT</div>
+                        <div class="fw-semibold">@Model.PaymentTermDays ngày</div>
+                    </div>
+                    @if (Model.CreditLimit.HasValue)
+                    {
+                        <div class="col-12">
+                            <div class="text-muted">Hạn mức công nợ</div>
+                            <div class="fw-semibold">@Model.CreditLimit.Value.ToString("N0") VNĐ</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.InternalNotes))
+        {
+            <div class="card border-0 shadow-sm border-start border-4 border-warning">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
+                    </h6>
+                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Right: Tabs -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <ul class="nav nav-tabs card-header-tabs" id="detailTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-contacts">
+                            <i class="bi bi-people me-1"></i>
+                            Liên hệ
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Contacts.Count</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes">
+                            <i class="bi bi-chat-left-text me-1"></i>
+                            Ghi chú
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Notes.Count</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body tab-content p-0" id="detailTabsContent">
+
+                <!-- ── Tab: Contacts ── -->
+                <div class="tab-pane fade show active p-3" id="tab-contacts">
+                    @if (canEdit)
+                    {
+                        <div class="mb-3 d-flex justify-content-end">
+                            <button class="btn btn-sm btn-outline-primary"
+                                    onclick="openContactModal(null, @Model.CustomerId)">
+                                <i class="bi bi-plus-lg me-1"></i> Thêm liên hệ
+                            </button>
+                        </div>
+                    }
+
+                    <div id="contacts-list">
+                        @if (!Model.Contacts.Any())
+                        {
+                            <div class="text-center py-4 text-muted" id="contacts-empty">
+                                <i class="bi bi-person-x" style="font-size:2rem;opacity:.3;"></i>
+                                <p class="small mt-2 mb-0">Chưa có liên hệ nào</p>
+                            </div>
+                        }
+                        @foreach (var ct in Model.Contacts)
+                        {
+                            <div class="contact-item border rounded p-3 mb-2" id="contact-@ct.ContactId">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-semibold small">
+                                            @ct.ContactName
+                                            @if (ct.IsPrimary)
+                                            {
+                                                <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:0.65rem;">Chính</span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(ct.JobTitle))
+                                        {
+                                            <div class="text-muted small">@ct.JobTitle</div>
+                                        }
+                                        <div class="mt-1 small text-muted">
+                                            @if (!string.IsNullOrEmpty(ct.Phone))
+                                            {
+                                                <span class="me-3"><i class="bi bi-telephone me-1"></i>@ct.Phone</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(ct.Email))
+                                            {
+                                                <span><i class="bi bi-envelope me-1"></i>@ct.Email</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    @if (canEdit)
+                                    {
+                                        <div class="d-flex gap-1">
+                                            <button class="btn btn-xs btn-outline-secondary"
+                                                    onclick="openContactModal(@ct.ContactId, @Model.CustomerId, '@ct.ContactName.Replace("'","\\'")', '@ct.JobTitle', '@ct.Phone', '@ct.Email', @ct.IsPrimary.ToString().ToLower(), '@ct.Notes')"
+                                                    title="Sửa">
+                                                <i class="bi bi-pencil" style="font-size:.75rem;"></i>
+                                            </button>
+                                            <button class="btn btn-xs btn-outline-danger"
+                                                    onclick="deleteContact(@ct.ContactId)"
+                                                    title="Xóa">
+                                                <i class="bi bi-trash" style="font-size:.75rem;"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- ── Tab: Notes ── -->
+                <div class="tab-pane fade p-3" id="tab-notes">
+                    @if (canEdit)
+                    {
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <textarea id="noteInput" class="form-control form-control-sm"
+                                          rows="2" placeholder="Thêm ghi chú nội bộ..."></textarea>
+                                <button class="btn btn-primary btn-sm" onclick="addNote()">
+                                    <i class="bi bi-send"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+
+                    <div id="notes-list">
+                        @if (!Model.Notes.Any())
+                        {
+                            <div class="text-center py-4 text-muted" id="notes-empty">
+                                <i class="bi bi-chat-square" style="font-size:2rem;opacity:.3;"></i>
+                                <p class="small mt-2 mb-0">Chưa có ghi chú nào</p>
+                            </div>
+                        }
+                        @foreach (var n in Model.Notes)
+                        {
+                            <div class="note-item bg-light rounded p-3 mb-2">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="fw-semibold small">@n.CreatedByName</span>
+                                    <span class="text-muted small">@n.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                </div>
+                                <p class="small mb-0" style="white-space:pre-wrap;">@n.NoteContent</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" id="contactModalTitle">Thêm liên hệ</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contactModalError" class="alert alert-danger py-2 small" style="display:none;"></div>
+                <input type="hidden" id="ct_contactId" />
+                <input type="hidden" id="ct_customerId" value="@Model.CustomerId" />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Họ và tên <span class="text-danger">*</span></label>
+                        <input type="text" id="ct_name" class="form-control form-control-sm"
+                               placeholder="Nguyễn Văn A" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Chức vụ</label>
+                        <input type="text" id="ct_job" class="form-control form-control-sm"
+                               placeholder="VD: Bếp trưởng" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Số điện thoại</label>
+                        <input type="text" id="ct_phone" class="form-control form-control-sm"
+                               placeholder="0901234567" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Email</label>
+                        <input type="email" id="ct_email" class="form-control form-control-sm"
+                               placeholder="contact@hotel.com" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Ghi chú</label>
+                        <input type="text" id="ct_notes" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="ct_primary" />
+                            <label class="form-check-label small fw-semibold" for="ct_primary">
+                                Đặt làm liên hệ chính
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="saveContact()">
+                    <i class="bi bi-check-lg me-1"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-xs { padding: .15rem .35rem; font-size: .75rem; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    .text-warning-emphasis { color: #854d0e !important; }
+    .bg-primary-subtle { background-color: #dbeafe !important; }
+    .text-primary { color: #2563eb !important; }
+    .contact-item { transition: box-shadow .15s; }
+    .contact-item:hover { box-shadow: 0 0 0 2px #bfdbfe; }
+    .nav-tabs .nav-link { font-size: .875rem; }
+</style>
+
+@section Scripts {
+    <script>
+        var customerId = @Model.CustomerId;
+
+        // ── Contact Modal ─────────────────────────────
+        function openContactModal(contactId, custId, name, job, phone, email, isPrimary, notes) {
+            document.getElementById('contactModalTitle').textContent =
+                contactId ? 'Sửa liên hệ' : 'Thêm liên hệ';
+            document.getElementById('ct_contactId').value = contactId ?? '';
+            document.getElementById('ct_customerId').value = custId;
+            document.getElementById('ct_name').value = name ?? '';
+            document.getElementById('ct_job').value = job ?? '';
+            document.getElementById('ct_phone').value = phone ?? '';
+            document.getElementById('ct_email').value = email ?? '';
+            document.getElementById('ct_notes').value = notes ?? '';
+            document.getElementById('ct_primary').checked = isPrimary ?? false;
+            document.getElementById('contactModalError').style.display = 'none';
+            new bootstrap.Modal(document.getElementById('contactModal')).show();
+        }
+
+        function saveContact() {
+            var name = document.getElementById('ct_name').value.trim();
+            if (!name) {
+                showModalError('Tên liên hệ là bắt buộc');
+                return;
+            }
+
+            var payload = {
+                ContactId: document.getElementById('ct_contactId').value || null,
+                CustomerId: parseInt(document.getElementById('ct_customerId').value),
+                ContactName: name,
+                JobTitle: document.getElementById('ct_job').value.trim() || null,
+                Phone: document.getElementById('ct_phone').value.trim() || null,
+                Email: document.getElementById('ct_email').value.trim() || null,
+                IsPrimary: document.getElementById('ct_primary').checked,
+                Notes: document.getElementById('ct_notes').value.trim() || null
+            };
+
+            if (payload.ContactId) payload.ContactId = parseInt(payload.ContactId);
+
+            fetch('/Customer/SaveContact', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.Success) {
+                    bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+                    location.reload();
+                } else {
+                    showModalError(data.Message || 'Lỗi lưu liên hệ');
+                }
+            });
+        }
+
+        function deleteContact(contactId) {
+            if (!confirm('Bạn có chắc muốn xóa liên hệ này?')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/Customer/DeleteContact/' + contactId, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) {
+                        var el = document.getElementById('contact-' + contactId);
+                        if (el) el.remove();
+                    } else {
+                        alert('Lỗi: ' + data.Message);
+                    }
+                });
+        }
+
+        function showModalError(msg) {
+            var el = document.getElementById('contactModalError');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        // ── Notes ─────────────────────────────────────
+        function addNote() {
+            var content = document.getElementById('noteInput').value.trim();
+            if (!content) return;
+
+            var form = new FormData();
+            form.append('customerId', customerId);
+            form.append('content', content);
+            form.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            fetch('/Customer/AddNote', { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success && data.Data) {
+                        document.getElementById('noteInput').value = '';
+                        var empty = document.getElementById('notes-empty');
+                        if (empty) empty.remove();
+
+                        var div = document.createElement('div');
+                        div.className = 'note-item bg-light rounded p-3 mb-2';
+                        div.innerHTML =
+                            '<div class="d-flex justify-content-between mb-1">' +
+                            '<span class="fw-semibold small">' + escapeHtml(data.Data.CreatedByName) + '</span>' +
+                            '<span class="text-muted small">' + data.Data.CreatedAt + '</span>' +
+                            '</div>' +
+                            '<p class="small mb-0">' + escapeHtml(data.Data.NoteContent) + '</p>';
+
+                        document.getElementById('notes-list').prepend(div);
+                    } else {
+                        alert(data.Message || 'Lỗi thêm ghi chú');
+                    }
+                });
+        }
+
+        // ── Helpers ───────────────────────────────────
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+
+        function escapeHtml(str) {
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(str));
+            return d.innerHTML;
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

@@ -4,7 +4,7 @@
     var currentPath = Context.Request.Path.Value ?? "";
 
     string NavClass(string path) =>
-        currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+        currentPath.Equals(path, StringComparison.OrdinalIgnoreCase) ? "active" : "";
 
     bool IsAdmin() => currentUser?.RoleCode == "ADMIN";
 }
@@ -192,15 +192,21 @@
         </a>
 
         <span class="nav-section-label">Nghiệp vụ</span>
-        <a href="/Customer" class="sidebar-link disabled @NavClass("/Customer")">
+        <a href="/Customer" class="sidebar-link @NavClass("/Customer")">
             <i class="bi bi-building"></i> Khách hàng
         </a>
         <a href="/Vendor" class="sidebar-link disabled @NavClass("/Vendor")">
             <i class="bi bi-truck"></i> Nhà cung cấp
         </a>
-        <a href="/Product" class="sidebar-link disabled @NavClass("/Product")">
+        <a href="/Product" class="sidebar-link @NavClass("/Product")">
             <i class="bi bi-box-seam"></i> Sản phẩm
         </a>
+        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER")
+        {
+            <a href="/ProductCategory" class="sidebar-link @NavClass("/ProductCategory")" style="padding-left:2.2rem;font-size:0.82rem;">
+                <i class="bi bi-tags"></i> Danh mục SP
+            </a>
+        }
         <a href="/Quotation" class="sidebar-link disabled @NavClass("/Quotation")">
             <i class="bi bi-file-earmark-text"></i> Báo giá / Sales
         </a>

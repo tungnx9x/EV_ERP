@@ -1,0 +1,204 @@
+@model EV_ERP.Models.ViewModels.Products.ProductFormViewModel
+
+<!-- Section: Thông tin cơ bản -->
+<h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+    <i class="bi bi-info-circle me-1"></i> Thông tin cơ bản
+</h6>
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <label asp-for="ProductName" class="form-label fw-semibold small"></label>
+        <input asp-for="ProductName" class="form-control"
+               placeholder="VD: Khăn tắm cotton 500g" autofocus />
+        <span asp-validation-for="ProductName" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="CategoryId" class="form-label fw-semibold small"></label>
+        <select asp-for="CategoryId" class="form-select">
+            <option value="">-- Chọn danh mục --</option>
+            @foreach (var c in Model.Categories)
+            {
+                <option value="@c.CategoryId">@c.CategoryName (@c.CategoryCode)</option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="UnitId" class="form-label fw-semibold small"></label>
+        <select asp-for="UnitId" class="form-select">
+            <option value="">-- Chọn ĐVT --</option>
+            @foreach (var u in Model.Units)
+            {
+                <option value="@u.UnitId">@u.UnitName (@u.UnitCode)</option>
+            }
+        </select>
+        <span asp-validation-for="UnitId" class="text-danger small"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Description" class="form-label fw-semibold small"></label>
+        <textarea asp-for="Description" class="form-control" rows="3"
+                  placeholder="Mô tả chi tiết sản phẩm..."></textarea>
+    </div>
+</div>
+
+<!-- Section: Giá & Kho -->
+<h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+    <i class="bi bi-cash-coin me-1"></i> Giá & Tồn kho
+</h6>
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label asp-for="DefaultSalePrice" class="form-label fw-semibold small"></label>
+        <div class="input-group">
+            <input asp-for="DefaultSalePrice" class="form-control" type="number" min="0" step="1000"
+                   placeholder="VD: 150000" />
+            <span class="input-group-text">₫</span>
+        </div>
+        <span asp-validation-for="DefaultSalePrice" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="DefaultPurchasePrice" class="form-label fw-semibold small"></label>
+        <div class="input-group">
+            <input asp-for="DefaultPurchasePrice" class="form-control" type="number" min="0" step="1000"
+                   placeholder="VD: 100000" />
+            <span class="input-group-text">₫</span>
+        </div>
+        <span asp-validation-for="DefaultPurchasePrice" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="MinStockLevel" class="form-label fw-semibold small"></label>
+        <input asp-for="MinStockLevel" class="form-control" type="number" min="0"
+               placeholder="VD: 10" />
+        <span asp-validation-for="MinStockLevel" class="text-danger small"></span>
+    </div>
+</div>
+
+<!-- Section: Barcode -->
+<h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+    <i class="bi bi-upc-scan me-1"></i> Barcode
+</h6>
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <label asp-for="Barcode" class="form-label fw-semibold small"></label>
+        <input asp-for="Barcode" class="form-control font-monospace"
+               placeholder="Để trống để tự động tạo EAN-13" />
+        <div class="form-text small">Để trống nếu muốn hệ thống tự tạo mã EAN-13</div>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="BarcodeType" class="form-label fw-semibold small"></label>
+        <select asp-for="BarcodeType" class="form-select">
+            <option value="">-- Tự động --</option>
+            <option value="EAN13">EAN-13</option>
+            <option value="EAN8">EAN-8</option>
+            <option value="CODE128">Code 128</option>
+            <option value="QR">QR Code</option>
+        </select>
+    </div>
+</div>
+
+<!-- Section: Hình ảnh -->
+<h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+    <i class="bi bi-image me-1"></i> Hình ảnh sản phẩm
+</h6>
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="d-flex align-items-start gap-3 flex-wrap">
+
+            @* Preview box *@
+            <div id="img-preview-wrap" class="border rounded overflow-hidden bg-light flex-shrink-0"
+                 style="width:120px;height:120px;display:flex;align-items:center;justify-content:center;">
+                @if (!string.IsNullOrEmpty(Model.ExistingImageUrl))
+                {
+                    <img id="img-preview" src="@Model.ExistingImageUrl" alt="Ảnh sản phẩm"
+                         style="width:100%;height:100%;object-fit:cover;" />
+                }
+                else
+                {
+                    <i class="bi bi-image text-muted" style="font-size:2rem;" id="img-placeholder"></i>
+                    <img id="img-preview" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+                }
+            </div>
+
+            <div class="flex-grow-1">
+                <label asp-for="ImageFile" class="form-label fw-semibold small"></label>
+                <input asp-for="ImageFile" type="file" class="form-control form-control-sm"
+                       accept="image/jpeg,image/png,image/webp,image/gif"
+                       onchange="previewImage(this)" />
+                <div class="form-text small">JPG, PNG, WebP — tối đa 5 MB</div>
+
+                @if (!string.IsNullOrEmpty(Model.ExistingImageUrl))
+                {
+                    <div class="form-check mt-2">
+                        <input asp-for="RemoveImage" type="checkbox" class="form-check-input"
+                               id="removeImageCheck" onchange="onRemoveImageChange(this)" />
+                        <label class="form-check-label small text-danger" for="removeImageCheck">
+                            Xóa ảnh hiện tại
+                        </label>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section: Thông tin bổ sung -->
+<h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+    <i class="bi bi-box me-1"></i> Thông tin bổ sung
+</h6>
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label asp-for="Weight" class="form-label fw-semibold small"></label>
+        <input asp-for="Weight" class="form-control" type="number" min="0" step="0.001"
+               placeholder="VD: 0.5" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="WeightUnit" class="form-label fw-semibold small"></label>
+        <select asp-for="WeightUnit" class="form-select">
+            <option value="">-- Chọn --</option>
+            <option value="kg">Kilogram (kg)</option>
+            <option value="g">Gram (g)</option>
+        </select>
+    </div>
+    <div class="col-md-4 d-flex align-items-end">
+        <div class="form-check form-switch mb-2">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+</div>
+
+<script>
+    function previewImage(input) {
+        var preview = document.getElementById('img-preview');
+        var placeholder = document.getElementById('img-placeholder');
+        var removeCheck = document.getElementById('removeImageCheck');
+
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+            };
+            reader.readAsDataURL(input.files[0]);
+
+            // Uncheck "remove" if user picks a new file
+            if (removeCheck) removeCheck.checked = false;
+        }
+    }
+
+    function onRemoveImageChange(checkbox) {
+        var preview = document.getElementById('img-preview');
+        var placeholder = document.getElementById('img-placeholder');
+        var fileInput = document.getElementById('ImageFile');
+
+        if (checkbox.checked) {
+            preview.style.display = 'none';
+            if (placeholder) placeholder.style.display = '';
+            if (fileInput) fileInput.value = '';
+        } else {
+            preview.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+        }
+    }
+</script>

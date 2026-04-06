@@ -1,0 +1,44 @@
+@model EV_ERP.Models.ViewModels.Products.ProductCategoryFormViewModel
+
+<div class="row g-3">
+    <!-- Category Name -->
+    <div class="col-12">
+        <label asp-for="CategoryName" class="form-label fw-semibold small"></label>
+        <input asp-for="CategoryName" class="form-control" placeholder="VD: Đồ vải, Dụng cụ bếp..." autofocus />
+        <span asp-validation-for="CategoryName" class="text-danger small"></span>
+    </div>
+
+    <!-- Parent Category -->
+    <div class="col-12">
+        <label asp-for="ParentCategoryId" class="form-label fw-semibold small"></label>
+        <select asp-for="ParentCategoryId" class="form-select">
+            <option value="">— Không có (danh mục gốc) —</option>
+            @foreach (var opt in Model.ParentOptions)
+            {
+                <option value="@opt.CategoryId">@opt.DisplayName (@opt.CategoryCode)</option>
+            }
+        </select>
+        <div class="form-text small">Để trống nếu đây là danh mục cấp cao nhất</div>
+    </div>
+
+    <!-- Description -->
+    <div class="col-12">
+        <label asp-for="Description" class="form-label fw-semibold small"></label>
+        <textarea asp-for="Description" class="form-control" rows="2"
+                  placeholder="Mô tả ngắn về danh mục..."></textarea>
+    </div>
+
+    <!-- Display Order + IsActive -->
+    <div class="col-md-6">
+        <label asp-for="DisplayOrder" class="form-label fw-semibold small"></label>
+        <input asp-for="DisplayOrder" type="number" min="0" max="9999" class="form-control" />
+        <div class="form-text small">Số nhỏ hơn hiển thị trước</div>
+        <span asp-validation-for="DisplayOrder" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6 d-flex align-items-end pb-1">
+        <div class="form-check form-switch">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+</div>

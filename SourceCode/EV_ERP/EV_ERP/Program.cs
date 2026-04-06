@@ -38,10 +38,11 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // SERVICES
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProductCategoryService, ProductCategoryService>();
 // Đăng ký thêm khi implement từng module
-// builder.Services.AddScoped<ICustomerService, CustomerService>();
 // builder.Services.AddScoped<IVendorService, VendorService>();
-// builder.Services.AddScoped<IProductService, ProductService>();
 // builder.Services.AddScoped<IQuotationService, QuotationService>();
 // builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 // builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();

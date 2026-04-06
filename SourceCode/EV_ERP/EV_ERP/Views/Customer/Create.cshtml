@@ -1,0 +1,165 @@
+@model EV_ERP.Models.ViewModels.Customers.CustomerFormViewModel
+@{
+    ViewData["Title"] = "Thêm khách hàng mới";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/Customer" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-building-add me-2 text-primary"></i>Thêm khách hàng mới
+                    </h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Create" asp-controller="Customer" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    <!-- Section: Thông tin cơ bản -->
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+                        <i class="bi bi-info-circle me-1"></i> Thông tin cơ bản
+                    </h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label asp-for="CustomerName" class="form-label fw-semibold small"></label>
+                            <input asp-for="CustomerName" class="form-control"
+                                   placeholder="VD: Khách sạn ABC" autofocus />
+                            <span asp-validation-for="CustomerName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="TaxCode" class="form-label fw-semibold small"></label>
+                            <input asp-for="TaxCode" class="form-control" placeholder="0100000000" />
+                            <span asp-validation-for="TaxCode" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="CustomerGroupId" class="form-label fw-semibold small"></label>
+                            <select asp-for="CustomerGroupId" class="form-select">
+                                <option value="">-- Chọn nhóm --</option>
+                                @foreach (var g in Model.Groups)
+                                {
+                                    <option value="@g.CustomerGroupId">@g.GroupName</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Phone" class="form-label fw-semibold small"></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                <input asp-for="Phone" class="form-control" placeholder="0901234567" />
+                            </div>
+                            <span asp-validation-for="Phone" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label fw-semibold small"></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <input asp-for="Email" class="form-control" placeholder="info@hotel.com" />
+                            </div>
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Website" class="form-label fw-semibold small"></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                                <input asp-for="Website" class="form-control" placeholder="https://hotel.com" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Địa chỉ -->
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+                        <i class="bi bi-geo-alt me-1"></i> Địa chỉ
+                    </h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label asp-for="Address" class="form-label fw-semibold small"></label>
+                            <input asp-for="Address" class="form-control" placeholder="Số nhà, tên đường..." />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="City" class="form-label fw-semibold small"></label>
+                            <input asp-for="City" class="form-control" placeholder="VD: Hà Nội" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="District" class="form-label fw-semibold small"></label>
+                            <input asp-for="District" class="form-control" placeholder="VD: Hoàn Kiếm" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Ward" class="form-label fw-semibold small"></label>
+                            <input asp-for="Ward" class="form-control" placeholder="VD: Phường Hàng Bài" />
+                        </div>
+                    </div>
+
+                    <!-- Section: Thương mại -->
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+                        <i class="bi bi-cash-coin me-1"></i> Thông tin thương mại
+                    </h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="SalesPersonId" class="form-label fw-semibold small"></label>
+                            <select asp-for="SalesPersonId" class="form-select">
+                                <option value="">-- Chưa gán --</option>
+                                @foreach (var sp in Model.SalesPersons)
+                                {
+                                    <option value="@sp.UserId">@sp.FullName (@sp.UserCode)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="PaymentTermDays" class="form-label fw-semibold small"></label>
+                            <div class="input-group">
+                                <input asp-for="PaymentTermDays" class="form-control" type="number" min="0" max="365" />
+                                <span class="input-group-text">ngày</span>
+                            </div>
+                            <span asp-validation-for="PaymentTermDays" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="CreditLimit" class="form-label fw-semibold small"></label>
+                            <input asp-for="CreditLimit" class="form-control" type="number" min="0" step="1000000"
+                                   placeholder="VD: 50000000" />
+                            <span asp-validation-for="CreditLimit" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Section: Ghi chú & Trạng thái -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label asp-for="InternalNotes" class="form-label fw-semibold small"></label>
+                            <textarea asp-for="InternalNotes" class="form-control" rows="3"
+                                      placeholder="Ghi chú nội bộ (không hiển thị ra ngoài)..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input asp-for="IsActive" class="form-check-input" type="checkbox"
+                                       role="switch" checked />
+                                <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4" />
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="/Customer" class="btn btn-outline-secondary">Hủy</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Tạo khách hàng
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

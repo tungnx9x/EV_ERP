@@ -1,0 +1,62 @@
+@model EV_ERP.Models.ViewModels.Products.ProductCategoryNodeViewModel
+
+<tr id="node-@Model.CategoryId"
+    data-node-id="@Model.CategoryId"
+    data-parent-id="@Model.ParentCategoryId"
+    data-depth="@Model.Depth">
+    <td>
+        <div class="d-flex align-items-center" style="padding-left:@(Model.Depth * 1.4)rem;">
+            @if (Model.HasChildren)
+            {
+                <button type="button" class="tree-toggle btn btn-xs p-0 me-1 text-muted"
+                        onclick="toggleNode(@Model.CategoryId)"
+                        title="Thu gọn / Mở rộng">
+                    <i class="bi bi-caret-down-fill" id="icon-@Model.CategoryId"
+                       style="font-size:.65rem;transition:transform .15s;"></i>
+                </button>
+            }
+            else
+            {
+                <span class="me-1" style="display:inline-block;width:1rem;"></span>
+            }
+            <div>
+                <span class="fw-semibold @(Model.IsActive ? "" : "text-muted")"
+                      style="@(Model.IsActive ? "" : "text-decoration:line-through;")">
+                    @Model.CategoryName
+                </span>
+                <span class="text-muted small font-monospace ms-2">@Model.CategoryCode</span>
+            </div>
+        </div>
+    </td>
+    <td class="text-center d-none d-sm-table-cell">
+        @if (Model.ProductCount > 0)
+        {
+            <span class="badge bg-secondary-subtle text-secondary-emphasis">@Model.ProductCount</span>
+        }
+        else
+        {
+            <span class="text-muted small">—</span>
+        }
+    </td>
+    <td class="text-center">
+        <span class="badge rounded-pill status-badge-@Model.CategoryId
+                     @(Model.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis")"
+              style="font-size:0.72rem;cursor:pointer;"
+              onclick="toggleActive(@Model.CategoryId)"
+              title="Nhấn để thay đổi trạng thái">
+            @(Model.IsActive ? "Hoạt động" : "Vô hiệu")
+        </span>
+    </td>
+    <td class="text-end">
+        <a href="/ProductCategory/Edit/@Model.CategoryId"
+           class="btn btn-xs btn-light border" title="Chỉnh sửa">
+            <i class="bi bi-pencil"></i>
+        </a>
+    </td>
+</tr>
+
+@* Recursively render children — they emit <tr> siblings in the same <tbody> *@
+@foreach (var child in Model.Children)
+{
+    @await Html.PartialAsync("_CategoryNode", child)
+}

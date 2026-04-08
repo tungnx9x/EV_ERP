@@ -2,6 +2,27 @@ using EV_ERP.Models.Entities.Auth;
 
 namespace EV_ERP.Models.Entities.System;
 
+// ─── ATTACHMENT (Đính kèm file — polymorphic) ────────
+public class Attachment
+{
+    public int AttachmentId { get; set; }
+    /// <summary>RFQ, QUOTATION, SALES_ORDER, PURCHASE_ORDER, STOCK_TRANSACTION, ADVANCE_REQUEST, VENDOR_INVOICE</summary>
+    public string ReferenceType { get; set; } = string.Empty;
+    public int ReferenceId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string FileUrl { get; set; } = string.Empty;
+    public long? FileSize { get; set; }
+    public string? ContentType { get; set; }
+    /// <summary>CUSTOMER_PO, DELIVERY_RECEIPT, ADVANCE_DOC, INVOICE, OTHER</summary>
+    public string? FileCategory { get; set; }
+    public string? Description { get; set; }
+    public DateTime UploadedAt { get; set; } = DateTime.Now;
+    public int UploadedBy { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    public virtual User UploadedByUser { get; set; } = null!;
+}
+
 // ─── AUDIT LOG ───────────────────────────────────────
 public class AuditLog
 {

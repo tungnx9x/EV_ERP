@@ -6,6 +6,42 @@ using EV_ERP.Models.Entities.Vendors;
 
 namespace EV_ERP.Models.Entities.Finance;
 
+// ─── ADVANCE REQUEST (Tạm ứng / Hoàn ứng) ──────────
+public class AdvanceRequest
+{
+    public int AdvanceRequestId { get; set; }
+    public string RequestNo { get; set; } = string.Empty;
+    public int SalesOrderId { get; set; }
+    public DateTime RequestDate { get; set; } = DateTime.Today;
+    public decimal RequestedAmount { get; set; }
+    public string Purpose { get; set; } = string.Empty;
+    /// <summary>PENDING → APPROVED → RECEIVED → SETTLING → SETTLED → REJECTED</summary>
+    public string Status { get; set; } = "PENDING";
+    public int? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public decimal? ApprovedAmount { get; set; }
+    public DateTime? ReceivedAt { get; set; }
+    // ── Quyết toán ──
+    public decimal? ActualSpent { get; set; }
+    public decimal? RefundAmount { get; set; }
+    public decimal? AdditionalAmount { get; set; }
+    public DateTime? SettledAt { get; set; }
+    public int? SettledBy { get; set; }
+    public int? RejectedBy { get; set; }
+    public DateTime? RejectedAt { get; set; }
+    public string? RejectReason { get; set; }
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public int CreatedBy { get; set; }
+
+    public virtual SalesOrder SalesOrder { get; set; } = null!;
+    public virtual User? ApprovedByUser { get; set; }
+    public virtual User? SettledByUser { get; set; }
+    public virtual User? RejectedByUser { get; set; }
+    public virtual User CreatedByUser { get; set; } = null!;
+}
+
 // ─── CUSTOMER PAYMENT (Phải thu - AR) ────────────────
 public class CustomerPayment
 {

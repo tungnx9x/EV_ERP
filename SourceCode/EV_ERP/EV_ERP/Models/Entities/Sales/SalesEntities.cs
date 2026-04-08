@@ -6,16 +6,46 @@ using EV_ERP.Models.Entities.Templates;
 
 namespace EV_ERP.Models.Entities.Sales;
 
+// ─── RFQ (Yêu cầu báo giá) ──────────────────────────
+public class RFQ
+{
+    public int RfqId { get; set; }
+    public string RfqNo { get; set; } = string.Empty;
+    public int CustomerId { get; set; }
+    public int? ContactId { get; set; }
+    public DateTime RequestDate { get; set; } = DateTime.Today;
+    public string? Description { get; set; }
+    /// <summary>INPROGRESS → COMPLETED | CANCELLED</summary>
+    public string Status { get; set; } = "INPROGRESS";
+    public int? AssignedTo { get; set; }
+    /// <summary>LOW, NORMAL, HIGH, URGENT</summary>
+    public string Priority { get; set; } = "NORMAL";
+    public string? Notes { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    public int CreatedBy { get; set; }
+
+    public virtual Customer Customer { get; set; } = null!;
+    public virtual CustomerContact? Contact { get; set; }
+    public virtual User? AssignedToUser { get; set; }
+    public virtual User CreatedByUser { get; set; } = null!;
+    public virtual ICollection<Quotation> Quotations { get; set; } = [];
+    public virtual ICollection<SalesOrder> SalesOrders { get; set; } = [];
+}
+
 // ─── QUOTATION (Báo giá) ────────────────────────────
 public class Quotation : AuditableEntity
 {
     public int QuotationId { get; set; }
     public string QuotationNo { get; set; } = string.Empty;
+    public int? RfqId { get; set; }
     public int CustomerId { get; set; }
     public int? ContactId { get; set; }
     public DateTime QuotationDate { get; set; } = DateTime.Today;
     public DateTime? ExpiryDate { get; set; }
-    /// <summary>DRAFT → SENT → CONFIRMED → CONVERTED → CANCELLED</summary>
+    /// <summary>DRAFT → SENT → APPROVED / REJECTED / AMEND / EXPIRED</summary>
     public string Status { get; set; } = "DRAFT";
     public decimal SubTotal { get; set; }
     public string? DiscountType { get; set; }
@@ -30,15 +60,21 @@ public class Quotation : AuditableEntity
     public string? InternalNotes { get; set; }
     public int? TemplateId { get; set; }
     public int SalesPersonId { get; set; }
+    public int? AmendFromId { get; set; }
     public DateTime? SentAt { get; set; }
-    public DateTime? ConfirmedAt { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public DateTime? RejectedAt { get; set; }
+    public string? RejectReason { get; set; }
+    public DateTime? ExpiredAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancelReason { get; set; }
 
+    public virtual RFQ? Rfq { get; set; }
     public virtual Customer Customer { get; set; } = null!;
     public virtual CustomerContact? Contact { get; set; }
     public virtual User SalesPerson { get; set; } = null!;
     public virtual PdfTemplate? Template { get; set; }
+    public virtual Quotation? AmendFrom { get; set; }
     public virtual ICollection<QuotationItem> Items { get; set; } = [];
     public virtual ICollection<QuotationEmailHistory> EmailHistories { get; set; } = [];
     public virtual SalesOrder? SalesOrder { get; set; }
@@ -90,12 +126,25 @@ public class SalesOrder : AuditableEntity
     public int SalesOrderId { get; set; }
     public string SalesOrderNo { get; set; } = string.Empty;
     public int? QuotationId { get; set; }
+    public int? RfqId { get; set; }
     public int CustomerId { get; set; }
     public int? ContactId { get; set; }
     public DateTime OrderDate { get; set; } = DateTime.Today;
     public DateTime? ExpectedDeliveryDate { get; set; }
-    /// <summary>CONFIRMED → PROCESSING → PARTIALLY_DELIVERED → DELIVERED → COMPLETED → CANCELLED</summary>
-    public string Status { get; set; } = "CONFIRMED";
+    /// <summary>DRAFT → WAIT → PROCESSING → DELIVERED → COMPLETED → CANCELLED</summary>
+    public string Status { get; set; } = "DRAFT";
+
+    // ── Thông tin PO phía khách sạn ──
+    public string? CustomerPoNo { get; set; }
+    public string? CustomerPoFile { get; set; }
+
+    // ── Tạm ứng ──
+    public decimal? AdvanceAmount { get; set; }
+    /// <summary>PENDING, APPROVED, RECEIVED, SETTLED</summary>
+    public string? AdvanceStatus { get; set; }
+    public DateTime? AdvanceApprovedAt { get; set; }
+    public DateTime? AdvanceReceivedAt { get; set; }
+
     public decimal SubTotal { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
@@ -110,11 +159,17 @@ public class SalesOrder : AuditableEntity
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
     public int SalesPersonId { get; set; }
+
+    // ── Quyết toán ──
+    public decimal? ActualCost { get; set; }
+    public string? SettlementNotes { get; set; }
+
     public DateTime? DeliveredAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancelReason { get; set; }
 
+    public virtual RFQ? Rfq { get; set; }
     public virtual Quotation? Quotation { get; set; }
     public virtual Customer Customer { get; set; } = null!;
     public virtual CustomerContact? Contact { get; set; }

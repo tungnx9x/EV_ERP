@@ -74,9 +74,19 @@ public class StockTransaction
     public int? PurchaseOrderId { get; set; }
     public int? SalesOrderId { get; set; }
     public DateTime TransactionDate { get; set; } = DateTime.Today;
+    /// <summary>INBOUND: DRAFT→CONFIRMED→CANCELLED | OUTBOUND: DRAFT→DELIVERING→DELIVERED→CANCELLED</summary>
     public string Status { get; set; } = "DRAFT";
     public string? Notes { get; set; }
     public bool IsDropship { get; set; }
+
+    // ── Thông tin giao hàng (chỉ dùng cho OUTBOUND) ──
+    public int? DeliveryPersonId { get; set; }
+    public string? DeliveryNote { get; set; }
+    public string? ReceiverName { get; set; }
+    public string? ReceiverPhone { get; set; }
+    public string? ReceivedSignatureUrl { get; set; }
+    public DateTime? DeliveredAt { get; set; }
+
     public DateTime? ConfirmedAt { get; set; }
     public int? ConfirmedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
@@ -85,6 +95,7 @@ public class StockTransaction
     public virtual Warehouse Warehouse { get; set; } = null!;
     public virtual PurchaseOrder? PurchaseOrder { get; set; }
     public virtual SalesOrder? SalesOrder { get; set; }
+    public virtual User? DeliveryPerson { get; set; }
     public virtual User? ConfirmedByUser { get; set; }
     public virtual User CreatedByUser { get; set; } = null!;
     public virtual ICollection<StockTransactionItem> Items { get; set; } = [];

@@ -21,3 +21,21 @@ Khi code giao diện (UI/View), **bắt buộc** phải đảm bảo responsive 
 
 ---
 
+## 2. Luôn đảm bảo Performance
+
+Nên:
+- Luôn sử dụng async cho các thao tác I/O (database, HTTP, file)
+- Luôn sử dụng projection khi query database (chỉ lấy các field cần thiết)
+- Luôn tránh N+1 query
+- Ưu tiên sử dụng caching nếu dữ liệu được dùng lại
+- Ưu tiên giảm thiểu việc cấp phát bộ nhớ (allocation)
+Không nên:
+- Không sử dụng .Result hoặc .Wait()
+- Không load toàn bộ entity nếu không cần thiết
+- AKhông gọi ToList() quá sớm
+- Không tự tạo mới HttpClient (new HttpClient)
+Chú ý:
+- Dữ liệu Products, Quotation rất lớn và tăng trưởng nhanh
+
+---
+

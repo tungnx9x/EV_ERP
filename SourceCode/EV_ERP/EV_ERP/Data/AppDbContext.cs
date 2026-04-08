@@ -43,7 +43,8 @@ namespace EV_ERP.Data
         public DbSet<VendorPrice> VendorPrices => Set<VendorPrice>();
         public DbSet<CustomerPrice> CustomerPrices => Set<CustomerPrice>();
 
-        // ── Bán hàng (5 bảng) ────────────────────────────
+        // ── Bán hàng (7 bảng) ────────────────────────────
+        public DbSet<RFQ> RFQs => Set<RFQ>();
         public DbSet<Quotation> Quotations => Set<Quotation>();
         public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
         public DbSet<QuotationEmailHistory> QuotationEmailHistories => Set<QuotationEmailHistory>();
@@ -64,18 +65,20 @@ namespace EV_ERP.Data
         public DbSet<StockCheck> StockChecks => Set<StockCheck>();
         public DbSet<StockCheckItem> StockCheckItems => Set<StockCheckItem>();
 
-        // ── Công nợ (2 bảng) ─────────────────────────────
+        // ── Công nợ & Tạm ứng (3 bảng) ──────────────────
         public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
         public DbSet<VendorPayment> VendorPayments => Set<VendorPayment>();
+        public DbSet<AdvanceRequest> AdvanceRequests => Set<AdvanceRequest>();
 
         // ── PDF Template (3 bảng) ────────────────────────
         public DbSet<PdfTemplate> PdfTemplates => Set<PdfTemplate>();
         public DbSet<TemplateAssignment> TemplateAssignments => Set<TemplateAssignment>();
         public DbSet<GeneratedPdf> GeneratedPdfs => Set<GeneratedPdf>();
 
-        // ── Hệ thống (2 bảng) ────────────────────────────
+        // ── Hệ thống (3 bảng) ────────────────────────────
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<Attachment> Attachments => Set<Attachment>();
 
         // =================================================================
         // FLUENT API CONFIGURATIONS
@@ -269,10 +272,28 @@ namespace EV_ERP.Data
             // ─────────────────────────────────────────────
             // SALES
             // ─────────────────────────────────────────────
+            mb.Entity<RFQ>(e =>
+            {
+                e.ToTable("RFQs");
+                e.HasKey(x => x.RfqId);
+                e.HasIndex(x => x.RfqNo).IsUnique();
+                e.HasIndex(x => x.CustomerId);
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.AssignedTo);
+                e.Property(x => x.RfqNo).HasMaxLength(20);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("INPROGRESS");
+                e.Property(x => x.Priority).HasMaxLength(10).HasDefaultValue("NORMAL");
+                e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
+                e.HasOne(x => x.Contact).WithMany().HasForeignKey(x => x.ContactId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.AssignedToUser).WithMany().HasForeignKey(x => x.AssignedTo).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+            });
+
             mb.Entity<Quotation>(e =>
             {
                 e.HasKey(x => x.QuotationId);
                 e.HasIndex(x => x.QuotationNo).IsUnique();
+                e.HasIndex(x => x.RfqId);
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.QuotationDate);
                 e.Property(x => x.QuotationNo).HasMaxLength(20);
@@ -283,10 +304,12 @@ namespace EV_ERP.Data
                 e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.Currency).HasMaxLength(3).HasDefaultValue("VND");
+                e.HasOne(x => x.Rfq).WithMany(r => r.Quotations).HasForeignKey(x => x.RfqId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
                 e.HasOne(x => x.Contact).WithMany().HasForeignKey(x => x.ContactId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.SalesPerson).WithMany().HasForeignKey(x => x.SalesPersonId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Template).WithMany().HasForeignKey(x => x.TemplateId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.AmendFrom).WithMany().HasForeignKey(x => x.AmendFromId).OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<QuotationItem>(e =>
@@ -315,13 +338,17 @@ namespace EV_ERP.Data
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.OrderDate);
                 e.Property(x => x.SalesOrderNo).HasMaxLength(20);
-                e.Property(x => x.Status).HasMaxLength(25).HasDefaultValue("CONFIRMED");
+                e.Property(x => x.Status).HasMaxLength(25).HasDefaultValue("DRAFT");
+                e.Property(x => x.AdvanceStatus).HasMaxLength(20);
+                e.Property(x => x.AdvanceAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.ActualCost).HasColumnType("decimal(18,2)");
                 e.Property(x => x.SubTotal).HasColumnType("decimal(18,2)");
                 e.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TaxRate).HasColumnType("decimal(5,2)");
                 e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.Currency).HasMaxLength(3).HasDefaultValue("VND");
+                e.HasOne(x => x.Rfq).WithMany(r => r.SalesOrders).HasForeignKey(x => x.RfqId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Quotation).WithOne(q => q.SalesOrder)
                  .HasForeignKey<SalesOrder>(x => x.QuotationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.NoAction);
@@ -357,7 +384,7 @@ namespace EV_ERP.Data
                 e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.Currency).HasMaxLength(3).HasDefaultValue("VND");
-                e.HasOne(x => x.Vendor).WithMany().HasForeignKey(x => x.VendorId);
+                e.HasOne(x => x.Vendor).WithMany().HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.SalesOrder).WithMany().HasForeignKey(x => x.SalesOrderId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.DropshipCustomer).WithMany().HasForeignKey(x => x.DropshipCustomerId).OnDelete(DeleteBehavior.NoAction);
             });
@@ -440,6 +467,7 @@ namespace EV_ERP.Data
                 e.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId);
                 e.HasOne(x => x.PurchaseOrder).WithMany().HasForeignKey(x => x.PurchaseOrderId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.SalesOrder).WithMany().HasForeignKey(x => x.SalesOrderId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.DeliveryPerson).WithMany().HasForeignKey(x => x.DeliveryPersonId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.ConfirmedByUser).WithMany().HasForeignKey(x => x.ConfirmedBy).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.NoAction);
             });
@@ -554,6 +582,45 @@ namespace EV_ERP.Data
                 e.HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAt });
                 e.Property(x => x.NotificationType).HasMaxLength(30);
                 e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+            });
+
+            // ─────────────────────────────────────────────
+            // ADVANCE REQUESTS
+            // ─────────────────────────────────────────────
+            mb.Entity<AdvanceRequest>(e =>
+            {
+                e.HasKey(x => x.AdvanceRequestId);
+                e.HasIndex(x => x.RequestNo).IsUnique();
+                e.HasIndex(x => x.SalesOrderId);
+                e.HasIndex(x => x.Status);
+                e.Property(x => x.RequestNo).HasMaxLength(20);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("PENDING");
+                e.Property(x => x.RequestedAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.ApprovedAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.ActualSpent).HasColumnType("decimal(18,2)");
+                e.Property(x => x.RefundAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.AdditionalAmount).HasColumnType("decimal(18,2)");
+                e.HasOne(x => x.SalesOrder).WithMany().HasForeignKey(x => x.SalesOrderId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.ApprovedByUser).WithMany().HasForeignKey(x => x.ApprovedBy).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.SettledByUser).WithMany().HasForeignKey(x => x.SettledBy).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.RejectedByUser).WithMany().HasForeignKey(x => x.RejectedBy).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // ─────────────────────────────────────────────
+            // ATTACHMENTS
+            // ─────────────────────────────────────────────
+            mb.Entity<Attachment>(e =>
+            {
+                e.HasKey(x => x.AttachmentId);
+                e.HasIndex(x => new { x.ReferenceType, x.ReferenceId, x.IsActive });
+                e.HasIndex(x => x.FileCategory);
+                e.Property(x => x.ReferenceType).HasMaxLength(30);
+                e.Property(x => x.FileName).HasMaxLength(300);
+                e.Property(x => x.FileUrl).HasMaxLength(500);
+                e.Property(x => x.ContentType).HasMaxLength(100);
+                e.Property(x => x.FileCategory).HasMaxLength(50);
+                e.HasOne(x => x.UploadedByUser).WithMany().HasForeignKey(x => x.UploadedBy).OnDelete(DeleteBehavior.NoAction);
             });
         }
     }

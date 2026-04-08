@@ -1,8 +1,17 @@
 -- ============================================================================
 -- ERP DATABASE - DOANH NGHIỆP THƯƠNG MẠI TRUNG GIAN (PHỤC VỤ KHÁCH SẠN)
 -- Platform: SQL Server 2019+
--- Version:  1.0
--- Date:     2026-04-02
+-- Version:  1.2
+-- Date:     2026-04-08
+-- Changelog v1.2:
+--   [+] RFQs — Yêu cầu báo giá (bước khởi đầu quy trình)
+--   [~] Quotation — thêm RfqId, sửa status: +APPROVED,REJECTED,AMEND,EXPIRED
+--   [~] SalesOrder — thêm DRAFT,WAIT + trường CustomerPoNo/PoFile/Advance
+--   [~] PurchaseOrder — sửa status: +BUYING, bỏ SENT (PO nội bộ)
+--   [~] StockTransaction — tách status IN/OUT, thêm DELIVERING/DELIVERED
+--   [+] AdvanceRequests — quản lý tạm ứng / hoàn ứng
+--   [+] Attachments — bảng đính kèm file dùng chung (polymorphic)
+--   [~] Indexes + Seed data cập nhật
 -- ============================================================================
 
 -- Tạo database
@@ -343,17 +352,45 @@ CREATE TABLE CustomerPrices (
 -- MODULE 5: BÁO GIÁ / SALES ORDER
 -- ============================================================================
 
+-- 5.0 Bảng Yêu cầu Báo giá (RFQ — Request For Quotation)
+--     Điểm bắt đầu của toàn bộ quy trình: KH gửi yêu cầu → NV mua hàng tiếp nhận
+CREATE TABLE RFQs (
+    RfqId           INT IDENTITY(1,1) PRIMARY KEY,
+    RfqNo           NVARCHAR(20)    NOT NULL UNIQUE,       -- Mã RFQ: RFQ-202604-001
+    CustomerId      INT             NOT NULL,
+    ContactId       INT             NULL,
+    RequestDate     DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    Description     NVARCHAR(MAX)   NULL,                  -- Mô tả yêu cầu từ KH
+    -- INPROGRESS → COMPLETED (tự động khi SO completed)
+    Status          NVARCHAR(20)    NOT NULL DEFAULT 'INPROGRESS'
+                    CHECK (Status IN ('INPROGRESS','COMPLETED','CANCELLED')),
+    AssignedTo      INT             NULL,                  -- NV mua hàng được phân công
+    Priority        NVARCHAR(10)    NOT NULL DEFAULT 'NORMAL'
+                    CHECK (Priority IN ('LOW','NORMAL','HIGH','URGENT')),
+    Notes           NVARCHAR(MAX)   NULL,
+    CompletedAt     DATETIME2       NULL,
+    CancelledAt     DATETIME2       NULL,
+    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
+    UpdatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
+    CreatedBy       INT             NOT NULL,
+    CONSTRAINT FK_RFQ_Customer FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId),
+    CONSTRAINT FK_RFQ_Contact FOREIGN KEY (ContactId) REFERENCES CustomerContacts(ContactId),
+    CONSTRAINT FK_RFQ_AssignedTo FOREIGN KEY (AssignedTo) REFERENCES Users(UserId),
+    CONSTRAINT FK_RFQ_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
+);
+
 -- 5.1 Bảng Báo giá (Quotation)
 CREATE TABLE Quotations (
     QuotationId     INT IDENTITY(1,1) PRIMARY KEY,
     QuotationNo     NVARCHAR(20)    NOT NULL UNIQUE,       -- Mã báo giá: BG-202604-001
+    RfqId           INT             NULL,                  -- Liên kết RFQ gốc
     CustomerId      INT             NOT NULL,
     ContactId       INT             NULL,                  -- Người liên hệ phía KH
     QuotationDate   DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     ExpiryDate      DATE            NULL,                  -- Ngày hết hạn báo giá
-    -- Trạng thái: DRAFT → SENT → CONFIRMED → CONVERTED → CANCELLED
+    -- Trạng thái: DRAFT → SENT → APPROVED / REJECTED / AMEND / EXPIRED
     Status          NVARCHAR(20)    NOT NULL DEFAULT 'DRAFT'
-                    CHECK (Status IN ('DRAFT','SENT','CONFIRMED','CONVERTED','CANCELLED')),
+                    CHECK (Status IN ('DRAFT','SENT','APPROVED','REJECTED','AMEND','EXPIRED')),
     SubTotal        DECIMAL(18,2)   NOT NULL DEFAULT 0,    -- Tổng trước chiết khấu & VAT
     DiscountType    NVARCHAR(10)    NULL,                  -- PERCENT hoặc AMOUNT
     DiscountValue   DECIMAL(18,2)   NULL DEFAULT 0,        -- Giá trị chiết khấu toàn đơn
@@ -366,19 +403,25 @@ CREATE TABLE Quotations (
     Notes           NVARCHAR(MAX)   NULL,                  -- Ghi chú
     InternalNotes   NVARCHAR(MAX)   NULL,
     TemplateId      INT             NULL,                  -- Mẫu PDF sử dụng
-    SalesPersonId   INT             NOT NULL,              -- NV kinh doanh tạo
+    SalesPersonId   INT             NOT NULL,              -- NV mua hàng tạo
+    AmendFromId     INT             NULL,                  -- Nếu AMEND: link đến Quotation gốc
     SentAt          DATETIME2       NULL,                  -- Thời điểm gửi
-    ConfirmedAt     DATETIME2       NULL,                  -- Thời điểm KH xác nhận
+    ApprovedAt      DATETIME2       NULL,                  -- Thời điểm KH duyệt
+    RejectedAt      DATETIME2       NULL,
+    RejectReason    NVARCHAR(500)   NULL,
+    ExpiredAt       DATETIME2       NULL,
     CancelledAt     DATETIME2       NULL,
     CancelReason    NVARCHAR(500)   NULL,
     CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
     UpdatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
     CreatedBy       INT             NOT NULL,
     UpdatedBy       INT             NULL,
+    CONSTRAINT FK_Quot_RFQ FOREIGN KEY (RfqId) REFERENCES RFQs(RfqId),
     CONSTRAINT FK_Quot_Customer FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId),
     CONSTRAINT FK_Quot_Contact FOREIGN KEY (ContactId) REFERENCES CustomerContacts(ContactId),
     CONSTRAINT FK_Quot_SalesPerson FOREIGN KEY (SalesPersonId) REFERENCES Users(UserId),
-    CONSTRAINT FK_Quot_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
+    CONSTRAINT FK_Quot_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserId),
+    CONSTRAINT FK_Quot_AmendFrom FOREIGN KEY (AmendFromId) REFERENCES Quotations(QuotationId)
 );
 
 -- 5.2 Chi tiết báo giá
@@ -422,13 +465,27 @@ CREATE TABLE SalesOrders (
     SalesOrderId    INT IDENTITY(1,1) PRIMARY KEY,
     SalesOrderNo    NVARCHAR(20)    NOT NULL UNIQUE,       -- Mã SO: SO-202604-001
     QuotationId     INT             NULL,                  -- Liên kết báo giá gốc
+    RfqId           INT             NULL,                  -- Liên kết RFQ gốc (để tự động complete)
     CustomerId      INT             NOT NULL,
     ContactId       INT             NULL,
     OrderDate       DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     ExpectedDeliveryDate DATE       NULL,
-    -- Trạng thái: CONFIRMED → PROCESSING → PARTIALLY_DELIVERED → DELIVERED → CANCELLED
-    Status          NVARCHAR(25)    NOT NULL DEFAULT 'CONFIRMED'
-                    CHECK (Status IN ('CONFIRMED','PROCESSING','PARTIALLY_DELIVERED','DELIVERED','COMPLETED','CANCELLED')),
+
+    -- Trạng thái: DRAFT → WAIT → PROCESSING → DELIVERED → COMPLETED → CANCELLED
+    Status          NVARCHAR(25)    NOT NULL DEFAULT 'DRAFT'
+                    CHECK (Status IN ('DRAFT','WAIT','PROCESSING','DELIVERED','COMPLETED','CANCELLED')),
+
+    -- ── Thông tin PO phía khách sạn ──
+    CustomerPoNo    NVARCHAR(50)    NULL,                  -- Mã PO mà KH gửi (mỗi KS có mẫu PO riêng)
+    CustomerPoFile  NVARCHAR(500)   NULL,                  -- URL file PO upload
+
+    -- ── Tạm ứng ──
+    AdvanceAmount   DECIMAL(18,2)   NULL DEFAULT 0,        -- Số tiền đề nghị tạm ứng
+    AdvanceStatus   NVARCHAR(20)    NULL                   -- PENDING, APPROVED, RECEIVED, SETTLED
+                    CHECK (AdvanceStatus IN ('PENDING','APPROVED','RECEIVED','SETTLED')),
+    AdvanceApprovedAt DATETIME2     NULL,
+    AdvanceReceivedAt DATETIME2     NULL,
+
     SubTotal        DECIMAL(18,2)   NOT NULL DEFAULT 0,
     DiscountType    NVARCHAR(10)    NULL,
     DiscountValue   DECIMAL(18,2)   NULL DEFAULT 0,
@@ -443,6 +500,11 @@ CREATE TABLE SalesOrders (
     Notes           NVARCHAR(MAX)   NULL,
     InternalNotes   NVARCHAR(MAX)   NULL,
     SalesPersonId   INT             NOT NULL,
+
+    -- ── Quyết toán ──
+    ActualCost      DECIMAL(18,2)   NULL,                  -- Chi phí mua thực tế (để hoàn ứng)
+    SettlementNotes NVARCHAR(500)   NULL,                  -- Ghi chú quyết toán
+
     DeliveredAt     DATETIME2       NULL,
     CompletedAt     DATETIME2       NULL,
     CancelledAt     DATETIME2       NULL,
@@ -452,6 +514,7 @@ CREATE TABLE SalesOrders (
     CreatedBy       INT             NOT NULL,
     UpdatedBy       INT             NULL,
     CONSTRAINT FK_SO_Quotation FOREIGN KEY (QuotationId) REFERENCES Quotations(QuotationId),
+    CONSTRAINT FK_SO_RFQ FOREIGN KEY (RfqId) REFERENCES RFQs(RfqId),
     CONSTRAINT FK_SO_Customer FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId),
     CONSTRAINT FK_SO_Contact FOREIGN KEY (ContactId) REFERENCES CustomerContacts(ContactId),
     CONSTRAINT FK_SO_SalesPerson FOREIGN KEY (SalesPersonId) REFERENCES Users(UserId),
@@ -486,14 +549,17 @@ CREATE TABLE SalesOrderItems (
 -- 6.1 Bảng Lệnh mua hàng (Purchase Order)
 CREATE TABLE PurchaseOrders (
     PurchaseOrderId INT IDENTITY(1,1) PRIMARY KEY,
-    PurchaseOrderNo NVARCHAR(20)    NOT NULL UNIQUE,       -- Mã PO: PO-202604-001
-    VendorId        INT             NOT NULL,
-    SalesOrderId    INT             NULL,                  -- Liên kết SO gốc (nếu tạo từ SO)
+    PurchaseOrderNo NVARCHAR(20)    NOT NULL UNIQUE,       -- Mã PO nội bộ: PO-202604-001
+    VendorId        INT             NULL,                  -- NULL khi chưa chọn NCC
+    SalesOrderId    INT             NULL,                  -- Liên kết SO gốc (tự động tạo từ SO)
     OrderDate       DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-    ExpectedDeliveryDate DATE       NULL,
-    -- Trạng thái: DRAFT → SENT → PARTIALLY_RECEIVED → RECEIVED → CANCELLED
+    ExpectedReceiveDate DATE        NULL,                  -- Dự kiến hàng về kho
+    ExpectedDeliveryDate DATE       NULL,                  -- Dự kiến giao cho KH
+
+    -- Trạng thái PO nội bộ: DRAFT → BUYING → PARTIALLY_RECEIVED → RECEIVED → CANCELLED
     Status          NVARCHAR(25)    NOT NULL DEFAULT 'DRAFT'
-                    CHECK (Status IN ('DRAFT','SENT','PARTIALLY_RECEIVED','RECEIVED','CANCELLED')),
+                    CHECK (Status IN ('DRAFT','BUYING','PARTIALLY_RECEIVED','RECEIVED','CANCELLED')),
+
     IsDropship      BIT             NOT NULL DEFAULT 0,    -- PO giao thẳng cho KH (dropshipping)
     DropshipAddress NVARCHAR(500)   NULL,                  -- Địa chỉ KH nếu dropship
     DropshipCustomerId INT          NULL,                  -- KH nhận hàng nếu dropship
@@ -509,7 +575,7 @@ CREATE TABLE PurchaseOrders (
     PaymentDueDate  DATE            NULL,
     Notes           NVARCHAR(MAX)   NULL,
     InternalNotes   NVARCHAR(MAX)   NULL,
-    SentAt          DATETIME2       NULL,
+    BuyingAt        DATETIME2       NULL,                  -- Thời điểm bắt đầu mua
     ReceivedAt      DATETIME2       NULL,
     CancelledAt     DATETIME2       NULL,
     CancelReason    NVARCHAR(500)   NULL,
@@ -622,7 +688,10 @@ CREATE TABLE Inventory (
     CONSTRAINT UQ_Inv_Product_Warehouse_Location UNIQUE (ProductId, WarehouseId, LocationId)
 );
 
--- 7.3 Bảng Phiếu nhập/xuất kho
+-- 7.4 Bảng Phiếu nhập/xuất kho
+--     Status tách theo TransactionType:
+--       INBOUND:  DRAFT → CONFIRMED → CANCELLED
+--       OUTBOUND: DRAFT → DELIVERING → DELIVERED → CANCELLED
 CREATE TABLE StockTransactions (
     TransactionId   BIGINT IDENTITY(1,1) PRIMARY KEY,
     TransactionNo   NVARCHAR(20)    NOT NULL UNIQUE,       -- NK-202604-001, XK-202604-001
@@ -632,10 +701,22 @@ CREATE TABLE StockTransactions (
     PurchaseOrderId INT             NULL,                  -- Nhập từ PO
     SalesOrderId    INT             NULL,                  -- Xuất theo SO
     TransactionDate DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+
+    -- Status chung (DELIVERING & DELIVERED chỉ dùng cho OUTBOUND)
     Status          NVARCHAR(20)    NOT NULL DEFAULT 'DRAFT'
-                    CHECK (Status IN ('DRAFT','CONFIRMED','CANCELLED')),
+                    CHECK (Status IN ('DRAFT','CONFIRMED','DELIVERING','DELIVERED','CANCELLED')),
+
     Notes           NVARCHAR(MAX)   NULL,
     IsDropship      BIT             NOT NULL DEFAULT 0,    -- Ghi nhận ảo (dropship)
+
+    -- ── Thông tin giao hàng (chỉ dùng cho OUTBOUND) ──
+    DeliveryPersonId INT            NULL,                  -- Nhân viên / đơn vị vận chuyển
+    DeliveryNote    NVARCHAR(MAX)   NULL,                  -- Biên bản giao nhận
+    ReceiverName    NVARCHAR(200)   NULL,                  -- Người nhận hàng phía KH
+    ReceiverPhone   NVARCHAR(20)    NULL,
+    ReceivedSignatureUrl NVARCHAR(500) NULL,               -- Ảnh/scan chữ ký xác nhận
+    DeliveredAt     DATETIME2       NULL,                  -- KH nhận & ký
+
     ConfirmedAt     DATETIME2       NULL,
     ConfirmedBy     INT             NULL,
     CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
@@ -643,6 +724,7 @@ CREATE TABLE StockTransactions (
     CONSTRAINT FK_STrans_Warehouse FOREIGN KEY (WarehouseId) REFERENCES Warehouses(WarehouseId),
     CONSTRAINT FK_STrans_PO FOREIGN KEY (PurchaseOrderId) REFERENCES PurchaseOrders(PurchaseOrderId),
     CONSTRAINT FK_STrans_SO FOREIGN KEY (SalesOrderId) REFERENCES SalesOrders(SalesOrderId),
+    CONSTRAINT FK_STrans_DeliveryPerson FOREIGN KEY (DeliveryPersonId) REFERENCES Users(UserId),
     CONSTRAINT FK_STrans_ConfBy FOREIGN KEY (ConfirmedBy) REFERENCES Users(UserId),
     CONSTRAINT FK_STrans_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
 );
@@ -801,6 +883,75 @@ CREATE TABLE GeneratedPdfs (
 
 
 -- ============================================================================
+-- MODULE 8.5: TẠM ỨNG / HOÀN ỨNG (ADVANCE MANAGEMENT)
+-- ============================================================================
+
+-- Bảng Đề nghị tạm ứng (gắn với SO)
+-- Luồng: NV mua hàng đề nghị → Quản lý phê duyệt → Nhận tiền → Quyết toán
+CREATE TABLE AdvanceRequests (
+    AdvanceRequestId INT IDENTITY(1,1) PRIMARY KEY,
+    RequestNo       NVARCHAR(20)    NOT NULL UNIQUE,       -- TU-202604-001
+    SalesOrderId    INT             NOT NULL,
+    RequestDate     DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    RequestedAmount DECIMAL(18,2)   NOT NULL,              -- Số tiền đề nghị tạm ứng
+    Purpose         NVARCHAR(500)   NOT NULL,              -- Mục đích tạm ứng
+
+    -- PENDING → APPROVED → RECEIVED → SETTLING → SETTLED → REJECTED
+    Status          NVARCHAR(20)    NOT NULL DEFAULT 'PENDING'
+                    CHECK (Status IN ('PENDING','APPROVED','RECEIVED','SETTLING','SETTLED','REJECTED')),
+
+    ApprovedBy      INT             NULL,
+    ApprovedAt      DATETIME2       NULL,
+    ApprovedAmount  DECIMAL(18,2)   NULL,                  -- Số tiền được duyệt (có thể khác đề nghị)
+    ReceivedAt      DATETIME2       NULL,                  -- Thời điểm nhận tiền mặt/CK
+
+    -- ── Quyết toán ──
+    ActualSpent     DECIMAL(18,2)   NULL,                  -- Chi thực tế
+    RefundAmount    DECIMAL(18,2)   NULL,                  -- Hoàn ứng (nếu chi < tạm ứng)
+    AdditionalAmount DECIMAL(18,2)  NULL,                  -- Thanh toán thêm (nếu chi > tạm ứng)
+    SettledAt       DATETIME2       NULL,
+    SettledBy       INT             NULL,
+
+    RejectedBy      INT             NULL,
+    RejectedAt      DATETIME2       NULL,
+    RejectReason    NVARCHAR(500)   NULL,
+    Notes           NVARCHAR(MAX)   NULL,
+    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
+    UpdatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
+    CreatedBy       INT             NOT NULL,
+    CONSTRAINT FK_Adv_SO FOREIGN KEY (SalesOrderId) REFERENCES SalesOrders(SalesOrderId),
+    CONSTRAINT FK_Adv_ApprovedBy FOREIGN KEY (ApprovedBy) REFERENCES Users(UserId),
+    CONSTRAINT FK_Adv_SettledBy FOREIGN KEY (SettledBy) REFERENCES Users(UserId),
+    CONSTRAINT FK_Adv_RejectedBy FOREIGN KEY (RejectedBy) REFERENCES Users(UserId),
+    CONSTRAINT FK_Adv_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
+);
+
+
+-- ============================================================================
+-- MODULE BỔ SUNG: ATTACHMENTS (Đính kèm file dùng chung)
+-- ============================================================================
+
+-- Bảng Attachments — polymorphic (1 bảng chung cho mọi đối tượng)
+-- Thay vì mỗi bảng tự có 1 cột AttachmentUrl, bảng này cho phép đính kèm
+-- nhiều file cho bất kỳ bản ghi nào: RFQ, Quotation, SO, PO, StockTransaction...
+CREATE TABLE Attachments (
+    AttachmentId    INT IDENTITY(1,1) PRIMARY KEY,
+    ReferenceType   NVARCHAR(30)    NOT NULL,              -- RFQ, QUOTATION, SALES_ORDER, PURCHASE_ORDER, STOCK_TRANSACTION, ADVANCE_REQUEST, VENDOR_INVOICE
+    ReferenceId     INT             NOT NULL,              -- ID của bản ghi tương ứng
+    FileName        NVARCHAR(300)   NOT NULL,              -- Tên file gốc: PO_KhachSan_ABC.pdf
+    FileUrl         NVARCHAR(500)   NOT NULL,              -- URL lưu trữ
+    FileSize        BIGINT          NULL,                  -- Bytes
+    ContentType     NVARCHAR(100)   NULL,                  -- MIME type: application/pdf, image/jpeg
+    FileCategory    NVARCHAR(50)    NULL,                  -- Phân loại: CUSTOMER_PO, DELIVERY_RECEIPT, ADVANCE_DOC, INVOICE, OTHER
+    Description     NVARCHAR(500)   NULL,
+    UploadedAt      DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
+    UploadedBy      INT             NOT NULL,
+    IsActive        BIT             NOT NULL DEFAULT 1,
+    CONSTRAINT FK_Attach_User FOREIGN KEY (UploadedBy) REFERENCES Users(UserId)
+);
+
+
+-- ============================================================================
 -- MODULE BỔ SUNG: AUDIT LOG & NOTIFICATIONS
 -- ============================================================================
 
@@ -865,8 +1016,15 @@ CREATE INDEX IX_Products_CategoryId ON Products(CategoryId);
 CREATE INDEX IX_VendorPrices_Product ON VendorPrices(ProductId, VendorId);
 CREATE INDEX IX_CustomerPrices_Product ON CustomerPrices(ProductId);
 
+-- RFQs
+CREATE INDEX IX_RFQ_No ON RFQs(RfqNo);
+CREATE INDEX IX_RFQ_CustomerId ON RFQs(CustomerId);
+CREATE INDEX IX_RFQ_Status ON RFQs(Status);
+CREATE INDEX IX_RFQ_AssignedTo ON RFQs(AssignedTo);
+
 -- Quotations
 CREATE INDEX IX_Quotations_No ON Quotations(QuotationNo);
+CREATE INDEX IX_Quotations_RfqId ON Quotations(RfqId);
 CREATE INDEX IX_Quotations_CustomerId ON Quotations(CustomerId);
 CREATE INDEX IX_Quotations_Status ON Quotations(Status);
 CREATE INDEX IX_Quotations_SalesPersonId ON Quotations(SalesPersonId);
@@ -913,6 +1071,14 @@ CREATE INDEX IX_Notifications_UserId ON Notifications(UserId, IsRead, CreatedAt 
 CREATE INDEX IX_PdfTemplates_Type ON PdfTemplates(TemplateType, IsActive);
 CREATE INDEX IX_TemplateAssignments_Target ON TemplateAssignments(TargetType, TargetId, IsActive);
 CREATE INDEX IX_TemplateAssignments_TemplateId ON TemplateAssignments(TemplateId);
+
+-- Advance Requests
+CREATE INDEX IX_AdvReq_SOId ON AdvanceRequests(SalesOrderId);
+CREATE INDEX IX_AdvReq_Status ON AdvanceRequests(Status);
+
+-- Attachments (polymorphic lookup)
+CREATE INDEX IX_Attach_Ref ON Attachments(ReferenceType, ReferenceId, IsActive);
+CREATE INDEX IX_Attach_Category ON Attachments(FileCategory);
 
 
 -- ============================================================================
@@ -1104,11 +1270,11 @@ SELECT
     u.FullName,
     -- Báo giá
     COUNT(DISTINCT q.QuotationId)   AS TotalQuotations,
-    COUNT(DISTINCT CASE WHEN q.Status = 'CONVERTED' THEN q.QuotationId END) AS ConvertedQuotations,
+    COUNT(DISTINCT CASE WHEN q.Status = 'APPROVED' THEN q.QuotationId END) AS ApprovedQuotations,
     -- Tỉ lệ chuyển đổi
     CASE
         WHEN COUNT(DISTINCT q.QuotationId) = 0 THEN 0
-        ELSE CAST(COUNT(DISTINCT CASE WHEN q.Status = 'CONVERTED' THEN q.QuotationId END) AS DECIMAL(5,2))
+        ELSE CAST(COUNT(DISTINCT CASE WHEN q.Status = 'APPROVED' THEN q.QuotationId END) AS DECIMAL(5,2))
              / COUNT(DISTINCT q.QuotationId) * 100
     END AS ConversionRate,
     -- Doanh số
@@ -1145,11 +1311,11 @@ GO
 -- ============================================================================
 /*
     ╔══════════════════════════════════════════════════════════════╗
-    ║                    TỔNG QUAN THIẾT KẾ v1.1                   ║
+    ║                    TỔNG QUAN THIẾT KẾ v1.2                   ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
-    ║  Tổng số bảng:  38 bảng (+2 so với v1.0)                    ║
-    ║  Tổng số views:  5 views (+1 so với v1.0)                    ║
+    ║  Tổng số bảng:  44 bảng (+6 so với v1.1)                    ║
+    ║  Tổng số views:  6 views (+1 so với v1.1)                    ║
     ║                                                              ║
     ║  PHÂN NHÓM:                                                  ║
     ║  ─────────────────────────────────────────────────────────    ║
@@ -1157,49 +1323,63 @@ GO
     ║  Khách hàng:      4 bảng                                     ║
     ║  Nhà cung cấp:    2 bảng                                     ║
     ║  Sản phẩm:        6 bảng                                     ║
-    ║  Bán hàng:        5 bảng                                     ║
+    ║  Bán hàng:        6 bảng (+1: RFQs)                         ║
     ║  Mua hàng:        3 bảng                                     ║
-    ║  Kho:             7 bảng (+1: WarehouseLocations)            ║
+    ║  Kho:             7 bảng                                     ║
     ║  Công nợ:         2 bảng                                     ║
-    ║  PDF Template:    3 bảng (+1: TemplateAssignments)           ║
-    ║  Hệ thống:        2 bảng                                     ║
+    ║  Tạm ứng:         1 bảng (+1: AdvanceRequests)              ║
+    ║  PDF Template:    3 bảng                                     ║
+    ║  Hệ thống:        3 bảng (+1: Attachments)                  ║
     ║                                                              ║
     ╠══════════════════════════════════════════════════════════════╣
-    ║                  THAY ĐỔI v1.1 (so với v1.0)                ║
+    ║               THAY ĐỔI v1.2 (so với v1.1)                   ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
-    ║  [+] WarehouseLocations: Quản lý vị trí trong kho           ║
-    ║      Khu vực (Zone) → Dãy (Aisle) → Kệ (Rack)              ║
-    ║      → Tầng (Shelf) → Ô (Bin)                               ║
-    ║      Flat design, không self-referencing tree                 ║
+    ║  [+] RFQs: Yêu cầu báo giá — điểm bắt đầu quy trình       ║
+    ║      Status: INPROGRESS → COMPLETED (auto khi SO done)      ║
     ║                                                              ║
-    ║  [+] TemplateAssignments: Gán template cho đối tượng         ║
-    ║      Waterfall: KH cụ thể → Nhóm KH → Default              ║
-    ║      Priority-based resolution                               ║
+    ║  [~] Quotation: thêm RfqId, AmendFromId                     ║
+    ║      Status cũ: DRAFT,SENT,CONFIRMED,CONVERTED,CANCELLED    ║
+    ║      Status mới: DRAFT,SENT,APPROVED,REJECTED,AMEND,EXPIRED ║
     ║                                                              ║
-    ║  [~] Inventory: thêm FK LocationId                           ║
-    ║  [~] StockTransactionItems: thêm FK LocationId               ║
-    ║  [~] StockCheckItems: thêm FK LocationId                     ║
-    ║  [~] Unique key Inventory: (Product, Warehouse, Location)    ║
+    ║  [~] SalesOrder:                                             ║
+    ║      Status cũ: CONFIRMED → PROCESSING → DELIVERED...       ║
+    ║      Status mới: DRAFT → WAIT → PROCESSING → DELIVERED...   ║
+    ║      Thêm: CustomerPoNo, CustomerPoFile                     ║
+    ║      Thêm: AdvanceAmount/Status, ActualCost                  ║
+    ║      Thêm: FK RfqId (để auto complete RFQ)                  ║
     ║                                                              ║
-    ║  [+] vw_InventoryByLocation: tra cứu SP theo vị trí kho     ║
+    ║  [~] PurchaseOrder (nội bộ):                                 ║
+    ║      Status cũ: DRAFT,SENT,PARTIALLY_RECEIVED,RECEIVED      ║
+    ║      Status mới: DRAFT,BUYING,PARTIALLY_RECEIVED,RECEIVED   ║
+    ║      VendorId nullable (chưa chọn NCC)                      ║
+    ║      Thêm: ExpectedReceiveDate, BuyingAt                    ║
+    ║                                                              ║
+    ║  [~] StockTransaction:                                       ║
+    ║      IN status:  DRAFT → CONFIRMED                           ║
+    ║      OUT status: DRAFT → DELIVERING → DELIVERED              ║
+    ║      Thêm: DeliveryPersonId, ReceiverName,                   ║
+    ║            ReceivedSignatureUrl, DeliveredAt                  ║
+    ║                                                              ║
+    ║  [+] AdvanceRequests: tạm ứng / hoàn ứng / quyết toán       ║
+    ║      PENDING → APPROVED → RECEIVED → SETTLING → SETTLED     ║
+    ║                                                              ║
+    ║  [+] Attachments: bảng đính kèm file dùng chung             ║
+    ║      Polymorphic (RefType + RefId), nhiều file/bản ghi       ║
     ║                                                              ║
     ╠══════════════════════════════════════════════════════════════╣
-    ║                    ĐẶC ĐIỂM THIẾT KẾ                        ║
+    ║                 LUỒNG QUY TRÌNH CHÍNH                        ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
-    ║  1. Soft Delete: Dùng cờ IsActive thay vì xóa vật lý       ║
-    ║  2. Audit Trail: AuditLogs ghi lại mọi thay đổi (JSON)     ║
-    ║  3. Snapshot: Báo giá/SO/PO lưu ProductName, UnitName       ║
-    ║     tại thời điểm tạo (tránh thay đổi sau ảnh hưởng)        ║
-    ║  4. Dropshipping: Cờ IsDropship trên PO + Kho ảo            ║
-    ║  5. Multi-currency: Trường Currency trên các bảng giao dịch ║
-    ║  6. DataScope RBAC: ALL/OWN để phân quyền cấp dữ liệu      ║
-    ║  7. Computed columns: QuantityAvailable, Difference          ║
-    ║  8. Warehouse Locations: vị trí kho flat (Zone/Aisle/       ║
-    ║     Rack/Shelf/Bin) — tra cứu O(1) không cần recursive CTE  ║
-    ║  9. Template Resolution: waterfall priority — KH riêng >     ║
-    ║     Nhóm KH > Default > Manual chọn                          ║
+    ║  KH gửi yêu cầu                                             ║
+    ║    → RFQ (INPROGRESS)                                        ║
+    ║      → Quotation (DRAFT → SENT → APPROVED)                  ║
+    ║        → SO (DRAFT → WAIT → PROCESSING)                     ║
+    ║          → PO nội bộ (DRAFT → BUYING → RECEIVED)             ║
+    ║            → StockTx IN (DRAFT → CONFIRMED)                 ║
+    ║              → StockTx OUT (DRAFT → DELIVERING → DELIVERED)  ║
+    ║                → SO (DELIVERED → COMPLETED)                  ║
+    ║                  → RFQ (COMPLETED) ← auto                   ║
     ║                                                              ║
     ╚══════════════════════════════════════════════════════════════╝
 */

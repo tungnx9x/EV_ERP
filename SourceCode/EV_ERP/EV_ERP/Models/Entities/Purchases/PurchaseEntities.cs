@@ -12,11 +12,12 @@ public class PurchaseOrder : AuditableEntity
 {
     public int PurchaseOrderId { get; set; }
     public string PurchaseOrderNo { get; set; } = string.Empty;
-    public int VendorId { get; set; }
+    public int? VendorId { get; set; }               // NULL khi chưa chọn NCC
     public int? SalesOrderId { get; set; }
     public DateTime OrderDate { get; set; } = DateTime.Today;
+    public DateTime? ExpectedReceiveDate { get; set; } // Dự kiến hàng về kho
     public DateTime? ExpectedDeliveryDate { get; set; }
-    /// <summary>DRAFT → SENT → PARTIALLY_RECEIVED → RECEIVED → CANCELLED</summary>
+    /// <summary>DRAFT → BUYING → PARTIALLY_RECEIVED → RECEIVED → CANCELLED</summary>
     public string Status { get; set; } = "DRAFT";
     public bool IsDropship { get; set; }
     public string? DropshipAddress { get; set; }
@@ -33,12 +34,12 @@ public class PurchaseOrder : AuditableEntity
     public DateTime? PaymentDueDate { get; set; }
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
-    public DateTime? SentAt { get; set; }
+    public DateTime? BuyingAt { get; set; }
     public DateTime? ReceivedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancelReason { get; set; }
 
-    public virtual Vendor Vendor { get; set; } = null!;
+    public virtual Vendor? Vendor { get; set; }
     public virtual SalesOrder? SalesOrder { get; set; }
     public virtual Customer? DropshipCustomer { get; set; }
     public virtual ICollection<PurchaseOrderItem> Items { get; set; } = [];

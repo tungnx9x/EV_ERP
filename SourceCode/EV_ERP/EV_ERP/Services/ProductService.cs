@@ -23,7 +23,7 @@ namespace EV_ERP.Services
         public async Task<ProductListViewModel> GetListAsync(string? keyword, int? categoryId, string? status)
         {
             var query = _uow.Repository<Product>().Query()
-                .Include(p => p.Category)
+                .Include(p => p.Category).ThenInclude(c => c!.ParentCategory)
                 .Include(p => p.Unit)
                 .Where(p => status == "inactive" ? !p.IsActive : p.IsActive);
 
@@ -52,13 +52,13 @@ namespace EV_ERP.Services
                     ProductId = p.ProductId,
                     ProductCode = p.ProductCode,
                     ProductName = p.ProductName,
-                    CategoryName = p.Category?.CategoryName,
-                    UnitName = p.Unit.UnitName,
-                    Barcode = p.Barcode,
-                    BarcodeType = p.BarcodeType,
+                    CategoryName = p.Category == null ? null
+                        : p.Category.ParentCategory != null
+                            ? $"{p.Category.ParentCategory.CategoryName}/{p.Category.CategoryName}"
+                            : p.Category.CategoryName,
+                    ImageUrl = p.ImageUrl,
                     DefaultSalePrice = p.DefaultSalePrice,
                     DefaultPurchasePrice = p.DefaultPurchasePrice,
-                    MinStockLevel = p.MinStockLevel,
                     IsActive = p.IsActive,
                     CreatedAt = p.CreatedAt
                 }).ToList(),

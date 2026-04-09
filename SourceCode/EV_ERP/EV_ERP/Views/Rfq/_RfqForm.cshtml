@@ -1,0 +1,155 @@
+@model EV_ERP.Models.ViewModels.RFQs.RfqFormViewModel
+@{
+    var action = Model.IsEditMode ? "Edit" : "Create";
+    var title = Model.IsEditMode ? Model.RfqNo : "Tạo yêu cầu báo giá mới";
+    var icon = Model.IsEditMode ? "bi-pencil-square" : "bi-file-earmark-plus";
+}
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/Rfq" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi @icon me-2 text-primary"></i>@title
+                    </h5>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (Model.IsEditMode)
+                {
+                    <input type="hidden" id="frm_rfqId" value="@Model.RfqId" />
+                }
+
+                <div class="row g-3">
+                    <!-- Khách hàng -->
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
+                        <select id="frm_customerId" class="form-select form-select-sm">
+                            <option value="">-- Chọn khách hàng --</option>
+                            @foreach (var c in Model.Customers)
+                            {
+                                <option value="@c.CustomerId" selected="@(Model.CustomerId == c.CustomerId)">
+                                    @c.CustomerName (@c.CustomerCode)
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Ưu tiên -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Độ ưu tiên</label>
+                        <select id="frm_priority" class="form-select form-select-sm">
+                            @foreach (var pr in new[] { ("LOW","Thấp"), ("NORMAL","Bình thường"), ("HIGH","Cao"), ("URGENT","Khẩn cấp") })
+                            {
+                                <option value="@pr.Item1" selected="@(Model.Priority == pr.Item1)">@pr.Item2</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Ngày yêu cầu -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Ngày yêu cầu</label>
+                        <input type="date" id="frm_requestDate" class="form-control form-control-sm"
+                               value="@Model.RequestDate.ToString("yyyy-MM-dd")" />
+                    </div>
+
+                    <!-- Phân công -->
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Phân công cho</label>
+                        <select id="frm_assignedTo" class="form-select form-select-sm">
+                            <option value="">-- Chưa phân công --</option>
+                            @foreach (var u in Model.Users)
+                            {
+                                <option value="@u.UserId" selected="@(Model.AssignedTo == u.UserId)">
+                                    @u.FullName (@u.UserCode)
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Mô tả -->
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Mô tả yêu cầu</label>
+                        <textarea id="frm_description" class="form-control form-control-sm" rows="3"
+                                  placeholder="Mô tả chi tiết yêu cầu từ khách hàng...">@Model.Description</textarea>
+                    </div>
+
+                    <!-- Ghi chú -->
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Ghi chú</label>
+                        <textarea id="frm_notes" class="form-control form-control-sm" rows="2"
+                                  placeholder="Ghi chú nội bộ...">@Model.Notes</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 justify-content-end mb-4">
+            <a href="/Rfq" class="btn btn-outline-secondary">Hủy</a>
+            <button type="button" class="btn btn-primary" onclick="submitForm()" id="btnSubmit">
+                <i class="bi bi-check-lg me-1"></i>
+                @(Model.IsEditMode ? "Cập nhật" : "Tạo yêu cầu")
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function submitForm() {
+        var customerId = parseInt(document.getElementById('frm_customerId').value);
+        if (!customerId) {
+            alert('Vui lòng chọn khách hàng');
+            return;
+        }
+
+        var rfqIdEl = document.getElementById('frm_rfqId');
+        var isEdit = !!rfqIdEl;
+        var assignedTo = parseInt(document.getElementById('frm_assignedTo').value) || null;
+
+        var payload = {
+            RfqId: isEdit ? parseInt(rfqIdEl.value) : null,
+            CustomerId: customerId,
+            RequestDate: document.getElementById('frm_requestDate').value,
+            Priority: document.getElementById('frm_priority').value,
+            AssignedTo: assignedTo,
+            Description: document.getElementById('frm_description').value.trim() || null,
+            Notes: document.getElementById('frm_notes').value.trim() || null
+        };
+
+        var btn = document.getElementById('btnSubmit');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xử lý...';
+
+        var url = isEdit ? '/Rfq/Edit' : '/Rfq/Create';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.Success) {
+                window.location.href = '/Rfq/Detail/' + data.Data.RfqId;
+            } else {
+                alert(data.Message || 'Có lỗi xảy ra');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>' + (isEdit ? 'Cập nhật' : 'Tạo yêu cầu');
+            }
+        })
+        .catch(function () {
+            alert('Lỗi kết nối');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>' + (isEdit ? 'Cập nhật' : 'Tạo yêu cầu');
+        });
+    }
+</script>
+@Html.AntiForgeryToken()

@@ -1,0 +1,214 @@
+@model EV_ERP.Models.ViewModels.Quotations.QuotationListViewModel
+@{
+    ViewData["Title"] = "Báo giá";
+    bool canEdit = ViewBag.CanEdit == true;
+    var p = Model.Paged;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <p class="text-muted small mb-0">Tổng cộng @p.TotalCount báo giá</p>
+    </div>
+    @if (canEdit)
+    {
+        <a href="/Quotation/Create" class="btn btn-primary">
+            <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
+        </a>
+    }
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-12 col-sm-4 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Mã BG, tên KH..."
+                           value="@Model.SearchKeyword" />
+                </div>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    @foreach (var s in new[] { ("DRAFT","Nháp"), ("SENT","Đã gửi"), ("APPROVED","Đã duyệt"),
+                        ("REJECTED","Từ chối"), ("AMEND","Chỉnh sửa"), ("EXPIRED","Hết hạn") })
+                    {
+                        <option value="@s.Item1" selected="@(Model.FilterStatus == s.Item1)">@s.Item2</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Khách hàng</label>
+                <select name="customerId" class="form-select form-select-sm">
+                    <option value="">Tất cả KH</option>
+                    @foreach (var c in Model.Customers)
+                    {
+                        <option value="@c.CustomerId" selected="@(Model.FilterCustomerId == c.CustomerId)">
+                            @c.CustomerName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-12 col-sm-2 col-lg-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
+                <a href="/Quotation" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!p.Items.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-file-earmark-text" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">Không tìm thấy báo giá nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Mã báo giá</th>
+                            <th>Khách hàng</th>
+                            <th class="d-none d-md-table-cell">Ngày BG</th>
+                            <th class="d-none d-lg-table-cell">SP</th>
+                            <th class="text-end">Tổng tiền</th>
+                            <th class="d-none d-md-table-cell">Phụ trách</th>
+                            <th>Trạng thái</th>
+                            <th style="width:90px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = (p.PageIndex - 1) * p.PageSize + 1; }
+                        @foreach (var q in p.Items)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    <a href="/Quotation/Detail/@q.QuotationId"
+                                       class="fw-semibold text-decoration-none text-dark link-hover">
+                                        @q.QuotationNo
+                                    </a>
+                                </td>
+                                <td>
+                                    <div>@q.CustomerName</div>
+                                    <div class="text-muted small">@q.CustomerCode</div>
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">
+                                    @q.QuotationDate.ToString("dd/MM/yyyy")
+                                    @if (q.ExpiryDate.HasValue)
+                                    {
+                                        <div class="@(q.ExpiryDate < DateTime.Today ? "text-danger" : "")">
+                                            HH: @q.ExpiryDate.Value.ToString("dd/MM/yyyy")
+                                        </div>
+                                    }
+                                </td>
+                                <td class="d-none d-lg-table-cell text-muted small">@q.ItemCount</td>
+                                <td class="text-end fw-semibold">
+                                    @q.TotalAmount.ToString("N0")
+                                    <span class="text-muted small">@q.Currency</span>
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">@q.SalesPersonName</td>
+                                <td>
+                                    <span class="badge bg-@(q.StatusBadge)-subtle text-@(q.StatusBadge)-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>
+                                        @q.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/Quotation/Detail/@q.QuotationId"
+                                           class="btn btn-sm btn-outline-secondary" title="Xem">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        @if (canEdit && q.Status == "DRAFT")
+                                        {
+                                            <a href="/Quotation/Edit/@q.QuotationId"
+                                               class="btn btn-sm btn-outline-primary" title="Sửa">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (p.TotalPages > 1)
+            {
+                <nav class="d-flex justify-content-center py-3">
+                    <ul class="pagination pagination-sm mb-0">
+                        @if (p.HasPrevious)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(p.PageIndex - 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        }
+                        @for (int pg = 1; pg <= p.TotalPages; pg++)
+                        {
+                            <li class="page-item @(pg == p.PageIndex ? "active" : "")">
+                                <a class="page-link" href="@BuildPageUrl(pg)">@pg</a>
+                            </li>
+                        }
+                        @if (p.HasNext)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(p.PageIndex + 1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        }
+    </div>
+</div>
+
+@functions {
+    string BuildPageUrl(int page)
+    {
+        var qs = new Dictionary<string, string?> {
+            ["keyword"] = Model.SearchKeyword,
+            ["status"] = Model.FilterStatus,
+            ["customerId"] = Model.FilterCustomerId?.ToString(),
+            ["salesPersonId"] = Model.FilterSalesPersonId?.ToString(),
+            ["page"] = page.ToString()
+        };
+        return "/Quotation?" + string.Join("&", qs.Where(kv => kv.Value != null).Select(kv => $"{kv.Key}={kv.Value}"));
+    }
+}
+
+<style>
+    .link-hover:hover { color: #2563eb !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #0369a1 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    .text-warning-emphasis { color: #854d0e !important; }
+    .bg-dark-subtle { background-color: #e2e8f0 !important; }
+    .text-dark-emphasis { color: #1e293b !important; }
+</style>

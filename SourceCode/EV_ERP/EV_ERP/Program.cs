@@ -42,8 +42,9 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IProductCategoryService, ProductCategoryService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
+builder.Services.AddScoped<IQuotationService, QuotationService>();
+builder.Services.AddScoped<IRfqService, RfqService>();
 // Đăng ký thêm khi implement từng module
-// builder.Services.AddScoped<IQuotationService, QuotationService>();
 // builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 // builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 // builder.Services.AddScoped<IInventoryService, InventoryService>();

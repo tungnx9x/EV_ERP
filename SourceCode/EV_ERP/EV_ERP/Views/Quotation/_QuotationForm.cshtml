@@ -1,0 +1,641 @@
+@model EV_ERP.Models.ViewModels.Quotations.QuotationFormViewModel
+@{
+    var action = Model.IsEditMode ? "Edit" : "Create";
+    var title = Model.IsEditMode
+        ? $"{Model.QuotationNo}"
+        : (!string.IsNullOrEmpty(Model.QuotationNo) ? Model.QuotationNo : "Tạo báo giá mới");
+    var icon = Model.IsEditMode ? "bi-pencil-square" : "bi-file-earmark-plus";
+}
+
+<div class="row">
+    <!-- Form header -->
+    <div class="col-lg-12">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/Quotation" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi @icon me-2 text-primary"></i>@title
+                    </h5>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (Model.IsEditMode)
+                {
+                    <input type="hidden" id="frm_quotationId" value="@Model.QuotationId" />
+                }
+                @if (Model.RfqId.HasValue)
+                {
+                    <input type="hidden" id="frm_rfqId" value="@Model.RfqId" />
+                }
+                <div class="row">
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
+                        <select id="frm_customerId" class="form-select form-select-sm">
+                            <option value="">-- Chọn khách hàng --</option>
+                            @foreach (var c in Model.Customers)
+                            {
+                                <option value="@c.CustomerId" selected="@(Model.CustomerId == c.CustomerId)">
+                                    @c.CustomerName (@c.CustomerCode)
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <label class="form-label small fw-semibold">Hệ số <span class="text-danger">*</span></label>
+                        <input type="number" id="frm_coefficient" class="form-control form-control-sm"
+                               value="@Model.Coefficient" min="0.01" step="any" />
+                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập / Hệ số + Vận chuyển</div>
+                    </div>
+                </div>
+                
+                @*Haven't need notes yet*@
+                @* <div class="mb-3">
+                    <label class="form-label small fw-semibold">Ghi chu</label>
+                    <textarea id="frm_notes" class="form-control form-control-sm" rows="2"
+                              placeholder="Ghi chu cho khach hang...">@Model.Notes</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Ghi chu noi bo</label>
+                    <textarea id="frm_internalNotes" class="form-control form-control-sm" rows="2"
+                              placeholder="Ghi chu noi bo...">@Model.InternalNotes</textarea>
+                </div> *@
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <!-- Items + Totals -->
+    <div class="col-lg-12">
+        <!-- Items table -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold small text-uppercase">
+                    <i class="bi bi-box-seam me-1"></i> Sản phẩm
+                    <span class="badge bg-primary rounded-pill ms-1" id="itemCountBadge">0</span>
+                </h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEmptyRow()">
+                    <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
+                </button>
+            </div>
+            <div class="card-body pb-2">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.78rem;" id="itemsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th rowspan="2" style="width:30px;" class="text-center align-middle">STT</th>
+                                <th colspan="6" class="text-center bg-primary-subtle">Thông tin sản phẩm</th>
+                                <th colspan="5" class="text-center bg-success-subtle">Báo giá khách hàng</th>
+                                <th colspan="5" class="text-center bg-warning-subtle">Thông tin nội bộ</th>
+                            </tr>
+                            <tr>
+                                <th style="min-width:180px;">Yêu cầu</th>
+                                <th style="min-width:140px;">Đề xuất</th>
+                                <th style="width:70px;">Hình ảnh</th>
+                                <th style="width:65px;">ĐVT</th>
+                                <th style="width:65px;">SL</th>
+                                <th style="width:110px;">Đơn giá</th>
+                                <th style="width:120px;">Trước VAT</th>
+                                <th style="width:60px;">VAT %</th>
+                                <th style="width:130px;">Sau VAT</th>
+                                <th style="min-width:130px;">NCC</th>
+                                <th style="width:110px;">Giá nhập</th>
+                                <th style="width:80px;">Tiền tệ</th>
+                                <th style="width:90px;">Vận chuyển</th>
+                                <th style="width:70px;">Hệ số</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsBody">
+                            <!-- JS rendered -->
+                        </tbody>
+                        <tfoot id="itemsFoot" style="display:none;">
+                            <tr class="table-light fw-semibold">
+                                <td colspan="7" class="text-end">Tổng cộng:</td>
+                                <td class="text-end" id="sumExclVat">0</td>
+                                <td></td>
+                                <td class="text-end" id="sumInclVat">0</td>
+                                <td colspan="5"></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div id="itemsEmpty" class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox" style="font-size:2rem;opacity:.3;"></i>
+                        <p class="small mt-1 mb-0">Chưa có sản phẩm — nhấn <strong>"Thêm sản phẩm"</strong> để bắt đầu</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 justify-content-between mb-4">
+            <button type="button" class="btn btn-outline-success" onclick="exportExcel()" id="btnExport">
+                <i class="bi bi-file-earmark-excel me-1"></i> Xuất file báo giá
+            </button>
+            <div class="d-flex gap-2">
+                <a href="/Quotation" class="btn btn-outline-secondary">Hủy</a>
+                <button type="button" class="btn btn-primary" onclick="submitForm()" id="btnSubmit">
+                    <i class="bi bi-check-lg me-1"></i>
+                    @(Model.IsEditMode ? "Cập nhật" : "Tạo báo giá")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inline search dropdown (shared, repositioned per cell) -->
+<div id="inlineSearchDropdown" class="position-fixed bg-white border rounded shadow-sm"
+     style="z-index:2000; display:none; max-height:220px; overflow-y:auto; min-width:280px;">
+</div>
+
+<style>
+    .product-result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+    .product-result-item:hover { background: #f8fafc; }
+    .product-result-item:last-child { border-bottom: none; }
+    .bg-primary-subtle { background-color: #e0f2fe !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    #itemsTable input, #itemsTable select { font-size: 0.78rem; }
+    #itemsTable td { vertical-align: middle; padding: 0.25rem 0.35rem; }
+    #itemsTable .form-control, #itemsTable .form-select { padding: 0.2rem 0.4rem; }
+    .img-thumb-sm { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+    .request-cell { position: relative; }
+    .request-input { border: 1px solid #dee2e6; border-radius: 4px; padding: 0.2rem 0.4rem; width: 100%; font-size: 0.78rem; }
+    .request-input:focus { border-color: #86b7fe; outline: 0; box-shadow: 0 0 0 0.15rem rgba(13,110,253,.15); }
+</style>
+
+<script>
+        // ══════════════════════════════════════════════
+        // STATE
+        // ══════════════════════════════════════════════
+        var items = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items));
+        var searchTimeout = null;
+        var isEditMode = @(Model.IsEditMode ? "true" : "false");
+        var activeSearchIdx = -1; // which row's Request cell is being searched
+
+        var currencyRates = {
+            'VND': 1,
+            'USD': 25000,
+            'CNY': 3500,
+            'EUR': 27000,
+            'JPY': 170
+        };
+
+        // ══════════════════════════════════════════════
+        // INIT
+        // ══════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', function () {
+            renderItems();
+            recalcTotals();
+
+            // Recalc when global coefficient changes
+            document.getElementById('frm_coefficient').addEventListener('input', function () {
+                var globalCoeff = parseFloat(this.value) || 1;
+                items.forEach(function (item, idx) {
+                    item.Coefficient = globalCoeff;
+                    recalcUnitPriceFromImport(idx);
+                    recalcItemLine(idx);
+                });
+                renderItems();
+                recalcTotals();
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function (e) {
+                var dd = document.getElementById('inlineSearchDropdown');
+                if (!dd.contains(e.target) && !e.target.classList.contains('request-input')) {
+                    dd.style.display = 'none';
+                    activeSearchIdx = -1;
+                }
+            });
+        });
+
+        // ══════════════════════════════════════════════
+        // ADD EMPTY ROW
+        // ══════════════════════════════════════════════
+        function addEmptyRow() {
+            var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
+            items.push({
+                QuotationItemId: null,
+                ProductId: 0,
+                ProductName: '',
+                Proposal: '',
+                ImageUrl: '',
+                UnitName: '',
+                Quantity: 1,
+                UnitPrice: 0,
+                AmountExclVat: 0,
+                VatRate: 8,
+                AmountInclVat: 0,
+                Supplier: '',
+                ImportPrice: 0,
+                Currency: 'VND',
+                Shipping: 0,
+                Coefficient: globalCoeff,
+                DiscountType: null,
+                DiscountValue: null,
+                DiscountAmount: 0,
+                LineTotal: 0,
+                SortOrder: items.length,
+                Notes: null
+            });
+            renderItems();
+            recalcTotals();
+            // Focus the new Request input
+            setTimeout(function () {
+                var input = document.getElementById('req_' + (items.length - 1));
+                if (input) input.focus();
+            }, 50);
+        }
+
+        // ══════════════════════════════════════════════
+        // INLINE PRODUCT SEARCH (in Request column)
+        // ══════════════════════════════════════════════
+        function onRequestInput(idx, inputEl) {
+            var kw = inputEl.value.trim();
+            items[idx].ProductName = inputEl.value;
+            activeSearchIdx = idx;
+
+            clearTimeout(searchTimeout);
+            var dd = document.getElementById('inlineSearchDropdown');
+
+            if (kw.length < 2) {
+                dd.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(function () {
+                fetch('/Quotation/SearchProducts?keyword=' + encodeURIComponent(kw))
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (activeSearchIdx !== idx) return; // user moved on
+
+                        if (!data || data.length === 0) {
+                            dd.innerHTML = '<div class="p-3 text-muted small text-center">Không tìm thấy sản phẩm</div>';
+                        } else {
+                            dd.innerHTML = data.map(function (p) {
+                                return '<div class="product-result-item" onmousedown="selectProduct(' + idx + ', ' + JSON.stringify(p).replace(/"/g, '&quot;') + ')">' +
+                                    '<div class="fw-semibold small">' + escapeHtml(p.ProductName) + '</div>' +
+                                    '<div class="text-muted" style="font-size:0.72rem;">' +
+                                    escapeHtml(p.ProductCode) + ' &bull; ' + escapeHtml(p.UnitName) +
+                                    (p.DefaultPurchasePrice ? ' &bull; Nhap: ' + formatNumber(p.DefaultPurchasePrice) : '') +
+                                    '</div></div>';
+                            }).join('');
+                        }
+
+                        // Position dropdown below the input
+                        var rect = inputEl.getBoundingClientRect();
+                        dd.style.left = rect.left + 'px';
+                        dd.style.top = (rect.bottom + 2) + 'px';
+                        dd.style.width = Math.max(rect.width, 280) + 'px';
+                        dd.style.display = 'block';
+                    });
+            }, 300);
+        }
+
+        function onRequestBlur(idx) {
+            // Delay to allow click on dropdown item
+            setTimeout(function () {
+                if (activeSearchIdx === idx) {
+                    document.getElementById('inlineSearchDropdown').style.display = 'none';
+                    activeSearchIdx = -1;
+                }
+            }, 200);
+        }
+
+        function selectProduct(idx, product) {
+            var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
+            var importPrice = product.DefaultPurchasePrice || 0;
+            var coeff = items[idx].Coefficient || globalCoeff;
+            var unitPrice = coeff > 0 ? Math.round(importPrice / coeff) : importPrice;
+
+            items[idx].ProductId = product.ProductId;
+            items[idx].ProductName = product.ProductName;
+            items[idx].Proposal = product.Description || '';
+            items[idx].ImageUrl = product.ImageUrl || '';
+            items[idx].UnitName = product.UnitName || '';
+            items[idx].ImportPrice = importPrice;
+            items[idx].UnitPrice = unitPrice;
+
+            recalcItemLine(idx);
+
+            document.getElementById('inlineSearchDropdown').style.display = 'none';
+            activeSearchIdx = -1;
+
+            renderItems();
+            recalcTotals();
+        }
+
+        // ══════════════════════════════════════════════
+        // RENDER ITEMS
+        // ══════════════════════════════════════════════
+        function renderItems() {
+            var tbody = document.getElementById('itemsBody');
+            var empty = document.getElementById('itemsEmpty');
+            var foot = document.getElementById('itemsFoot');
+            document.getElementById('itemCountBadge').textContent = items.length;
+
+            if (items.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = 'block';
+                foot.style.display = 'none';
+                return;
+            }
+            empty.style.display = 'none';
+            foot.style.display = '';
+
+            var currencyOptions = Object.keys(currencyRates).map(function (c) {
+                return '<option value="' + c + '">{selected}' + c + '</option>';
+            }).join('');
+
+            tbody.innerHTML = items.map(function (item, idx) {
+                var currOpts = currencyOptions.replace(
+                    '{selected}' + item.Currency,
+                    'selected ' + item.Currency
+                ).replace(/\{selected\}/g, '');
+
+                var imgHtml = item.ImageUrl
+                    ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="img-thumb-sm" alt="" />'
+                    : '<span class="text-muted" style="font-size:0.7rem;">N/A</span>';
+
+                return '<tr>' +
+                    '<td class="text-center text-muted small">' + (idx + 1) + '</td>' +
+                    // Request — inline search input
+                    '<td class="request-cell">' +
+                    '<input type="text" class="request-input" id="req_' + idx + '" ' +
+                    'value="' + escapeHtml(item.ProductName) + '" ' +
+                    'oninput="onRequestInput(' + idx + ', this)" ' +
+                    'onblur="onRequestBlur(' + idx + ')" ' +
+                    'placeholder="Go ten san pham..." autocomplete="off" />' +
+                    '</td>' +
+                    // Proposal
+                    '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
+                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta..." /></td>' +
+                    // Image
+                    '<td class="text-center">' + imgHtml + '</td>' +
+                    // Unit
+                    '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.UnitName) + '" ' +
+                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" /></td>' +
+                    // Quantity
+                    '<td><input type="number" class="form-control form-control-sm" id="qty_' + idx + '" ' +
+                    'value="' + item.Quantity + '" min="0.001" step="any" onchange="updateQtyOrPrice(' + idx + ')" /></td>' +
+                    // Unit Price
+                    '<td><input type="number" class="form-control form-control-sm" ' +
+                    'value="' + item.UnitPrice + '" min="0" step="any" onchange="updateUnitPrice(' + idx + ', this.value)" /></td>' +
+                    // Amount Excl VAT
+                    '<td class="text-end fw-semibold">' + formatNumber(item.AmountExclVat) + '</td>' +
+                    // VAT %
+                    '<td><input type="number" class="form-control form-control-sm" ' +
+                    'value="' + item.VatRate + '" min="0" max="100" step="0.5" onchange="updateVat(' + idx + ', this.value)" /></td>' +
+                    // Amount Incl VAT
+                    '<td class="text-end fw-bold text-primary">' + formatNumber(item.AmountInclVat) + '</td>' +
+                    // Supplier
+                    '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Supplier || '') + '" ' +
+                    'onchange="updateField(' + idx + ', \'Supplier\', this.value)" placeholder="NCC / URL..." /></td>' +
+                    // Import Price
+                    '<td><input type="number" class="form-control form-control-sm" ' +
+                    'value="' + item.ImportPrice + '" min="0" step="any" onchange="updateImportPrice(' + idx + ', this.value)" /></td>' +
+                    // Currency
+                    '<td><select class="form-select form-select-sm" onchange="updateCurrency(' + idx + ', this.value)">' + currOpts + '</select></td>' +
+                    // Shipping
+                    '<td><input type="number" class="form-control form-control-sm" ' +
+                    'value="' + item.Shipping + '" min="0" step="any" onchange="updateShipping(' + idx + ', this.value)" /></td>' +
+                    // Coefficient
+                    '<td><input type="number" class="form-control form-control-sm" ' +
+                    'value="' + item.Coefficient + '" min="0.01" step="any" onchange="updateCoefficient(' + idx + ', this.value)" /></td>' +
+                    // Delete
+                    '<td><button class="btn btn-sm btn-outline-danger border-0" onclick="removeItem(' + idx + ')" title="Xoa">' +
+                    '<i class="bi bi-x-lg" style="font-size:.75rem;"></i></button></td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        // ══════════════════════════════════════════════
+        // ITEM UPDATES
+        // ══════════════════════════════════════════════
+        function updateField(idx, field, val) {
+            items[idx][field] = val;
+        }
+
+        function updateQtyOrPrice(idx) {
+            var qty = parseFloat(document.getElementById('qty_' + idx).value) || 0;
+            items[idx].Quantity = qty;
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function updateUnitPrice(idx, val) {
+            items[idx].UnitPrice = parseFloat(val) || 0;
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function updateVat(idx, val) {
+            items[idx].VatRate = parseFloat(val) || 0;
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function updateImportPrice(idx, val) {
+            items[idx].ImportPrice = parseFloat(val) || 0;
+            recalcUnitPriceFromImport(idx);
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function updateCurrency(idx, val) {
+            items[idx].Currency = val;
+            recalcUnitPriceFromImport(idx);
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function updateShipping(idx, val) {
+            items[idx].Shipping = parseFloat(val) || 0;
+            recalcUnitPriceFromImport(idx);
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function updateCoefficient(idx, val) {
+            items[idx].Coefficient = parseFloat(val) || 1;
+            recalcUnitPriceFromImport(idx);
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+        }
+
+        function removeItem(idx) {
+            items.splice(idx, 1);
+            renderItems();
+            recalcTotals();
+        }
+
+        function recalcUnitPriceFromImport(idx) {
+            var item = items[idx];
+            var importVnd = item.ImportPrice * (currencyRates[item.Currency] || 1);
+            var coeff = item.Coefficient > 0 ? item.Coefficient : 1;
+            item.UnitPrice = Math.round(importVnd / coeff + item.Shipping);
+        }
+
+        function recalcItemLine(idx) {
+            var item = items[idx];
+            item.AmountExclVat = Math.round(item.UnitPrice * item.Quantity);
+            item.AmountInclVat = Math.round(item.AmountExclVat * (1 + item.VatRate / 100));
+            item.LineTotal = item.AmountInclVat;
+        }
+
+        // ══════════════════════════════════════════════
+        // TOTALS
+        // ══════════════════════════════════════════════
+        function recalcTotals() {
+            var totalExcl = 0;
+            var totalIncl = 0;
+            items.forEach(function (item) {
+                totalExcl += item.AmountExclVat;
+                totalIncl += item.AmountInclVat;
+            });
+            document.getElementById('sumExclVat').textContent = formatNumber(totalExcl);
+            document.getElementById('sumInclVat').textContent = formatNumber(totalIncl);
+        }
+
+        // ══════════════════════════════════════════════
+        // EXPORT EXCEL
+        // ══════════════════════════════════════════════
+        function exportExcel() {
+            if (items.length === 0) { alert('Chưa có sản phẩm đề xuất'); return; }
+
+            var customerId = parseInt(document.getElementById('frm_customerId').value);
+            if (!customerId) { alert('Vui lòng lựa chọn khách hàng'); return; }
+
+            var btn = document.getElementById('btnExport');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xuất...';
+
+            var payload = {
+                CustomerId: customerId,
+                Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
+                Notes: document.getElementById('frm_notes').value || null,
+                Items: items
+            };
+
+            fetch('/Quotation/ExportExcel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('Export failed');
+                var disposition = r.headers.get('Content-Disposition');
+                var filename = 'quotation.xlsx';
+                if (disposition) {
+                    var match = disposition.match(/filename\*?=(?:UTF-8''|")([^";]+)/i);
+                    if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''));
+                }
+                return r.blob().then(function (blob) { return { blob: blob, filename: filename }; });
+            })
+            .then(function (result) {
+                var url = window.URL.createObjectURL(result.blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = result.filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(function (err) {
+                alert('Loi xuat file: ' + err.message);
+            })
+            .finally(function () {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-file-earmark-excel me-1"></i> Xuất file báo giá';
+            });
+        }
+
+        // ══════════════════════════════════════════════
+        // SUBMIT
+        // ══════════════════════════════════════════════
+        function submitForm() {
+            var customerId = parseInt(document.getElementById('frm_customerId').value);
+            if (!customerId) { alert('Vui lòng chọn khách hàng'); return; }
+            if (items.length === 0) { alert('Vui lòng thêm ít nhất 1 sản phẩm'); return; }
+
+            var btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang lưu...';
+
+            var payload = {
+                QuotationId: isEditMode ? parseInt(document.getElementById('frm_quotationId')?.value) : null,
+                RfqId: document.getElementById('frm_rfqId')?.value ? parseInt(document.getElementById('frm_rfqId').value) : null,
+                CustomerId: customerId,
+                QuotationDate: new Date().toISOString().split('T')[0],
+                ExpiryDate: null,
+                SalesPersonId: 0,
+                PaymentTerms: null,
+                TaxRate: 8,
+                Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
+                DiscountType: null,
+                DiscountValue: null,
+                Notes: document.getElementById('frm_notes').value || null,
+                InternalNotes: document.getElementById('frm_internalNotes').value || null,
+                Items: items
+            };
+
+            var url = isEditMode ? '/Quotation/Edit' : '/Quotation/Create';
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.Success && data.Data) {
+                    window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
+                } else {
+                    alert(data.Message || 'Loi luu bao gia');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cập nhật' : 'Tạo báo giá');
+                }
+            })
+            .catch(function () {
+                alert('Loi ket noi');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cập nhật' : 'Tạo báo giá');
+            });
+        }
+
+        // ══════════════════════════════════════════════
+        // HELPERS
+        // ══════════════════════════════════════════════
+        function formatNumber(n) {
+            return Math.round(n).toLocaleString('vi-VN');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(str));
+            return d.innerHTML;
+        }
+
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+    </script>
+    @Html.AntiForgeryToken()

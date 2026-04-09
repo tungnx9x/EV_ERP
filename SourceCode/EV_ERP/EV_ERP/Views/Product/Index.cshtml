@@ -7,23 +7,9 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
-        <p class="text-muted small mb-0">
-            Tổng cộng @Model.TotalCount sản phẩm
-            @if (Model.NoBarcodeCount > 0)
-            {
-                <span class="text-warning ms-2">
-                    <i class="bi bi-exclamation-triangle me-1"></i>@Model.NoBarcodeCount SP chưa có barcode
-                </span>
-            }
-        </p>
+        <p class="text-muted small mb-0">Tổng cộng @Model.TotalCount sản phẩm</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        @if (canEdit && Model.NoBarcodeCount > 0)
-        {
-            <button class="btn btn-outline-warning btn-sm" onclick="generateAllBarcodes()">
-                <i class="bi bi-upc-scan me-1"></i> Tạo barcode hàng loạt
-            </button>
-        }
         @if (canEdit)
         {
             <a href="/Product/Create" class="btn btn-primary">
@@ -95,10 +81,9 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width:40px;">#</th>
+                            <th style="width:80px;">Ảnh</th>
                             <th>Sản phẩm</th>
                             <th class="d-none d-md-table-cell">Danh mục</th>
-                            <th class="d-none d-md-table-cell">ĐVT</th>
-                            <th class="d-none d-lg-table-cell">Barcode</th>
                             <th class="d-none d-md-table-cell text-end">Giá bán</th>
                             <th class="d-none d-lg-table-cell text-end">Giá mua</th>
                             <th>Trạng thái</th>
@@ -111,6 +96,19 @@
                         {
                             <tr>
                                 <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(p.ImageUrl))
+                                    {
+                                        <img src="@p.ImageUrl" alt="@p.ProductName"
+                                             style="width:60px;height:60px;object-fit:cover;border-radius:6px;" />
+                                    }
+                                    else
+                                    {
+                                        <div style="width:44px;height:44px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">
+                                            <i class="bi bi-image text-muted" style="font-size:1.1rem;opacity:.4;"></i>
+                                        </div>
+                                    }
+                                </td>
                                 <td>
                                     <div>
                                         <a href="/Product/Detail/@p.ProductId"
@@ -126,26 +124,6 @@
                                         <span class="badge bg-info-subtle text-info-emphasis rounded-pill">
                                             @p.CategoryName
                                         </span>
-                                    }
-                                </td>
-                                <td class="d-none d-md-table-cell text-muted small">@p.UnitName</td>
-                                <td class="d-none d-lg-table-cell">
-                                    @if (p.HasBarcode)
-                                    {
-                                        <span class="small font-monospace">@p.Barcode</span>
-                                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size:0.6rem;">@p.BarcodeType</span>
-                                    }
-                                    else if (canEdit)
-                                    {
-                                        <button class="btn btn-xs btn-outline-warning"
-                                                onclick="generateBarcode(@p.ProductId)"
-                                                title="Tạo barcode">
-                                            <i class="bi bi-upc-scan me-1"></i>Tạo
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted small">—</span>
                                     }
                                 </td>
                                 <td class="d-none d-md-table-cell text-end small">
@@ -232,37 +210,6 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.Success) location.reload();
-                    else alert('Lỗi: ' + data.Message);
-                });
-        }
-
-        function generateBarcode(id) {
-            if (!confirm('Tạo mã barcode EAN-13 cho sản phẩm này?')) return;
-
-            var form = new FormData();
-            form.append('__RequestVerificationToken', getAntiForgeryToken());
-
-            fetch('/Product/GenerateBarcode/' + id, { method: 'POST', body: form })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.Success) location.reload();
-                    else alert('Lỗi: ' + data.Message);
-                });
-        }
-
-        function generateAllBarcodes() {
-            if (!confirm('Tạo barcode EAN-13 cho TẤT CẢ sản phẩm chưa có barcode?')) return;
-
-            var form = new FormData();
-            form.append('__RequestVerificationToken', getAntiForgeryToken());
-
-            fetch('/Product/GenerateBarcodesForAll', { method: 'POST', body: form })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.Success) {
-                        alert(data.Message);
-                        location.reload();
-                    }
                     else alert('Lỗi: ' + data.Message);
                 });
         }

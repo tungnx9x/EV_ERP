@@ -1,0 +1,125 @@
+using EV_ERP.Filters;
+using EV_ERP.Helpers;
+using EV_ERP.Models.Common;
+using EV_ERP.Models.ViewModels.RFQs;
+using EV_ERP.Services.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+
+namespace EV_ERP.Controllers;
+
+[RequireLogin]
+public class RfqController : Controller
+{
+    private readonly IRfqService _rfqService;
+
+    public RfqController(IRfqService rfqService)
+    {
+        _rfqService = rfqService;
+    }
+
+    private int CurrentUserId =>
+        HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.UserId;
+
+    private string CurrentRoleCode =>
+        HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.RoleCode;
+
+    private bool CanEdit => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
+
+    // ── Index ────────────────────────────────────────
+    public async Task<IActionResult> Index(
+        string? keyword, string? status, string? priority,
+        int? assignedTo, int? customerId, int page = 1)
+    {
+        var vm = await _rfqService.GetListAsync(keyword, status, priority, assignedTo, customerId, page);
+        ViewBag.CanEdit = CanEdit;
+        return View(vm);
+    }
+
+    // ── Create ───────────────────────────────────────
+    [HttpGet]
+    public async Task<IActionResult> Create()
+    {
+        if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
+
+        var vm = await _rfqService.GetFormAsync();
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create([FromBody] RfqFormViewModel model)
+    {
+        if (!CanEdit)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
+
+        var (success, error, rfqId) = await _rfqService.CreateAsync(model, CurrentUserId);
+        if (!success)
+            return Json(ApiResult<object>.Fail(error ?? "Tạo yêu cầu báo giá thất bại"));
+
+        return Json(ApiResult<object>.Ok(new { RfqId = rfqId }, "Đã tạo yêu cầu báo giá thành công"));
+    }
+
+    // ── Edit ─────────────────────────────────────────
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
+
+        var vm = await _rfqService.GetFormAsync(id);
+        if (!vm.IsEditMode)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy yêu cầu báo giá";
+            return RedirectToAction("Index");
+        }
+        if (vm.CurrentStatus != "INPROGRESS")
+        {
+            TempData["ErrorMessage"] = "Chỉ có thể sửa RFQ đang xử lý";
+            return RedirectToAction("Detail", new { id });
+        }
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit([FromBody] RfqFormViewModel model)
+    {
+        if (!CanEdit)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
+
+        var (success, error) = await _rfqService.UpdateAsync(model, CurrentUserId);
+        if (!success)
+            return Json(ApiResult<object>.Fail(error ?? "Cập nhật thất bại"));
+
+        return Json(ApiResult<object>.Ok(new { RfqId = model.RfqId }, "Đã cập nhật yêu cầu báo giá"));
+    }
+
+    // ── Detail ───────────────────────────────────────
+    [HttpGet]
+    public async Task<IActionResult> Detail(int id)
+    {
+        var vm = await _rfqService.GetDetailAsync(id);
+        if (vm == null)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy yêu cầu báo giá";
+            return RedirectToAction("Index");
+        }
+        ViewBag.CanEdit = CanEdit;
+        return View(vm);
+    }
+
+    // ── Cancel (Ajax) ────────────────────────────────
+    [HttpPost]
+    public async Task<IActionResult> Cancel(int id, [FromBody] ReasonRequest? model)
+    {
+        if (!CanEdit)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+        var (success, error) = await _rfqService.CancelAsync(id, CurrentUserId, model?.Reason);
+        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy RFQ" : error });
+    }
+}
+
+public class ReasonRequest
+{
+    public string? Reason { get; set; }
+}

@@ -1,0 +1,234 @@
+@model EV_ERP.Models.ViewModels.RFQs.RfqListViewModel
+@{
+    ViewData["Title"] = "Yêu cầu báo giá";
+    bool canEdit = ViewBag.CanEdit == true;
+    var p = Model.Paged;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <p class="text-muted small mb-0">Tổng cộng @p.TotalCount yêu cầu báo giá</p>
+    </div>
+    @if (canEdit)
+    {
+        <a href="/Rfq/Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Tạo yêu cầu BG
+        </a>
+    }
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-12 col-sm-3 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Mã RFQ, khách hàng..."
+                           value="@Model.SearchKeyword" />
+                </div>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    @foreach (var s in new[] { ("INPROGRESS","Đang xử lý"), ("COMPLETED","Hoàn tất"), ("CANCELLED","Đã hủy") })
+                    {
+                        <option value="@s.Item1" selected="@(Model.FilterStatus == s.Item1)">@s.Item2</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Độ ưu tiên</label>
+                <select name="priority" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    @foreach (var pr in new[] { ("URGENT","Khẩn cấp"), ("HIGH","Cao"), ("NORMAL","Bình thường"), ("LOW","Thấp") })
+                    {
+                        <option value="@pr.Item1" selected="@(Model.FilterPriority == pr.Item1)">@pr.Item2</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Khách hàng</label>
+                <select name="customerId" class="form-select form-select-sm">
+                    <option value="">Tất cả KH</option>
+                    @foreach (var c in Model.Customers)
+                    {
+                        <option value="@c.CustomerId" selected="@(Model.FilterCustomerId == c.CustomerId)">
+                            @c.CustomerName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
+                <a href="/Rfq" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!p.Items.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">Không tìm thấy yêu cầu báo giá nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Mã RFQ</th>
+                            <th>Khách hàng</th>
+                            <th class="d-none d-md-table-cell">Ngày YC</th>
+                            <th>Ưu tiên</th>
+                            <th class="d-none d-md-table-cell">Phân công</th>
+                            <th class="d-none d-lg-table-cell text-center">BG</th>
+                            <th>Trạng thái</th>
+                            <th style="width:90px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = (p.PageIndex - 1) * p.PageSize + 1; }
+                        @foreach (var r in p.Items)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    <a href="/Rfq/Detail/@r.RfqId"
+                                       class="fw-semibold text-decoration-none text-dark link-hover">
+                                        @r.RfqNo
+                                    </a>
+                                    @if (!string.IsNullOrEmpty(r.Description))
+                                    {
+                                        <div class="text-muted small text-truncate" style="max-width:200px;">@r.Description</div>
+                                    }
+                                </td>
+                                <td>
+                                    <div>@r.CustomerName</div>
+                                    <div class="text-muted small">@r.CustomerCode</div>
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">
+                                    @r.RequestDate.ToString("dd/MM/yyyy")
+                                </td>
+                                <td>
+                                    <span class="badge bg-@(r.PriorityBadge)-subtle text-@(r.PriorityBadge)-emphasis rounded-pill">
+                                        @r.PriorityText
+                                    </span>
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">
+                                    @(r.AssignedToName ?? "—")
+                                </td>
+                                <td class="d-none d-lg-table-cell text-center">
+                                    @if (r.QuotationCount > 0)
+                                    {
+                                        <span class="badge bg-primary rounded-pill">@r.QuotationCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">0</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-@(r.StatusBadge)-subtle text-@(r.StatusBadge)-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>
+                                        @r.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/Rfq/Detail/@r.RfqId"
+                                           class="btn btn-sm btn-outline-secondary" title="Xem">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        @if (canEdit && r.Status == "INPROGRESS")
+                                        {
+                                            <a href="/Rfq/Edit/@r.RfqId"
+                                               class="btn btn-sm btn-outline-primary" title="Sửa">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (p.TotalPages > 1)
+            {
+                <nav class="d-flex justify-content-center py-3">
+                    <ul class="pagination pagination-sm mb-0">
+                        @if (p.HasPrevious)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(p.PageIndex - 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        }
+                        @for (int pg = 1; pg <= p.TotalPages; pg++)
+                        {
+                            <li class="page-item @(pg == p.PageIndex ? "active" : "")">
+                                <a class="page-link" href="@BuildPageUrl(pg)">@pg</a>
+                            </li>
+                        }
+                        @if (p.HasNext)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(p.PageIndex + 1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        }
+    </div>
+</div>
+
+@functions {
+    string BuildPageUrl(int page)
+    {
+        var qs = new Dictionary<string, string?> {
+            ["keyword"] = Model.SearchKeyword,
+            ["status"] = Model.FilterStatus,
+            ["priority"] = Model.FilterPriority,
+            ["assignedTo"] = Model.FilterAssignedTo?.ToString(),
+            ["customerId"] = Model.FilterCustomerId?.ToString(),
+            ["page"] = page.ToString()
+        };
+        return "/Rfq?" + string.Join("&", qs.Where(kv => kv.Value != null).Select(kv => $"{kv.Key}={kv.Value}"));
+    }
+}
+
+<style>
+    .link-hover:hover { color: #2563eb !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #0369a1 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    .text-warning-emphasis { color: #854d0e !important; }
+    .bg-primary-subtle { background-color: #dbeafe !important; }
+    .text-primary-emphasis { color: #1e40af !important; }
+</style>

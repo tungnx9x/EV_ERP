@@ -21,16 +21,13 @@ namespace EV_ERP.Models.ViewModels.Products
         public string ProductCode { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
         public string? CategoryName { get; set; }
-        public string UnitName { get; set; } = string.Empty;
-        public string? Barcode { get; set; }
-        public string? BarcodeType { get; set; }
+        public string? ImageUrl { get; set; }
         public decimal? DefaultSalePrice { get; set; }
         public decimal? DefaultPurchasePrice { get; set; }
         public int MinStockLevel { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
 
-        public bool HasBarcode => !string.IsNullOrEmpty(Barcode);
         public string StatusBadge => IsActive ? "success" : "secondary";
         public string StatusText => IsActive ? "Hoạt động" : "Vô hiệu";
     }

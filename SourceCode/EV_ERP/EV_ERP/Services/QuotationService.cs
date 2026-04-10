@@ -16,12 +16,15 @@ public class QuotationService : IQuotationService
     private readonly IUnitOfWork _uow;
     private readonly ILogger<QuotationService> _logger;
     private readonly IWebHostEnvironment _env;
+    private readonly ISalesOrderService _salesOrderService;
 
-    public QuotationService(IUnitOfWork uow, ILogger<QuotationService> logger, IWebHostEnvironment env)
+    public QuotationService(IUnitOfWork uow, ILogger<QuotationService> logger, IWebHostEnvironment env,
+        ISalesOrderService salesOrderService)
     {
         _uow = uow;
         _logger = logger;
         _env = env;
+        _salesOrderService = salesOrderService;
     }
 
     // ══════════════════════════════════════════════════
@@ -453,6 +456,12 @@ public class QuotationService : IQuotationService
         await _uow.SaveChangesAsync();
 
         _logger.LogInformation("Quotation approved: {No} by UserId={UserId}", q.QuotationNo, userId);
+
+        // Auto-create Sales Order
+        var (soSuccess, soError, soId) = await _salesOrderService.CreateFromQuotationAsync(quotationId, userId);
+        if (!soSuccess)
+            _logger.LogWarning("Failed to auto-create SO from Quotation {No}: {Error}", q.QuotationNo, soError);
+
         return (true, null);
     }
 

@@ -1,0 +1,853 @@
+@model EV_ERP.Models.ViewModels.SalesOrders.SalesOrderDetailViewModel
+@{
+    ViewData["Title"] = Model.SalesOrderNo;
+    bool canEdit = ViewBag.CanEdit == true;
+    bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "COMPLETED";
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="/SalesOrder" class="btn btn-sm btn-light border">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h5 class="mb-0 fw-bold">@Model.SalesOrderNo</h5>
+            <div class="text-muted small">
+                <span class="badge bg-@(Model.StatusBadge)-subtle text-@(Model.StatusBadge)-emphasis rounded-pill">
+                    <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>
+                    @Model.StatusText
+                </span>
+                @if (Model.QuotationNo != null)
+                {
+                    <span class="ms-2">
+                        <i class="bi bi-file-earmark-text me-1"></i>BG:
+                        <a href="/Quotation/Detail/@Model.QuotationId">@Model.QuotationNo</a>
+                    </span>
+                }
+                @if (Model.RfqNo != null)
+                {
+                    <span class="ms-2">
+                        <i class="bi bi-clipboard-check me-1"></i>RFQ:
+                        <a href="/Rfq/Detail/@Model.RfqId">@Model.RfqNo</a>
+                    </span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Action buttons per status -->
+    <div class="d-flex gap-1 flex-wrap">
+        @if (canEdit)
+        {
+            @if (Model.Status == "DRAFT")
+            {
+                <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Xuat DNTU
+                </a>
+                <button class="btn btn-sm btn-primary" onclick="showSubmitWaitModal()">
+                    <i class="bi bi-send me-1"></i> Gui de nghi tam ung
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
+                    <i class="bi bi-x-circle me-1"></i> Huy
+                </button>
+            }
+            @if (Model.Status == "WAIT")
+            {
+                <button class="btn btn-sm btn-info text-white" onclick="showBuyingModal()">
+                    <i class="bi bi-cart3 me-1"></i> Bat dau mua hang
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
+                    <i class="bi bi-x-circle me-1"></i> Huy
+                </button>
+            }
+            @if (Model.Status == "BUYING")
+            {
+                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xac nhan hang da ve kho?')">
+                    <i class="bi bi-box-seam me-1"></i> Xac nhan nhan hang
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
+                    <i class="bi bi-x-circle me-1"></i> Huy
+                </button>
+            }
+            @if (Model.Status == "RECEIVED")
+            {
+                <button class="btn btn-sm btn-info text-white" onclick="doSimpleAction('StartDelivering', 'Xac nhan ban giao cho van chuyen?')">
+                    <i class="bi bi-truck me-1"></i> Giao cho van chuyen
+                </button>
+            }
+            @if (Model.Status == "DELIVERING")
+            {
+                <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xac nhan khach hang da nhan hang?')">
+                    <i class="bi bi-check-circle me-1"></i> KH da nhan hang
+                </button>
+            }
+            @if (Model.Status == "DELIVERED")
+            {
+                <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
+                    <i class="bi bi-check-all me-1"></i> Hoan tat quyet toan
+                </button>
+            }
+        }
+    </div>
+</div>
+
+<!-- Status timeline -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex align-items-center gap-1 flex-wrap" style="font-size:0.78rem;">
+            @{
+                var steps = new[] {
+                    ("DRAFT", "Nhap"), ("WAIT", "Cho tam ung"), ("BUYING", "Dang mua"),
+                    ("RECEIVED", "Nhan hang"), ("DELIVERING", "Dang giao"),
+                    ("DELIVERED", "Da giao"), ("COMPLETED", "Hoan tat")
+                };
+                var statusOrder = steps.Select(s => s.Item1).ToList();
+                var currentIdx = statusOrder.IndexOf(Model.Status);
+                bool isCancelled = Model.Status == "CANCELLED";
+            }
+            @for (int i = 0; i < steps.Length; i++)
+            {
+                var (code, label) = steps[i];
+                var done = !isCancelled && currentIdx >= i;
+                var active = !isCancelled && currentIdx == i;
+                <div class="d-flex align-items-center gap-1">
+                    <span class="badge @(active ? "bg-primary" : done ? "bg-success" : "bg-light text-muted border")">
+                        @if (done && !active) { <i class="bi bi-check-lg"></i> }
+                        @label
+                    </span>
+                    @if (i < steps.Length - 1)
+                    {
+                        <i class="bi bi-chevron-right text-muted" style="font-size:0.6rem;"></i>
+                    }
+                </div>
+            }
+            @if (isCancelled)
+            {
+                <span class="badge bg-danger ms-2">Da huy</span>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- LEFT: Info cards -->
+    <div class="col-lg-4">
+        <!-- Customer info -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    Thong tin khach hang
+                </h6>
+                <div class="mb-2">
+                    <div class="fw-semibold">@Model.CustomerName</div>
+                    <div class="text-muted small">@Model.CustomerCode</div>
+                </div>
+                @if (Model.ContactName != null)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-1 small">
+                        <i class="bi bi-person text-muted" style="width:16px;"></i>
+                        <span>@Model.ContactName</span>
+                    </div>
+                }
+                @if (Model.ContactPhone != null)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-1 small">
+                        <i class="bi bi-telephone text-muted" style="width:16px;"></i>
+                        <span>@Model.ContactPhone</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Order info -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    Thong tin don hang
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <div class="text-muted">Ngay tao</div>
+                        <div class="fw-semibold">@Model.OrderDate.ToString("dd/MM/yyyy")</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Phu trach</div>
+                        <div class="fw-semibold">@Model.SalesPersonName</div>
+                    </div>
+                    @if (Model.Status != "DRAFT" && Model.CustomerPoNo != null)
+                    {
+                        <div class="col-6">
+                            <div class="text-muted">Ma PO KH</div>
+                            <div class="fw-semibold">@Model.CustomerPoNo</div>
+                        </div>
+                    }
+                    @if (Model.Status != "DRAFT" && Model.CustomerPoFile != null)
+                    {
+                        <div class="col-6">
+                            <div class="text-muted">File PO KH</div>
+                            <div><a href="@Model.CustomerPoFile" target="_blank" class="text-primary"><i class="bi bi-file-earmark-arrow-down me-1"></i>Tai xuong</a></div>
+                        </div>
+                    }
+                    @if (Model.PaymentDueDate.HasValue)
+                    {
+                        <div class="col-6">
+                            <div class="text-muted">Han thanh toan</div>
+                            <div class="fw-semibold">@Model.PaymentDueDate.Value.ToString("dd/MM/yyyy")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- PO KH editable (DRAFT only) -->
+        @if (canEdit && Model.Status == "DRAFT")
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-primary">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-file-earmark-text me-1"></i> PO Khach hang
+                    </h6>
+                    <form id="draftInfoForm" enctype="multipart/form-data">
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold mb-1">Ma PO khach hang</label>
+                            <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
+                                   placeholder="Nhap ma PO..." value="@Model.CustomerPoNo" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold mb-1">File PO khach hang</label>
+                            @if (Model.CustomerPoFile != null)
+                            {
+                                <div class="mb-1">
+                                    <a href="@Model.CustomerPoFile" target="_blank" class="text-primary small">
+                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>File hien tai
+                                    </a>
+                                </div>
+                            }
+                            <input type="file" id="draftCustomerPoFile" class="form-control form-control-sm"
+                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
+                            <div class="form-text" style="font-size:0.7rem;">PDF, anh, Word, Excel (toi da 10MB)</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary w-100" onclick="saveDraftInfo()">
+                            <i class="bi bi-check-lg me-1"></i> Luu thong tin PO
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- Advance info -->
+        @if (Model.AdvanceAmount > 0)
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-cash-stack me-1"></i> Tam ung
+                    </h6>
+                    <div class="row g-2 small">
+                        <div class="col-6">
+                            <div class="text-muted">So tien</div>
+                            <div class="fw-bold text-warning">@Model.AdvanceAmount?.ToString("N0") @Model.Currency</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted">Trang thai</div>
+                            <div class="fw-semibold">@(Model.AdvanceStatus ?? "—")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Vendor / Buying info -->
+        @if (showBuyingInfo)
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-info">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-cart3 me-1"></i> Thong tin mua hang
+                    </h6>
+                    <div class="row g-2 small">
+                        <div class="col-12">
+                            <div class="text-muted">Nha cung cap</div>
+                            <div class="fw-semibold">@(Model.VendorName ?? "—")
+                                @if (Model.VendorCode != null) { <span class="text-muted">(@Model.VendorCode)</span> }
+                            </div>
+                        </div>
+                        @if (Model.ExpectedReceiveDate.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Du kien ve kho</div>
+                                <div class="fw-semibold">@Model.ExpectedReceiveDate.Value.ToString("dd/MM/yyyy")</div>
+                            </div>
+                        }
+                        @if (Model.BuyingAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Bat dau mua</div>
+                                <div class="fw-semibold">@Model.BuyingAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                        @if (Model.ReceivedAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Nhan hang</div>
+                                <div class="fw-semibold text-success">@Model.ReceivedAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.BuyingNotes))
+                        {
+                            <div class="col-12">
+                                <div class="text-muted">Ghi chu mua</div>
+                                <div style="white-space:pre-wrap;">@Model.BuyingNotes</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Delivery timestamps -->
+        @if (Model.DeliveringAt.HasValue || Model.DeliveredAt.HasValue || Model.CompletedAt.HasValue)
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-clock-history me-1"></i> Tien trinh
+                    </h6>
+                    <div class="row g-2 small">
+                        @if (Model.DeliveringAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Giao van chuyen</div>
+                                <div class="fw-semibold">@Model.DeliveringAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                        @if (Model.DeliveredAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">KH nhan hang</div>
+                                <div class="fw-semibold text-success">@Model.DeliveredAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                        @if (Model.CompletedAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Hoan tat</div>
+                                <div class="fw-semibold text-success">@Model.CompletedAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Settlement -->
+        @if (Model.Status == "COMPLETED" && Model.ActualCost.HasValue)
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-calculator me-1"></i> Quyet toan
+                    </h6>
+                    <div class="row g-2 small">
+                        <div class="col-6">
+                            <div class="text-muted">Chi phi thuc te</div>
+                            <div class="fw-bold">@Model.ActualCost?.ToString("N0") @Model.Currency</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.SettlementNotes))
+                        {
+                            <div class="col-12">
+                                <div class="text-muted">Ghi chu</div>
+                                <div>@Model.SettlementNotes</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Cancel info -->
+        @if (Model.Status == "CANCELLED")
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-danger">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-x-circle me-1"></i> Thong tin huy
+                    </h6>
+                    <div class="small">
+                        <div class="text-muted">Huy luc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
+                        @if (!string.IsNullOrEmpty(Model.CancelReason))
+                        {
+                            <div class="mt-1">Ly do: @Model.CancelReason</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Notes -->
+        @if (!string.IsNullOrEmpty(Model.Notes))
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                        Ghi chu
+                    </h6>
+                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
+                </div>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Model.InternalNotes))
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-lock me-1"></i> Ghi chu noi bo
+                    </h6>
+                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- RIGHT: Items + Totals -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom py-2">
+                <h6 class="mb-0 fw-semibold small text-uppercase">
+                    <i class="bi bi-box-seam me-1"></i> Chi tiet san pham
+                    <span class="badge bg-primary rounded-pill ms-1">@Model.Items.Count</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size:0.8rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:30px;" class="text-center">STT</th>
+                                <th>San pham</th>
+                                <th>DVT</th>
+                                <th class="text-end">SL</th>
+                                <th class="text-end bg-success-subtle">Don gia ban</th>
+                                <th class="text-end bg-success-subtle">Thanh tien</th>
+                                @if (showBuyingInfo)
+                                {
+                                    <th class="text-end bg-warning-subtle">Gia mua</th>
+                                    <th class="text-end bg-warning-subtle">Chi phi</th>
+                                }
+                                <th class="d-none d-md-table-cell">Ghi chu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ int idx = 1; }
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td class="text-center text-muted">@(idx++)</td>
+                                    <td class="fw-semibold">@item.ProductName</td>
+                                    <td>@item.UnitName</td>
+                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
+                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
+                                    <td class="text-end fw-semibold text-success">@item.LineTotal.ToString("N0")</td>
+                                    @if (showBuyingInfo)
+                                    {
+                                        <td class="text-end">@(item.PurchasePrice?.ToString("N0") ?? "—")</td>
+                                        <td class="text-end text-warning-emphasis">@(item.LineCost?.ToString("N0") ?? "—")</td>
+                                    }
+                                    <td class="d-none d-md-table-cell text-muted small">@(item.Notes ?? "")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial summary -->
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                            <i class="bi bi-cash me-1"></i> Gia tri ban
+                        </h6>
+                        <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
+                            <tr>
+                                <td class="text-muted">Tam tinh</td>
+                                <td class="text-end">@Model.SubTotal.ToString("N0")</td>
+                            </tr>
+                            @if (Model.DiscountAmount > 0)
+                            {
+                                <tr>
+                                    <td class="text-muted">Chiet khau</td>
+                                    <td class="text-end text-danger">-@Model.DiscountAmount.ToString("N0")</td>
+                                </tr>
+                            }
+                            <tr>
+                                <td class="text-muted">Thue (@Model.TaxRate%)</td>
+                                <td class="text-end">@Model.TaxAmount.ToString("N0")</td>
+                            </tr>
+                            <tr class="fw-bold border-top">
+                                <td>Tong ban</td>
+                                <td class="text-end text-primary fs-6">@Model.TotalAmount.ToString("N0") @Model.Currency</td>
+                            </tr>
+                        </table>
+                    </div>
+                    @if (showBuyingInfo)
+                    {
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                                <i class="bi bi-calculator me-1"></i> Chi phi & Loi nhuan
+                            </h6>
+                            <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
+                                <tr>
+                                    <td class="text-muted">Chi phi mua</td>
+                                    <td class="text-end">@(Model.PurchaseCost?.ToString("N0") ?? "—")</td>
+                                </tr>
+                                <tr class="fw-bold border-top">
+                                    <td>Loi nhuan</td>
+                                    <td class="text-end @(Model.ProfitAmount >= 0 ? "text-success" : "text-danger")">
+                                        @Model.ProfitAmount.ToString("N0") @Model.Currency
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODALS                                             -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<!-- Submit Wait Modal (DRAFT → WAIT) -->
+<div class="modal fade" id="submitWaitModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Gui de nghi tam ung</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Ma PO khach hang</label>
+                    <input type="text" id="inputCustomerPoNo" class="form-control form-control-sm"
+                           placeholder="Nhap ma PO cua khach hang..." value="@Model.CustomerPoNo" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">So tien tam ung</label>
+                    <input type="number" id="inputAdvanceAmount" class="form-control form-control-sm"
+                           placeholder="0" value="@(Model.AdvanceAmount ?? 0)" />
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Huy</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="confirmSubmitWait()">
+                    <i class="bi bi-send me-1"></i> Gui
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Buying Modal (WAIT → BUYING) -->
+<div class="modal fade" id="buyingModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Bat dau mua hang</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Nha cung cap <span class="text-danger">*</span></label>
+                        <select id="inputVendorId" class="form-select form-select-sm">
+                            <option value="">-- Chon NCC --</option>
+                            @foreach (var v in Model.Vendors)
+                            {
+                                <option value="@v.VendorId" selected="@(Model.VendorId == v.VendorId)">@v.VendorName (@v.VendorCode)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Du kien hang ve kho</label>
+                        <input type="date" id="inputExpectedReceiveDate" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Ghi chu mua hang</label>
+                        <textarea id="inputBuyingNotes" class="form-control form-control-sm" rows="2"
+                                  placeholder="Ghi chu..."></textarea>
+                    </div>
+                </div>
+
+                <h6 class="fw-semibold small mb-2">Gia mua tung san pham</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>San pham</th>
+                                <th class="text-end" style="width:80px;">SL</th>
+                                <th class="text-end" style="width:120px;">Gia ban</th>
+                                <th class="text-end" style="width:140px;">Gia mua (nhap)</th>
+                                <th class="text-end" style="width:120px;">Chi phi dong</th>
+                            </tr>
+                        </thead>
+                        <tbody id="buyingItemsBody">
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.ProductName</td>
+                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
+                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm text-end purchase-price-input"
+                                               data-item-id="@item.SOItemId" data-qty="@item.Quantity"
+                                               value="@(item.PurchasePrice ?? 0)" min="0" />
+                                    </td>
+                                    <td class="text-end line-cost-cell">0</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr class="fw-bold">
+                                <td colspan="4" class="text-end">Tong chi phi mua:</td>
+                                <td class="text-end" id="totalPurchaseCost">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Huy</button>
+                <button type="button" class="btn btn-sm btn-info text-white" onclick="confirmBuying()">
+                    <i class="bi bi-cart3 me-1"></i> Xac nhan mua hang
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Modal (DELIVERED → COMPLETED) -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Hoan tat quyet toan</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Chi phi thuc te</label>
+                    <input type="number" id="inputActualCost" class="form-control form-control-sm"
+                           placeholder="0" value="@(Model.PurchaseCost ?? 0)" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Ghi chu quyet toan</label>
+                    <textarea id="inputSettlementNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Hoan ung / thanh toan bo sung..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Huy</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="confirmComplete()">
+                    <i class="bi bi-check-all me-1"></i> Hoan tat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Huy don hang</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label small fw-semibold">Ly do huy</label>
+                <textarea id="cancelReason" class="form-control form-control-sm" rows="3"
+                          placeholder="Nhap ly do..."></textarea>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Dong</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="confirmCancel()">
+                    <i class="bi bi-x-circle me-1"></i> Huy don hang
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #0369a1 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
+    .text-warning-emphasis { color: #854d0e !important; }
+    .bg-primary-subtle { background-color: #dbeafe !important; }
+    .text-primary-emphasis { color: #1e40af !important; }
+</style>
+
+@Html.AntiForgeryToken()
+
+<script>
+    var soId = @Model.SalesOrderId;
+
+    // ── Helpers ──────────────────────────────────────
+    function postAction(url, body, callback) {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+            },
+            body: body ? JSON.stringify(body) : null
+        })
+        .then(function(r) { return r.json(); })
+        .then(callback);
+    }
+
+    function doSimpleAction(action, msg) {
+        if (!confirm(msg)) return;
+        postAction('/SalesOrder/' + action + '/' + soId, null, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Loi');
+        });
+    }
+
+    // ── Save Draft Info (PO KH + file) ────────────────
+    function saveDraftInfo() {
+        var formData = new FormData();
+        formData.append('customerPoNo', document.getElementById('draftCustomerPoNo').value.trim());
+        var fileInput = document.getElementById('draftCustomerPoFile');
+        if (fileInput.files.length > 0) {
+            formData.append('customerPoFile', fileInput.files[0]);
+        }
+
+        var btn = event.target.closest('button');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang luu...';
+
+        fetch('/SalesOrder/UpdateDraftInfo/' + soId, {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+            },
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.Success) location.reload();
+            else { alert(data.Message || 'Loi'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Luu thong tin PO'; }
+        })
+        .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Luu thong tin PO'; });
+    }
+
+    // ── DRAFT → WAIT ────────────────────────────────
+    function showSubmitWaitModal() {
+        new bootstrap.Modal(document.getElementById('submitWaitModal')).show();
+    }
+
+    function confirmSubmitWait() {
+        var body = {
+            CustomerPoNo: document.getElementById('inputCustomerPoNo').value.trim(),
+            AdvanceAmount: parseFloat(document.getElementById('inputAdvanceAmount').value) || 0
+        };
+        postAction('/SalesOrder/SubmitWait/' + soId, body, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Loi');
+        });
+    }
+
+    // ── WAIT → BUYING ───────────────────────────────
+    function showBuyingModal() {
+        recalcBuying();
+        new bootstrap.Modal(document.getElementById('buyingModal')).show();
+    }
+
+    function recalcBuying() {
+        var total = 0;
+        document.querySelectorAll('.purchase-price-input').forEach(function (input) {
+            var price = parseFloat(input.value) || 0;
+            var qty = parseFloat(input.dataset.qty) || 0;
+            var cost = price * qty;
+            total += cost;
+            input.closest('tr').querySelector('.line-cost-cell').textContent = cost.toLocaleString('vi-VN');
+        });
+        document.getElementById('totalPurchaseCost').textContent = total.toLocaleString('vi-VN');
+    }
+
+    document.querySelectorAll('.purchase-price-input').forEach(function (input) {
+        input.addEventListener('input', recalcBuying);
+    });
+
+    function confirmBuying() {
+        var vendorId = parseInt(document.getElementById('inputVendorId').value);
+        if (!vendorId) { alert('Vui long chon nha cung cap'); return; }
+
+        var items = [];
+        document.querySelectorAll('.purchase-price-input').forEach(function (input) {
+            items.push({
+                SOItemId: parseInt(input.dataset.itemId),
+                PurchasePrice: parseFloat(input.value) || 0
+            });
+        });
+
+        var body = {
+            VendorId: vendorId,
+            ExpectedReceiveDate: document.getElementById('inputExpectedReceiveDate').value || null,
+            BuyingNotes: document.getElementById('inputBuyingNotes').value.trim(),
+            Items: items
+        };
+
+        postAction('/SalesOrder/StartBuying/' + soId, body, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Loi');
+        });
+    }
+
+    // ── DELIVERED → COMPLETED ───────────────────────
+    function showCompleteModal() {
+        new bootstrap.Modal(document.getElementById('completeModal')).show();
+    }
+
+    function confirmComplete() {
+        var body = {
+            ActualCost: parseFloat(document.getElementById('inputActualCost').value) || null,
+            SettlementNotes: document.getElementById('inputSettlementNotes').value.trim()
+        };
+        postAction('/SalesOrder/Complete/' + soId, body, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Loi');
+        });
+    }
+
+    // ── Cancel ──────────────────────────────────────
+    function doCancel() {
+        document.getElementById('cancelReason').value = '';
+        new bootstrap.Modal(document.getElementById('cancelModal')).show();
+    }
+
+    function confirmCancel() {
+        var reason = document.getElementById('cancelReason').value.trim();
+        postAction('/SalesOrder/Cancel/' + soId, { Reason: reason }, function (data) {
+            if (data.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
+                location.reload();
+            } else {
+                alert(data.Message || 'Loi');
+            }
+        });
+    }
+</script>

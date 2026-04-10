@@ -1,4 +1,4 @@
-@model EV_ERP.Models.ViewModels.Quotations.QuotationFormViewModel
+﻿@model EV_ERP.Models.ViewModels.Quotations.QuotationFormViewModel
 @{
     var action = Model.IsEditMode ? "Edit" : "Create";
     var title = Model.IsEditMode
@@ -30,6 +30,7 @@
                 {
                     <input type="hidden" id="frm_rfqId" value="@Model.RfqId" />
                 }
+                <input type="hidden" id="frm_salesPersonId" value="@Model.SalesPersonId" />
                 <div class="row">
                     <div class="col-lg-6">
                         <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
@@ -131,10 +132,7 @@
         </div>
 
         <!-- Actions -->
-        <div class="d-flex gap-2 justify-content-between mb-4">
-            <button type="button" class="btn btn-outline-success" onclick="exportExcel()" id="btnExport">
-                <i class="bi bi-file-earmark-excel me-1"></i> Xuất file báo giá
-            </button>
+        <div class="d-flex gap-2 justify-content-end mb-4">
             <div class="d-flex gap-2">
                 <a href="/Quotation" class="btn btn-outline-secondary">Hủy</a>
                 <button type="button" class="btn btn-primary" onclick="submitForm()" id="btnSubmit">
@@ -583,14 +581,14 @@
                 CustomerId: customerId,
                 QuotationDate: new Date().toISOString().split('T')[0],
                 ExpiryDate: null,
-                SalesPersonId: 0,
+                SalesPersonId: parseInt(document.getElementById('frm_salesPersonId').value) || 0,
                 PaymentTerms: null,
                 TaxRate: 8,
                 Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
                 DiscountType: null,
                 DiscountValue: null,
-                Notes: document.getElementById('frm_notes').value || null,
-                InternalNotes: document.getElementById('frm_internalNotes').value || null,
+                //Notes: document.getElementById('frm_notes').value || null,
+                //InternalNotes: document.getElementById('frm_internalNotes').value || null,
                 Items: items
             };
 
@@ -608,13 +606,13 @@
                 if (data.Success && data.Data) {
                     window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
                 } else {
-                    alert(data.Message || 'Loi luu bao gia');
+                    alert(data.Message || 'Lỗi lưu báo giá');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cập nhật' : 'Tạo báo giá');
                 }
             })
             .catch(function () {
-                alert('Loi ket noi');
+                alert('Lỗi kết nối');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cập nhật' : 'Tạo báo giá');
             });

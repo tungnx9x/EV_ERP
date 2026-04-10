@@ -5,7 +5,8 @@
       "Bash(data\")",
       "Bash(dotnet add:*)",
       "Bash(dotnet script eval ':*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

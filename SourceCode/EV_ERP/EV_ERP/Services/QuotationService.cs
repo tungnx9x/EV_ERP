@@ -108,18 +108,28 @@ public class QuotationService : IQuotationService
         if (!quotationId.HasValue || quotationId <= 0)
         {
             var code = await GenerateQuotationNoAsync();
-
-            return new QuotationFormViewModel
+            var vm = new QuotationFormViewModel
             {
                 RfqId = rfqId,
                 Customers = customers,
                 SalesPersons = salesPersons,
                 QuotationNo = code
             };
+
+            if (rfqId.HasValue && rfqId > 0)
+            {
+                var rfq = await _uow.Repository<RFQ>().Query()
+                    .FirstOrDefaultAsync(r => r.RfqId == rfqId.Value);
+                if (rfq != null)
+                    vm.CustomerId = rfq.CustomerId;
+            }
+
+            return vm;
         }
 
         var q = await _uow.Repository<Quotation>().Query()
             .Include(x => x.Items.OrderBy(i => i.SortOrder))
+                .ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(x => x.QuotationId == quotationId.Value);
 
         if (q == null)
@@ -148,6 +158,7 @@ public class QuotationService : IQuotationService
                 QuotationItemId = i.QuotationItemId,
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
+                ImageUrl = i.Product.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
@@ -183,7 +194,7 @@ public class QuotationService : IQuotationService
             QuotationDate = model.QuotationDate,
             ExpiryDate = model.ExpiryDate,
             Status = "DRAFT",
-            SalesPersonId = model.SalesPersonId,
+            SalesPersonId = model.SalesPersonId > 0 ? model.SalesPersonId : createdBy,
             PaymentTerms = model.PaymentTerms?.Trim(),
             TaxRate = model.TaxRate,
             DiscountType = model.DiscountType,
@@ -337,6 +348,7 @@ public class QuotationService : IQuotationService
             .Include(x => x.AmendFrom)
             .Include(x => x.SalesOrder)
             .Include(x => x.Items.OrderBy(i => i.SortOrder))
+                .ThenInclude(i => i.Product)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.QuotationId == quotationId);
 
@@ -394,6 +406,7 @@ public class QuotationService : IQuotationService
                 QuotationItemId = i.QuotationItemId,
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
+                ImageUrl = i.Product.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
@@ -572,6 +585,35 @@ public class QuotationService : IQuotationService
     // ══════════════════════════════════════════════════
     // EXPORT EXCEL
     // ══════════════════════════════════════════════════
+    public async Task<(byte[] FileBytes, string FileName)?> ExportExcelByIdAsync(int quotationId)
+    {
+        var q = await _uow.Repository<Quotation>().Query()
+            .Include(x => x.Customer)
+            .Include(x => x.Items.OrderBy(i => i.SortOrder))
+            .FirstOrDefaultAsync(x => x.QuotationId == quotationId);
+
+        if (q == null || q.Items.Count == 0) return null;
+
+        var request = new QuotationExportRequest
+        {
+            CustomerId = q.CustomerId,
+            Notes = q.Notes,
+            Items = q.Items.Select(i => new QuotationItemFormModel
+            {
+                ProductName = i.ProductName,
+                UnitName = i.UnitName,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                AmountExclVat = i.LineTotal,
+                VatRate = q.TaxRate,
+                AmountInclVat = Math.Round(i.LineTotal * (1 + q.TaxRate / 100m), 0),
+                Notes = i.Notes
+            }).ToList()
+        };
+
+        return await ExportExcelAsync(request);
+    }
+
     public async Task<(byte[] FileBytes, string FileName)?> ExportExcelAsync(QuotationExportRequest request)
     {
         if (request.Items.Count == 0) return null;

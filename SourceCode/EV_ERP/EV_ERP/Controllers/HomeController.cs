@@ -3,6 +3,8 @@ using EV_ERP.Helpers;
 using EV_ERP.Models;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
+using EV_ERP.Models.Entities.Products;
+using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.Dashboard;
 using EV_ERP.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -78,6 +80,39 @@ namespace EV_ERP.Controllers
 
             vm.RoleLabels = usersByRole.Select(g => g.Label).ToList();
             vm.RoleCounts = usersByRole.Select(g => g.Count).ToList();
+
+            // ── Business dashboard data (all roles) ──
+            var now = DateTime.Now;
+            var monthStart = new DateTime(now.Year, now.Month, 1);
+
+            vm.TotalQuotationsThisMonth = await _uow.Repository<Quotation>().Query()
+                .CountAsync(q => q.CreatedAt >= monthStart);
+
+            vm.TotalQuotationsInProgress = await _uow.Repository<Quotation>().Query()
+                .CountAsync(q => q.Status == "DRAFT" || q.Status == "SENT");
+
+            vm.TotalProducts = await _uow.Repository<Product>().Query()
+                .CountAsync(p => p.IsActive);
+
+            var quotationsByUser = await _uow.Repository<Quotation>().Query()
+                .Include(q => q.SalesPerson)
+                .GroupBy(q => q.SalesPerson.FullName)
+                .Select(g => new { Label = g.Key, Count = g.Count() })
+                .OrderByDescending(g => g.Count)
+                .ToListAsync();
+
+            vm.QuotationByUserLabels = quotationsByUser.Select(g => g.Label).ToList();
+            vm.QuotationByUserCounts = quotationsByUser.Select(g => g.Count).ToList();
+
+            var rfqByCustomer = await _uow.Repository<RFQ>().Query()
+                .Include(r => r.Customer)
+                .GroupBy(r => r.Customer.CustomerName)
+                .Select(g => new { Label = g.Key, Count = g.Count() })
+                .OrderByDescending(g => g.Count)
+                .ToListAsync();
+
+            vm.RfqByCustomerLabels = rfqByCustomer.Select(g => g.Label).ToList();
+            vm.RfqByCustomerCounts = rfqByCustomer.Select(g => g.Count).ToList();
 
             return View(vm);
         }

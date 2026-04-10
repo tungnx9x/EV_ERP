@@ -13,11 +13,13 @@ public class RfqService : IRfqService
 {
     private readonly IUnitOfWork _uow;
     private readonly ILogger<RfqService> _logger;
+    private readonly string _storageRoot;
 
-    public RfqService(IUnitOfWork uow, ILogger<RfqService> logger)
+    public RfqService(IUnitOfWork uow, ILogger<RfqService> logger, IConfiguration config, IWebHostEnvironment env)
     {
         _uow = uow;
         _logger = logger;
+        _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
     }
 
     // ══════════════════════════════════════════════════
@@ -109,10 +111,12 @@ public class RfqService : IRfqService
 
         if (!rfqId.HasValue || rfqId <= 0)
         {
+            var rfqNo = await GenerateRfqNoAsync();
             return new RfqFormViewModel
             {
                 Customers = customers,
-                Users = users
+                Users = users,
+                RfqNo = rfqNo
             };
         }
 
@@ -284,6 +288,31 @@ public class RfqService : IRfqService
     }
 
     // ══════════════════════════════════════════════════
+    // IMAGE UPLOAD
+    // ══════════════════════════════════════════════════
+    public async Task<string?> UploadImageAsync(IFormFile file)
+    {
+        if (file == null || file.Length == 0) return null;
+
+        var ext = Path.GetExtension(file.FileName).ToLower();
+        if (!new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" }.Contains(ext)) return null;
+
+        const long maxBytes = 5 * 1024 * 1024;
+        if (file.Length > maxBytes) return null;
+
+        var dir = Path.Combine(_storageRoot, "RFQ", "Images");
+        Directory.CreateDirectory(dir);
+
+        var fileName = $"rfq-img-{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(dir, fileName);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"/uploads/RFQ/Images/{fileName}";
+    }
+
+    // ══════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ══════════════════════════════════════════════════
     private async Task<string> GenerateRfqNoAsync()
@@ -319,7 +348,8 @@ public class RfqService : IRfqService
     private async Task<List<UserOption>> GetUserOptionsAsync()
     {
         return await _uow.Repository<User>().Query()
-            .Where(u => u.IsActive)
+            .Include(u => u.Role)
+            .Where(u => u.IsActive && u.Role.RoleCode == "SALES")
             .OrderBy(u => u.FullName)
             .Select(u => new UserOption
             {

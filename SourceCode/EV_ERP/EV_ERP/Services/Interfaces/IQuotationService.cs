@@ -32,6 +32,7 @@ public interface IQuotationService
 
     // ── Export Excel ───────────────────────────────────
     Task<(byte[] FileBytes, string FileName)?> ExportExcelAsync(QuotationExportRequest request);
+    Task<(byte[] FileBytes, string FileName)?> ExportExcelByIdAsync(int quotationId);
 
     // ── Product search (Ajax) ────────────────────────
     Task<List<ProductSearchResult>> SearchProductsAsync(string keyword, int maxResults = 10);

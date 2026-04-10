@@ -10,13 +10,13 @@ namespace EV_ERP.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly ILogger<ProductService> _logger;
-        private readonly IWebHostEnvironment _env;
+        private readonly string _storageRoot;
 
-        public ProductService(IUnitOfWork uow, ILogger<ProductService> logger, IWebHostEnvironment env)
+        public ProductService(IUnitOfWork uow, ILogger<ProductService> logger, IConfiguration config, IWebHostEnvironment env)
         {
             _uow = uow;
             _logger = logger;
-            _env = env;
+            _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         }
 
         // ── List ─────────────────────────────────────────
@@ -572,7 +572,7 @@ namespace EV_ERP.Services
             if (file.Length > maxBytes)
                 return null;
 
-            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "products");
+            var uploadsDir = Path.Combine(_storageRoot, "ProductImages");
             Directory.CreateDirectory(uploadsDir);
 
             var ext = Path.GetExtension(file.FileName).ToLower();
@@ -582,14 +582,19 @@ namespace EV_ERP.Services
             await using var stream = new FileStream(filePath, FileMode.Create);
             await file.CopyToAsync(stream);
 
-            return $"/uploads/products/{fileName}";
+            return $"/uploads/ProductImages/{fileName}";
         }
 
         private void DeleteProductImage(string? imageUrl)
         {
             if (string.IsNullOrEmpty(imageUrl)) return;
 
-            var filePath = Path.Combine(_env.WebRootPath, imageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            // URL format: /uploads/ProductImages/filename.jpg → strip "/uploads/" prefix to get relative path
+            var relative = imageUrl.TrimStart('/');
+            if (relative.StartsWith("uploads/"))
+                relative = relative["uploads/".Length..];
+
+            var filePath = Path.Combine(_storageRoot, relative.Replace('/', Path.DirectorySeparatorChar));
             if (File.Exists(filePath))
                 File.Delete(filePath);
         }

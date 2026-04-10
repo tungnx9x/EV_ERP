@@ -1,0 +1,215 @@
+@model EV_ERP.Models.ViewModels.Dashboard.DashboardViewModel
+@using System.Text.Json
+@{
+    var rfqCustomerLabels = JsonSerializer.Serialize(Model.RfqByCustomerLabels);
+    var rfqCustomerCounts = JsonSerializer.Serialize(Model.RfqByCustomerCounts);
+    var quotUserLabels    = JsonSerializer.Serialize(Model.QuotationByUserLabels);
+    var quotUserCounts    = JsonSerializer.Serialize(Model.QuotationByUserCounts);
+}
+
+<!-- Summary cards -->
+<div class="row g-3 mb-4">
+    <!-- Báo giá trong tháng -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#eff6ff;">
+                    <i class="bi bi-file-earmark-text" style="color:#2563eb;"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.TotalQuotationsThisMonth</div>
+                    <div class="text-muted small">Báo giá tháng này</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Báo giá đang xử lý -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fef2f2;">
+                    <i class="bi bi-hourglass-split" style="color:#dc2626;"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.TotalQuotationsInProgress</div>
+                    <div class="text-muted small">Báo giá đang xử lý</div>
+                </div>
+            </div>
+        </div>
+    </div>   
+    <!-- Khách hàng -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fffbeb;">
+                    <i class="bi bi-building" style="color:#d97706;"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.TotalCustomers</div>
+                    <div class="text-muted small">Khách hàng</div>
+                </div>
+            </div>
+        </div>
+    </div>  
+    <!-- Tổng sản phẩm -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#f0fdf4;">
+                    <i class="bi bi-box-seam" style="color:#16a34a;"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.TotalProducts</div>
+                    <div class="text-muted small">Sản phẩm</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts row 1 -->
+<div class="row g-3 mb-3">
+    <!-- Bar: RFQ by customer -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-clipboard-check me-2 text-primary"></i>Yêu cầu báo giá theo khách hàng
+                </h6>
+                <span class="badge bg-primary-subtle text-primary rounded-pill" style="font-size:.7rem;">
+                    Tất cả thời gian
+                </span>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="min-height:260px;">
+                @if (!Model.RfqByCustomerCounts.Any())
+                {
+                    <div class="text-center text-muted">
+                        <i class="bi bi-clipboard-check" style="font-size:2.5rem;opacity:.2;"></i>
+                        <p class="small mt-2 mb-0">Chưa có dữ liệu</p>
+                    </div>
+                }
+                else
+                {
+                    <canvas id="mgr_chartRfqByCustomer" style="max-height:240px;width:100%;"></canvas>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Doughnut: quotations by user -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-bottom py-3">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-pie-chart me-2 text-warning"></i>Báo giá theo nhân viên
+                </h6>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="min-height:260px;">
+                @if (!Model.QuotationByUserCounts.Any())
+                {
+                    <div class="text-center text-muted">
+                        <i class="bi bi-pie-chart" style="font-size:2.5rem;opacity:.2;"></i>
+                        <p class="small mt-2 mb-0">Chưa có dữ liệu</p>
+                    </div>
+                }
+                else
+                {
+                    <canvas id="mgr_chartQuotByUser" style="max-height:220px;"></canvas>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts row 2 -->
+<div class="row g-3">
+    <div class="col-lg-12">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-bar-chart-line me-2 text-secondary"></i>Doanh thu theo tháng
+                </h6>
+                <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size:.7rem;">Sắp có</span>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="min-height:220px;">
+                <div class="text-center text-muted">
+                    <i class="bi bi-bar-chart-line" style="font-size:3rem;opacity:.15;"></i>
+                    <p class="mt-2 mb-1 fw-semibold small" style="color:#94a3b8;">
+                        Dữ liệu doanh thu sẽ hiển thị khi module Bán hàng được kích hoạt
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    Chart.defaults.font.family = "'Segoe UI', sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#64748b';
+
+    var palette = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#db2777'];
+
+    // ── Bar: RFQ by customer ──────────────────────
+    var ctxBar = document.getElementById('mgr_chartRfqByCustomer');
+    if (ctxBar) {
+        var rfqLabels = @Html.Raw(rfqCustomerLabels);
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: rfqLabels,
+                datasets: [{
+                    label: 'Số yêu cầu BG',
+                    data: @Html.Raw(rfqCustomerCounts),
+                    backgroundColor: palette.map(function(c) { return c + '33'; }),
+                    borderColor: palette,
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y + ' yêu cầu' } }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    x: { grid: { display: false }, ticks: { maxRotation: 30, font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    // ── Doughnut: quotations by user ─────────────
+    var ctxQuot = document.getElementById('mgr_chartQuotByUser');
+    if (ctxQuot) {
+        var qLabels = @Html.Raw(quotUserLabels);
+        var qCounts = @Html.Raw(quotUserCounts);
+        new Chart(ctxQuot, {
+            type: 'doughnut',
+            data: {
+                labels: qLabels,
+                datasets: [{
+                    data: qCounts,
+                    backgroundColor: palette.slice(0, qLabels.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed + ' BG' } }
+                }
+            }
+        });
+    }
+
+</script>

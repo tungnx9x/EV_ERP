@@ -84,6 +84,15 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+// Serve uploaded files from external storage folder
+var fileStorageRoot = builder.Configuration["FileStorage:RootPath"] ?? Path.Combine(app.Environment.ContentRootPath, "ERP_Files");
+Directory.CreateDirectory(fileStorageRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fileStorageRoot),
+    RequestPath = "/uploads"
+});
+
 app.UseRouting();
 app.UseSession();
 app.UseMiddleware<RequestLoggingMiddleware>();

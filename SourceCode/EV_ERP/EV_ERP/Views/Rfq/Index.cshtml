@@ -12,7 +12,7 @@
     @if (canEdit)
     {
         <a href="/Rfq/Create" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i> Tạo yêu cầu BG
+            <i class="bi bi-file-earmark-plus me-1"></i> Tạo yêu cầu báo giá
         </a>
     }
 </div>
@@ -52,15 +52,16 @@
             </div>
             <div class="col-6 col-sm-2 col-lg-2">
                 <label class="form-label small fw-semibold mb-1">Khách hàng</label>
-                <select name="customerId" class="form-select form-select-sm">
-                    <option value="">Tất cả KH</option>
-                    @foreach (var c in Model.Customers)
-                    {
-                        <option value="@c.CustomerId" selected="@(Model.FilterCustomerId == c.CustomerId)">
-                            @c.CustomerName
-                        </option>
-                    }
-                </select>
+                <div class="position-relative" id="customerFilterWrapper">
+                    <input type="hidden" name="customerId" id="filterCustomerId" value="@Model.FilterCustomerId" />
+                    <input type="text" class="form-control form-control-sm" id="customerSearchInput"
+                           placeholder="Tìm khách hàng..."
+                           autocomplete="off"
+                           value="@(Model.FilterCustomerId.HasValue ? Model.Customers.FirstOrDefault(c => c.CustomerId == Model.FilterCustomerId)?.CustomerName : "")" />
+                    <div id="customerDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none"
+                         style="z-index:1050;max-height:200px;overflow-y:auto;top:100%;left:0;">
+                    </div>
+                </div>
             </div>
             <div class="col-6 col-sm-3 col-lg-2 d-flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
@@ -96,8 +97,8 @@
                             <th class="d-none d-md-table-cell">Ngày YC</th>
                             <th>Ưu tiên</th>
                             <th class="d-none d-md-table-cell">Phân công</th>
-                            <th class="d-none d-lg-table-cell text-center">BG</th>
-                            <th>Trạng thái</th>
+                            <th class="d-none d-lg-table-cell text-center">Đã báo giá</th>
+                            @* <th>Trạng thái</th> *@
                             <th style="width:90px;">Thao tác</th>
                         </tr>
                     </thead>
@@ -112,10 +113,6 @@
                                        class="fw-semibold text-decoration-none text-dark link-hover">
                                         @r.RfqNo
                                     </a>
-                                    @if (!string.IsNullOrEmpty(r.Description))
-                                    {
-                                        <div class="text-muted small text-truncate" style="max-width:200px;">@r.Description</div>
-                                    }
                                 </td>
                                 <td>
                                     <div>@r.CustomerName</div>
@@ -142,12 +139,12 @@
                                         <span class="text-muted small">0</span>
                                     }
                                 </td>
-                                <td>
+                                @* <td>
                                     <span class="badge bg-@(r.StatusBadge)-subtle text-@(r.StatusBadge)-emphasis rounded-pill">
                                         <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>
                                         @r.StatusText
                                     </span>
-                                </td>
+                                </td> *@
                                 <td>
                                     <div class="d-flex gap-1">
                                         <a href="/Rfq/Detail/@r.RfqId"
@@ -231,4 +228,50 @@
     .text-warning-emphasis { color: #854d0e !important; }
     .bg-primary-subtle { background-color: #dbeafe !important; }
     .text-primary-emphasis { color: #1e40af !important; }
+    #customerDropdown .cs-item { padding: 6px 10px; cursor: pointer; font-size: 0.82rem; }
+    #customerDropdown .cs-item:hover, #customerDropdown .cs-item.active { background: #e0f2fe; }
 </style>
+
+<script>
+(function () {
+    var customers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Customers.Select(c => new { c.CustomerId, c.CustomerName, c.CustomerCode })));
+    var input = document.getElementById('customerSearchInput');
+    var hidden = document.getElementById('filterCustomerId');
+    var dd = document.getElementById('customerDropdown');
+
+    function render(filter) {
+        var kw = (filter || '').toLowerCase();
+        var items = customers.filter(function (c) {
+            return !kw || c.CustomerName.toLowerCase().indexOf(kw) >= 0 || c.CustomerCode.toLowerCase().indexOf(kw) >= 0;
+        });
+
+        var html = '<div class="cs-item" data-id="">Tất cả KH</div>';
+        items.forEach(function (c) {
+            html += '<div class="cs-item" data-id="' + c.CustomerId + '">' + c.CustomerName + ' <span class="text-muted">(' + c.CustomerCode + ')</span></div>';
+        });
+        dd.innerHTML = html;
+        dd.classList.remove('d-none');
+    }
+
+    input.addEventListener('focus', function () { render(input.value); });
+    input.addEventListener('input', function () {
+        hidden.value = '';
+        render(input.value);
+    });
+
+    dd.addEventListener('click', function (e) {
+        var item = e.target.closest('.cs-item');
+        if (!item) return;
+        var id = item.getAttribute('data-id');
+        hidden.value = id;
+        input.value = id ? item.textContent.trim() : '';
+        dd.classList.add('d-none');
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!document.getElementById('customerFilterWrapper').contains(e.target)) {
+            dd.classList.add('d-none');
+        }
+    });
+})();
+</script>

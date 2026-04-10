@@ -172,7 +172,20 @@ public class QuotationController : Controller
         return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy báo giá" : error });
     }
 
-    // ── Export Excel ────────────────────────────────────
+    // ── Export Excel from Detail (by ID) ───────────────
+    [HttpGet]
+    public async Task<IActionResult> ExportExcelById(int id)
+    {
+        var result = await _quotationService.ExportExcelByIdAsync(id);
+        if (result == null)
+            return BadRequest("Khong the xuat file");
+
+        return File(result.Value.FileBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            result.Value.FileName);
+    }
+
+    // ── Export Excel (from form) ────────────────────────
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ExportExcel([FromBody] QuotationExportRequest request)

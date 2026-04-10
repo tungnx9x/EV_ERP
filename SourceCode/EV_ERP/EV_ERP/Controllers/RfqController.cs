@@ -107,6 +107,20 @@ public class RfqController : Controller
         return View(vm);
     }
 
+    // ── Image Upload (CKEditor) ──────────────────────
+    [HttpPost]
+    public async Task<IActionResult> UploadImage(IFormFile file)
+    {
+        if (!CanEdit)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+        var url = await _rfqService.UploadImageAsync(file);
+        if (url == null)
+            return Json(ApiResult<object>.Fail("Upload thất bại — chỉ hỗ trợ JPG/PNG/GIF/WEBP, tối đa 5MB"));
+
+        return Json(ApiResult<object>.Ok(new { url }));
+    }
+
     // ── Cancel (Ajax) ────────────────────────────────
     [HttpPost]
     public async Task<IActionResult> Cancel(int id, [FromBody] ReasonRequest? model)

@@ -1,7 +1,7 @@
 @model EV_ERP.Models.ViewModels.RFQs.RfqFormViewModel
 @{
     var action = Model.IsEditMode ? "Edit" : "Create";
-    var title = Model.IsEditMode ? Model.RfqNo : "Tạo yêu cầu báo giá mới";
+    var title = Model.RfqNo;
     var icon = Model.IsEditMode ? "bi-pencil-square" : "bi-file-earmark-plus";
 }
 
@@ -60,22 +60,22 @@
                     <!-- Phân công -->
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Phân công cho</label>
-                        <select id="frm_assignedTo" class="form-select form-select-sm">
-                            <option value="">-- Chưa phân công --</option>
-                            @foreach (var u in Model.Users)
-                            {
-                                <option value="@u.UserId" selected="@(Model.AssignedTo == u.UserId)">
-                                    @u.FullName (@u.UserCode)
-                                </option>
-                            }
-                        </select>
+                        <div class="position-relative" id="assignedToWrapper">
+                            <input type="hidden" id="frm_assignedTo" value="@Model.AssignedTo" />
+                            <input type="text" class="form-control form-control-sm" id="assignedToSearchInput"
+                                   placeholder="Tìm nhân viên..."
+                                   autocomplete="off"
+                                   value="@(Model.AssignedTo.HasValue ? Model.Users.FirstOrDefault(u => u.UserId == Model.AssignedTo)?.FullName : "")" />
+                            <div id="assignedToDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none"
+                                 style="z-index:1050;max-height:200px;overflow-y:auto;top:100%;left:0;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Mô tả -->
                     <div class="col-12">
                         <label class="form-label small fw-semibold">Mô tả yêu cầu</label>
-                        <textarea id="frm_description" class="form-control form-control-sm" rows="3"
-                                  placeholder="Mô tả chi tiết yêu cầu từ khách hàng...">@Model.Description</textarea>
+                        <div id="frm_description_editor">@Html.Raw(Model.Description)</div>
                     </div>
 
                     <!-- Ghi chú -->
@@ -99,7 +99,50 @@
     </div>
 </div>
 
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
 <script>
+    function RfqImageUploadAdapter(loader) {
+        this.loader = loader;
+    }
+    RfqImageUploadAdapter.prototype.upload = function () {
+        var loader = this.loader;
+        return loader.file.then(function (file) {
+            return new Promise(function (resolve, reject) {
+                var data = new FormData();
+                data.append('file', file);
+                data.append('__RequestVerificationToken',
+                    document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '');
+                fetch('/Rfq/UploadImage', { method: 'POST', body: data })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (res.Success) resolve({ default: res.Data.url });
+                        else reject(res.Message);
+                    })
+                    .catch(reject);
+            });
+        });
+    };
+    RfqImageUploadAdapter.prototype.abort = function () {};
+
+    function RfqImageUploadAdapterPlugin(editor) {
+        editor.plugins.get('FileRepository').createUploadAdapter = function (loader) {
+            return new RfqImageUploadAdapter(loader);
+        };
+    }
+
+    var descriptionEditor;
+    ClassicEditor.create(document.getElementById('frm_description_editor'), {
+        extraPlugins: [RfqImageUploadAdapterPlugin],
+        toolbar: ['heading', '|', 'bold', 'italic', 'underline', '|',
+                  'bulletedList', 'numberedList', '|', 'link', 'imageUpload', 'blockQuote', '|', 'undo', 'redo'],
+        placeholder: 'Mô tả chi tiết yêu cầu từ khách hàng...',
+        image: {
+            toolbar: ['imageStyle:inline', 'imageStyle:block', '|', 'imageTextAlternative']
+        }
+    }).then(function (editor) {
+        descriptionEditor = editor;
+    });
+
     function submitForm() {
         var customerId = parseInt(document.getElementById('frm_customerId').value);
         if (!customerId) {
@@ -117,7 +160,7 @@
             RequestDate: document.getElementById('frm_requestDate').value,
             Priority: document.getElementById('frm_priority').value,
             AssignedTo: assignedTo,
-            Description: document.getElementById('frm_description').value.trim() || null,
+            Description: descriptionEditor ? (descriptionEditor.getData().trim() || null) : null,
             Notes: document.getElementById('frm_notes').value.trim() || null
         };
 
@@ -151,5 +194,48 @@
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>' + (isEdit ? 'Cập nhật' : 'Tạo yêu cầu');
         });
     }
+    // ── Searchable assigned-to dropdown ─────────────────
+    (function () {
+        var users = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Users.Select(u => new { u.UserId, u.FullName, u.UserCode })));
+        var input = document.getElementById('assignedToSearchInput');
+        var hidden = document.getElementById('frm_assignedTo');
+        var dd = document.getElementById('assignedToDropdown');
+
+        function render(filter) {
+            var kw = (filter || '').toLowerCase();
+            var items = users.filter(function (u) {
+                return !kw || u.FullName.toLowerCase().indexOf(kw) >= 0 || u.UserCode.toLowerCase().indexOf(kw) >= 0;
+            });
+            var html = '<div class="cs-item" data-id="" style="padding:6px 10px;cursor:pointer;font-size:0.82rem;">-- Chưa phân công --</div>';
+            items.forEach(function (u) {
+                html += '<div class="cs-item" data-id="' + u.UserId + '" style="padding:6px 10px;cursor:pointer;font-size:0.82rem;">'
+                    + u.FullName + ' <span class="text-muted">(' + u.UserCode + ')</span></div>';
+            });
+            dd.innerHTML = html;
+            dd.classList.remove('d-none');
+        }
+
+        input.addEventListener('focus', function () { render(input.value); });
+        input.addEventListener('input', function () { hidden.value = ''; render(input.value); });
+
+        dd.addEventListener('mouseover', function (e) {
+            dd.querySelectorAll('.cs-item').forEach(function (el) { el.style.background = ''; });
+            var item = e.target.closest('.cs-item');
+            if (item) item.style.background = '#e0f2fe';
+        });
+        dd.addEventListener('click', function (e) {
+            var item = e.target.closest('.cs-item');
+            if (!item) return;
+            var id = item.getAttribute('data-id');
+            hidden.value = id;
+            input.value = id ? item.textContent.trim() : '';
+            dd.classList.add('d-none');
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!document.getElementById('assignedToWrapper').contains(e.target))
+                dd.classList.add('d-none');
+        });
+    })();
 </script>
 @Html.AntiForgeryToken()

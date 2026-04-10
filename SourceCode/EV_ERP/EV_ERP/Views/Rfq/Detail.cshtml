@@ -32,9 +32,12 @@
                 <a href="/Rfq/Edit/@Model.RfqId" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-pencil me-1"></i> Sửa
                 </a>
-                <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-primary">
-                    <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
-                </a>
+                if (Model.Quotations.Count == 0)
+                {
+                    <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-primary">
+                        <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
+                    </a>
+                }
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
                     <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
@@ -119,7 +122,7 @@
                     <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
                         Mô tả yêu cầu
                     </h6>
-                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.Description</p>
+                    <div class="small ck-content">@Html.Raw(Model.Description)</div>
                 </div>
             </div>
         }
@@ -145,12 +148,12 @@
                     <i class="bi bi-file-earmark-text me-1"></i> Báo giá liên quan
                     <span class="badge bg-primary rounded-pill ms-1">@Model.Quotations.Count</span>
                 </h6>
-                @if (canEdit && Model.Status == "INPROGRESS")
+                @* @if (canEdit && Model.Status == "INPROGRESS")
                 {
                     <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-plus-lg me-1"></i> Tạo báo giá
                     </a>
-                }
+                } *@
             </div>
             <div class="card-body p-0">
                 @if (!Model.Quotations.Any())

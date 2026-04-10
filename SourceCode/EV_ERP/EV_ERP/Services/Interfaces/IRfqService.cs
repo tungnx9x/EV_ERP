@@ -20,4 +20,6 @@ public interface IRfqService
     Task<RfqDetailViewModel?> GetDetailAsync(int rfqId);
 
     Task<(bool Success, string? ErrorMessage)> CancelAsync(int rfqId, int userId, string? reason);
+
+    Task<string?> UploadImageAsync(IFormFile file);
 }

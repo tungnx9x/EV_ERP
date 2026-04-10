@@ -1,7 +1,6 @@
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Products;
-using EV_ERP.Models.Entities.Purchases;
 using EV_ERP.Models.Entities.Sales;
 
 namespace EV_ERP.Models.Entities.Inventory;
@@ -71,7 +70,6 @@ public class StockTransaction
     /// <summary>INBOUND, OUTBOUND, ADJUSTMENT, RETURN</summary>
     public string TransactionType { get; set; } = string.Empty;
     public int WarehouseId { get; set; }
-    public int? PurchaseOrderId { get; set; }
     public int? SalesOrderId { get; set; }
     public DateTime TransactionDate { get; set; } = DateTime.Today;
     /// <summary>INBOUND: DRAFT→CONFIRMED→CANCELLED | OUTBOUND: DRAFT→DELIVERING→DELIVERED→CANCELLED</summary>
@@ -93,7 +91,6 @@ public class StockTransaction
     public int CreatedBy { get; set; }
 
     public virtual Warehouse Warehouse { get; set; } = null!;
-    public virtual PurchaseOrder? PurchaseOrder { get; set; }
     public virtual SalesOrder? SalesOrder { get; set; }
     public virtual User? DeliveryPerson { get; set; }
     public virtual User? ConfirmedByUser { get; set; }

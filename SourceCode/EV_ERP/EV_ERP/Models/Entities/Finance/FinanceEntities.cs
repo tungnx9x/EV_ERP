@@ -71,7 +71,7 @@ public class VendorPayment
     public string PaymentNo { get; set; } = string.Empty;
     public int VendorId { get; set; }
     public int? VendorInvoiceId { get; set; }
-    public int? PurchaseOrderId { get; set; }
+    public int? SalesOrderId { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.Today;
     public decimal Amount { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
@@ -84,6 +84,6 @@ public class VendorPayment
 
     public virtual Vendor Vendor { get; set; } = null!;
     public virtual VendorInvoice? VendorInvoice { get; set; }
-    public virtual PurchaseOrder? PurchaseOrder { get; set; }
+    public virtual SalesOrder? SalesOrder { get; set; }
     public virtual User CreatedByUser { get; set; } = null!;
 }

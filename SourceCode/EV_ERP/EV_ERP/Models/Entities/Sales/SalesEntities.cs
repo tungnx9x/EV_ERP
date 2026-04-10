@@ -3,6 +3,7 @@ using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Templates;
+using EV_ERP.Models.Entities.Vendors;
 
 namespace EV_ERP.Models.Entities.Sales;
 
@@ -120,7 +121,7 @@ public class QuotationEmailHistory
     public virtual User SentByUser { get; set; } = null!;
 }
 
-// ─── SALES ORDER (Đơn bán hàng) ─────────────────────
+// ─── SALES ORDER (Đơn bán hàng — gộp luồng mua hàng v1.3) ─
 public class SalesOrder : AuditableEntity
 {
     public int SalesOrderId { get; set; }
@@ -131,12 +132,19 @@ public class SalesOrder : AuditableEntity
     public int? ContactId { get; set; }
     public DateTime OrderDate { get; set; } = DateTime.Today;
     public DateTime? ExpectedDeliveryDate { get; set; }
-    /// <summary>DRAFT → WAIT → PROCESSING → DELIVERED → COMPLETED → CANCELLED</summary>
+    /// <summary>DRAFT → WAIT → BUYING → RECEIVED → DELIVERING → DELIVERED → COMPLETED → CANCELLED</summary>
     public string Status { get; set; } = "DRAFT";
 
     // ── Thông tin PO phía khách sạn ──
     public string? CustomerPoNo { get; set; }
     public string? CustomerPoFile { get; set; }
+
+    // ── Thông tin mua hàng (thay thế PO nội bộ) ──
+    public int? VendorId { get; set; }
+    public DateTime? ExpectedReceiveDate { get; set; }
+    public string? BuyingNotes { get; set; }
+    public DateTime? BuyingAt { get; set; }
+    public DateTime? ReceivedAt { get; set; }
 
     // ── Tạm ứng ──
     public decimal? AdvanceAmount { get; set; }
@@ -145,6 +153,7 @@ public class SalesOrder : AuditableEntity
     public DateTime? AdvanceApprovedAt { get; set; }
     public DateTime? AdvanceReceivedAt { get; set; }
 
+    // ── Giá trị đơn hàng (bán cho KH) ──
     public decimal SubTotal { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
@@ -155,6 +164,10 @@ public class SalesOrder : AuditableEntity
     public string Currency { get; set; } = "VND";
     public int PaymentTermDays { get; set; } = 30;
     public DateTime? PaymentDueDate { get; set; }
+
+    // ── Chi phí mua (giá vốn) ──
+    public decimal? PurchaseCost { get; set; }
+
     public string? ShippingAddress { get; set; }
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
@@ -164,6 +177,12 @@ public class SalesOrder : AuditableEntity
     public decimal? ActualCost { get; set; }
     public string? SettlementNotes { get; set; }
 
+    // ── Dropshipping ──
+    public bool IsDropship { get; set; }
+    public string? DropshipAddress { get; set; }
+
+    // ── Timestamps ──
+    public DateTime? DeliveringAt { get; set; }
     public DateTime? DeliveredAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
@@ -173,11 +192,12 @@ public class SalesOrder : AuditableEntity
     public virtual Quotation? Quotation { get; set; }
     public virtual Customer Customer { get; set; } = null!;
     public virtual CustomerContact? Contact { get; set; }
+    public virtual Vendor? Vendor { get; set; }
     public virtual User SalesPerson { get; set; } = null!;
     public virtual ICollection<SalesOrderItem> Items { get; set; } = [];
 }
 
-// ─── SALES ORDER ITEM ────────────────────────────────
+// ─── SALES ORDER ITEM (bán + mua gộp v1.3) ──────────
 public class SalesOrderItem
 {
     public int SOItemId { get; set; }
@@ -188,10 +208,12 @@ public class SalesOrderItem
     public decimal Quantity { get; set; }
     public decimal DeliveredQty { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal? PurchasePrice { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal? LineCost { get; set; }
     public int SortOrder { get; set; }
     public string? Notes { get; set; }
 

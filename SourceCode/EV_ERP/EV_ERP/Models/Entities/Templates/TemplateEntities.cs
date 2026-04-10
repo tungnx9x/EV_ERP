@@ -9,7 +9,7 @@ public class PdfTemplate : BaseEntity, ISoftDeletable
     public int TemplateId { get; set; }
     public string TemplateCode { get; set; } = string.Empty;
     public string TemplateName { get; set; } = string.Empty;
-    /// <summary>QUOTATION, SALES_ORDER, PURCHASE_ORDER, DELIVERY_NOTE</summary>
+    /// <summary>QUOTATION, SALES_ORDER, DELIVERY_NOTE</summary>
     public string TemplateType { get; set; } = string.Empty;
     public string Language { get; set; } = "vi";
     public string HtmlContent { get; set; } = string.Empty;

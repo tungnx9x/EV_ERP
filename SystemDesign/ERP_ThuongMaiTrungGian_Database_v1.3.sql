@@ -1115,7 +1115,7 @@ INSERT INTO WarehouseLocations (WarehouseId, LocationCode, LocationName, Zone, A
 -- Lưu ý: PasswordHash bên dưới chỉ là placeholder, cần hash bằng bcrypt trong code
 INSERT INTO Users (UserCode, FullName, Email, PasswordHash, RoleId, CreatedBy)
 VALUES ('NV-0001', N'Quản trị viên', 'admin@company.com',
-        '$2a$12$PLACEHOLDER_HASH_CHANGE_IN_APP', 1, NULL);
+        '$2a$11$4uZKGa.KPzDhP1vB4o25K.GU8TTlWZVPU6nzqNVgfcVqD.kdZ5iQW', 1, NULL);
 
 
 -- ============================================================================

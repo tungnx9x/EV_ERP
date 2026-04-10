@@ -43,7 +43,7 @@ namespace EV_ERP.Data.Seed
             new Module { ModuleCode = "PRODUCT",     ModuleName = "Quản lý Sản phẩm",            DisplayOrder = 4 },
             new Module { ModuleCode = "QUOTATION",   ModuleName = "Báo giá",                     DisplayOrder = 5 },
             new Module { ModuleCode = "SALES_ORDER", ModuleName = "Đơn bán hàng",                DisplayOrder = 6 },
-            new Module { ModuleCode = "PURCHASE",    ModuleName = "Mua hàng / PO",               DisplayOrder = 7 },
+            new Module { ModuleCode = "PURCHASE",    ModuleName = "Mua hàng",                    DisplayOrder = 7 },
             new Module { ModuleCode = "INVENTORY",   ModuleName = "Quản lý Kho",                 DisplayOrder = 8 },
             new Module { ModuleCode = "REPORT",      ModuleName = "Báo cáo cá nhân",             DisplayOrder = 9 },
             new Module { ModuleCode = "USER_MGMT",   ModuleName = "Quản lý User & Phân quyền",  DisplayOrder = 10 },

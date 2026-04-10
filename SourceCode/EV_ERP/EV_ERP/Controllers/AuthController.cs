@@ -20,7 +20,7 @@ namespace EV_ERP.Controllers
         public IActionResult Login(string? returnUrl)
         {
             if (HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser) != null)
-                return RedirectToAction("Index", "Home");
+                return RedirectToAction("Index", "Workspace");
 
             return View(new LoginViewModel { ReturnUrl = returnUrl });
         }
@@ -48,7 +48,7 @@ namespace EV_ERP.Controllers
             if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
                 return Redirect(model.ReturnUrl);
 
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("Index", "Workspace");
         }
 
         // ── Logout ───────────────────────────────────────

@@ -1,0 +1,182 @@
+@model EV_ERP.Models.ViewModels.Workspace.WorkspaceViewModel
+@{
+    ViewData["Title"] = "Workspace";
+}
+
+<div class="mb-4">
+    <h5 class="fw-bold mb-1">Công việc cần làm</h5>
+    @* <p class="text-muted small mb-0">Công việc cần làm</p> *@
+</div>
+
+<!-- Flow arrow connector -->
+<div class="workspace-flow">
+    @foreach (var card in Model.Cards)
+    {
+        <div class="workspace-step">
+            <div class="card border-0 shadow-sm workspace-card h-100 @(card.Tasks.Count > 0 ? "" : "opacity-50")">
+                <!-- Card header -->
+                <div class="card-header bg-white border-bottom py-2 px-3 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="step-number">@card.StepNumber</span>
+                        <div>
+                            <div class="fw-semibold" style="font-size:0.82rem;">
+                                <i class="bi @card.Icon me-1 text-@card.BadgeColor"></i>@card.Title
+                            </div>
+                        </div>
+                    </div>
+                    <span class="badge bg-@(card.Tasks.Count > 0 ? card.BadgeColor : "light text-muted border") rounded-pill">
+                        @card.Tasks.Count
+                    </span>
+                </div>
+
+                <!-- Task list -->
+                <div class="card-body p-0">
+                    @if (card.Tasks.Count == 0)
+                    {
+                        <div class="text-center text-muted py-4" style="font-size:0.8rem;">
+                            <i class="bi bi-check-circle d-block mb-1" style="font-size:1.2rem;"></i>
+                            Không có công việc
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="task-list" style="max-height:320px; overflow-y:auto;">
+                            @foreach (var task in card.Tasks)
+                            {
+                                <a href="@task.DetailUrl" class="task-item d-block text-decoration-none">
+                                    <div class="d-flex align-items-start justify-content-between">
+                                        <div style="min-width:0;">
+                                            <div class="fw-semibold text-dark" style="font-size:0.8rem;">
+                                                @task.RfqNo
+                                                @if (task.SalesOrderNo != null)
+                                                {
+                                                    <span class="text-muted fw-normal">/ @task.SalesOrderNo</span>
+                                                }
+                                            </div>
+                                            <div class="text-muted text-truncate" style="font-size:0.75rem;">
+                                                @task.CustomerName
+                                            </div>
+                                        </div>
+                                        @if (task.ExtraInfo != null)
+                                        {
+                                            <span class="badge bg-light text-muted border ms-2 flex-shrink-0" style="font-size:0.68rem;">
+                                                @task.ExtraInfo
+                                            </span>
+                                        }
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Arrow connector (not on last item, not on 5th which ends a row) -->
+            @if (card.StepNumber < Model.Cards.Count && card.StepNumber % 5 != 0)
+            {
+                <div class="step-arrow d-none d-xl-flex">
+                    <span class="arrow-line"></span>
+                    <i class="bi bi-chevron-right arrow-head"></i>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .workspace-flow {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.75rem 2rem;
+        align-items: stretch;
+    }
+
+    .workspace-step {
+        position: relative;
+    }
+
+    .workspace-card {
+        border-radius: 8px;
+        transition: box-shadow 0.15s;
+    }
+    .workspace-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
+    }
+
+    .step-number {
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 0.7rem;
+        font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .step-arrow {
+        position: absolute;
+        right: -2rem;
+        width: 2rem;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .arrow-line {
+        flex: 1;
+        height: 0;
+        border-top: 2px dashed #94a3b8;
+    }
+
+    .arrow-head {
+        color: #64748b;
+        font-size: 0.85rem;
+        margin-left: -2px;
+        line-height: 1;
+    }
+
+    .task-list {
+        scrollbar-width: thin;
+    }
+    .task-list::-webkit-scrollbar { width: 4px; }
+    .task-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+    .task-item {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.1s;
+    }
+    .task-item:last-child { border-bottom: none; }
+    .task-item:hover { background: #f8fafc; }
+
+    /* 2 rows of 5 */
+    .workspace-step:nth-child(n+6) {
+        /* second row */
+    }
+
+    @@media (max-width: 1199.98px) {
+        .workspace-flow {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem 1.5rem;
+        }
+        .step-arrow { display: none !important; }
+    }
+
+    @@media (max-width: 767.98px) {
+        .workspace-flow {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .workspace-flow {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+    }
+</style>

@@ -100,7 +100,7 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Workspace}/{action=Index}/{id?}");
 
 // ── Start ────────────────────────────────────────────
 Log.Information("═══ ERP EV — Starting on {Env} ═══",

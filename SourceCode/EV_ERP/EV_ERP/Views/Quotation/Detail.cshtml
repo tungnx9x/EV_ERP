@@ -335,6 +335,11 @@
     </div>
 </div>
 
+<!-- Comment Panel -->
+@await Html.PartialAsync("_TaskComments", new ViewDataDictionary(ViewData) {
+    { "EntityType", "QUOTATION" }, { "EntityId", Model.QuotationId }
+})
+
 <style>
     .bg-secondary-subtle { background-color: #f1f5f9 !important; }
     .text-secondary-emphasis { color: #475569 !important; }

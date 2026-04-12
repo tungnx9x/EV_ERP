@@ -60,6 +60,39 @@ public class Notification
     public virtual User User { get; set; } = null!;
 }
 
+// ─── TASK COMMENT (Trao đổi trong task — polymorphic) ──
+public class TaskComment
+{
+    public long CommentId { get; set; }
+
+    /// <summary>RFQ, QUOTATION, SALES_ORDER</summary>
+    public string EntityType { get; set; } = string.Empty;
+    public int EntityId { get; set; }
+
+    /// <summary>Reply thread — NULL = comment gốc</summary>
+    public long? ParentCommentId { get; set; }
+
+    public string Content { get; set; } = string.Empty;
+    /// <summary>JSON array: [1, 5, 12]</summary>
+    public string? MentionedUserIds { get; set; }
+
+    /// <summary>1 = ghi chú nội bộ, 0 = chung</summary>
+    public bool IsInternal { get; set; }
+
+    public bool IsEdited { get; set; }
+    public DateTime? EditedAt { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public int CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    // Navigation
+    public virtual TaskComment? ParentComment { get; set; }
+    public virtual ICollection<TaskComment> Replies { get; set; } = [];
+    public virtual User CreatedByUser { get; set; } = null!;
+}
+
 // ─── SLA CONFIG (Cấu hình thời gian cho từng bước) ──
 public class SlaConfig
 {

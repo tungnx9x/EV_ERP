@@ -79,6 +79,7 @@ namespace EV_ERP.Data
         public DbSet<Attachment> Attachments => Set<Attachment>();
         public DbSet<SlaConfig> SlaConfigs => Set<SlaConfig>();
         public DbSet<SlaTracking> SlaTrackings => Set<SlaTracking>();
+        public DbSet<TaskComment> TaskComments => Set<TaskComment>();
 
         // =================================================================
         // FLUENT API CONFIGURATIONS
@@ -598,6 +599,21 @@ namespace EV_ERP.Data
                  .HasComputedColumnSql("(CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1 WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0 ELSE NULL END)", stored: false);
                 e.HasOne(x => x.SlaConfig).WithMany().HasForeignKey(x => x.SlaConfigId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Assignee).WithMany().HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            mb.Entity<TaskComment>(e =>
+            {
+                e.ToTable("TaskComments");
+                e.HasKey(x => x.CommentId);
+                e.HasIndex(x => new { x.EntityType, x.EntityId, x.CreatedAt }).HasFilter("IsActive = 1");
+                e.HasIndex(x => x.ParentCommentId).HasFilter("ParentCommentId IS NOT NULL");
+                e.HasIndex(x => new { x.CreatedBy, x.CreatedAt });
+                e.Property(x => x.EntityType).HasMaxLength(20);
+                e.Property(x => x.MentionedUserIds).HasMaxLength(500);
+                e.HasOne(x => x.ParentComment).WithMany(x => x.Replies)
+                 .HasForeignKey(x => x.ParentCommentId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.CreatedByUser).WithMany()
+                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.NoAction);
             });
 
             // ─────────────────────────────────────────────

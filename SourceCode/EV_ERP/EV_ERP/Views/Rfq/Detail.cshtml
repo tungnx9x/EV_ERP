@@ -232,6 +232,11 @@
     </div>
 </div>
 
+<!-- Comment Panel -->
+@await Html.PartialAsync("_TaskComments", new ViewDataDictionary(ViewData) {
+    { "EntityType", "RFQ" }, { "EntityId", Model.RfqId }
+})
+
 <style>
     .link-hover:hover { color: #2563eb !important; }
     .bg-secondary-subtle { background-color: #f1f5f9 !important; }

@@ -48,6 +48,7 @@ builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 builder.Services.AddScoped<IRfqService, RfqService>();
 builder.Services.AddScoped<ISlaService, SlaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ITaskCommentService, TaskCommentService>();
 
 // SignalR
 builder.Services.AddSignalR();

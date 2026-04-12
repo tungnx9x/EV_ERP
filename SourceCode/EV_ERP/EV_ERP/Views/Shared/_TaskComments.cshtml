@@ -1,0 +1,472 @@
+@*
+    Shared partial: Task Comments Panel
+    Usage: @await Html.PartialAsync("_TaskComments", new ViewDataDictionary(ViewData) {
+        { "EntityType", "SALES_ORDER" }, { "EntityId", Model.SalesOrderId }
+    })
+    NOTE: Do NOT use @section Scripts — this is a partial, scripts are inline.
+*@
+@{
+    var entityType = ViewData["EntityType"]?.ToString() ?? "";
+    var entityId = ViewData["EntityId"]?.ToString() ?? "0";
+    var currentUser = Context.Session.GetObject<EV_ERP.Helpers.CurrentUser>(EV_ERP.Helpers.SessionKeys.CurrentUser);
+    var currentUserId = currentUser?.UserId ?? 0;
+    var currentUserName = currentUser?.FullName ?? "";
+}
+
+<div class="card border-0 shadow-sm mt-3" id="comments">
+    <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-semibold small text-uppercase">
+            <i class="bi bi-chat-dots me-1"></i> Trao doi
+            <span class="badge bg-secondary rounded-pill ms-1" id="commentCount">0</span>
+        </h6>
+        <button class="btn btn-sm btn-outline-primary" onclick="toggleCommentForm()" id="btnToggleComment">
+            <i class="bi bi-plus-lg me-1"></i> Them
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <!-- New comment form (hidden by default) -->
+        <div id="commentFormWrapper" style="display:none;" class="border-bottom p-3 bg-light">
+            <div class="position-relative">
+                <textarea id="commentContent" class="form-control form-control-sm" rows="3"
+                          placeholder="Nhap noi dung trao doi... Dung @@ de mention nguoi dung"></textarea>
+                <!-- Mention dropdown -->
+                <div id="mentionDropdown" class="dropdown-menu shadow-sm" style="display:none; position:absolute; z-index:1060; max-height:200px; overflow-y:auto; width:260px;"></div>
+            </div>
+            <input type="hidden" id="mentionedUserIds" value="[]" />
+            <input type="hidden" id="replyToCommentId" value="" />
+            <div class="d-flex align-items-center justify-content-between mt-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span id="replyIndicator" class="small text-primary" style="display:none;">
+                        <i class="bi bi-reply me-1"></i> Tra loi <strong id="replyToName"></strong>
+                        <button class="btn btn-sm btn-link p-0 ms-1 text-muted" onclick="cancelReply()">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </span>
+                </div>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleCommentForm()">Huy</button>
+                    <button class="btn btn-sm btn-primary" onclick="submitComment()" id="btnSubmitComment">
+                        <i class="bi bi-send me-1"></i> Gui
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comment list -->
+        <div id="commentList" class="p-3">
+            <div class="text-center text-muted py-4" style="font-size:0.82rem;" id="noCommentsMsg">
+                <i class="bi bi-chat-left-text d-block mb-1" style="font-size:1.5rem; opacity:0.4;"></i>
+                Chua co trao doi nao
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .comment-item { position: relative; }
+    .comment-item + .comment-item { margin-top: 0.75rem; }
+    .comment-bubble {
+        background: #f8fafc;
+        border-radius: 0 12px 12px 12px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.84rem;
+        border: 1px solid #e2e8f0;
+    }
+    .comment-bubble.is-mine {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        border-radius: 12px 0 12px 12px;
+    }
+    .comment-avatar {
+        width: 32px; height: 32px; border-radius: 50%;
+        background: #2563eb; color: #fff;
+        font-weight: 600; font-size: 0.75rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .comment-avatar.small-avatar { width: 26px; height: 26px; font-size: 0.65rem; }
+    .reply-item { margin-left: 2.5rem; margin-top: 0.5rem; }
+    .comment-actions { opacity: 0; transition: opacity 0.15s; }
+    .comment-item:hover .comment-actions { opacity: 1; }
+    .mention-tag {
+        color: #2563eb; font-weight: 600;
+        background: #eff6ff; border-radius: 3px;
+        padding: 0 2px;
+    }
+    .mention-option { cursor: pointer; padding: 0.4rem 0.75rem; font-size: 0.84rem; }
+    .mention-option:hover { background: #f1f5f9; }
+    .comment-edited { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
+</style>
+
+<script>
+(function() {
+    var ENTITY_TYPE = '@entityType';
+    var ENTITY_ID = parseInt('@entityId');
+    var CURRENT_USER_ID = parseInt('@currentUserId');
+    var CURRENT_USER_NAME = '@currentUserName';
+    var mentionedUsers = [];
+    var allComments = [];
+
+    // ── Load comments ──
+    function loadComments() {
+        fetch('/TaskComment/GetComments?entityType=' + ENTITY_TYPE + '&entityId=' + ENTITY_ID)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    allComments = data.data;
+                    renderComments(data.data);
+                    document.getElementById('commentCount').textContent = data.totalCount;
+                }
+            });
+    }
+
+    function renderComments(comments) {
+        var list = document.getElementById('commentList');
+        var noMsg = document.getElementById('noCommentsMsg');
+
+        if (!comments || comments.length === 0) {
+            noMsg.style.display = '';
+            // Keep noMsg only
+            var children = list.children;
+            for (var i = children.length - 1; i >= 0; i--) {
+                if (children[i].id !== 'noCommentsMsg') list.removeChild(children[i]);
+            }
+            return;
+        }
+        noMsg.style.display = 'none';
+
+        var html = '';
+        comments.forEach(function(c) {
+            html += renderComment(c, false);
+        });
+        // Replace all except noMsg
+        var temp = document.createElement('div');
+        temp.innerHTML = html;
+        // Clear and re-add
+        list.innerHTML = '';
+        list.appendChild(noMsg);
+        noMsg.style.display = 'none';
+        list.insertAdjacentHTML('beforeend', html);
+
+        // Scroll to bottom
+        list.scrollTop = list.scrollHeight;
+    }
+
+    function renderComment(c, isReply) {
+        var isMine = c.CreatedBy === CURRENT_USER_ID;
+        var initial = c.CreatedByName ? c.CreatedByName.charAt(0).toUpperCase() : '?';
+        var avatarClass = isReply ? 'comment-avatar small-avatar' : 'comment-avatar';
+        var wrapperClass = isReply ? 'reply-item comment-item' : 'comment-item';
+        var bubbleClass = 'comment-bubble' + (isMine ? ' is-mine' : '');
+
+        var contentHtml = escapeHtml(c.Content).replace(/@@(\S+)/g, '<span class="mention-tag">@@$1</span>');
+
+        var actionsHtml = '';
+        if (isMine) {
+            actionsHtml = '<span class="comment-actions">' +
+                '<button class="btn btn-sm btn-link text-muted p-0 me-2" onclick="editComment(' + c.CommentId + ')" title="Sua"><i class="bi bi-pencil" style="font-size:0.7rem;"></i></button>' +
+                '<button class="btn btn-sm btn-link text-muted p-0" onclick="deleteComment(' + c.CommentId + ')" title="Xoa"><i class="bi bi-trash" style="font-size:0.7rem;"></i></button>' +
+                '</span>';
+        }
+
+        var editedHtml = c.IsEdited ? ' <span class="comment-edited">(da sua)</span>' : '';
+
+        var html = '<div class="' + wrapperClass + '" data-comment-id="' + c.CommentId + '">';
+
+        if (isMine) {
+            // Right-aligned for current user
+            html += '<div class="d-flex gap-2 justify-content-end">';
+            html += '<div class="text-end" style="max-width:80%;">';
+            html += '<div class="d-flex align-items-center justify-content-end gap-1 mb-1">';
+            html += actionsHtml;
+            html += '<span class="fw-semibold" style="font-size:0.78rem; color:#1e293b;">' + escapeHtml(c.CreatedByName) + '</span>';
+            html += '</div>';
+            html += '<div class="' + bubbleClass + '">' + contentHtml + editedHtml + '</div>';
+            html += '<div class="d-flex align-items-center justify-content-end gap-2 mt-1">';
+            html += '<span class="text-muted" style="font-size:0.68rem;">' + escapeHtml(c.TimeAgo) + '</span>';
+            if (!isReply) {
+                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Tra loi</button>';
+            }
+            html += '</div></div>';
+            html += '<div class="' + avatarClass + '">' + initial + '</div>';
+            html += '</div>';
+        } else {
+            // Left-aligned for others
+            html += '<div class="d-flex gap-2">';
+            html += '<div class="' + avatarClass + '">' + initial + '</div>';
+            html += '<div style="max-width:80%;">';
+            html += '<div class="d-flex align-items-center gap-1 mb-1">';
+            html += '<span class="fw-semibold" style="font-size:0.78rem; color:#1e293b;">' + escapeHtml(c.CreatedByName) + '</span>';
+            html += actionsHtml;
+            html += '</div>';
+            html += '<div class="' + bubbleClass + '">' + contentHtml + editedHtml + '</div>';
+            html += '<div class="d-flex align-items-center gap-2 mt-1">';
+            html += '<span class="text-muted" style="font-size:0.68rem;">' + escapeHtml(c.TimeAgo) + '</span>';
+            if (!isReply) {
+                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Tra loi</button>';
+            }
+            html += '</div></div></div>';
+        }
+
+        // Render replies
+        if (c.Replies && c.Replies.length > 0) {
+            c.Replies.forEach(function(r) {
+                html += renderComment(r, true);
+            });
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ── Form toggle ──
+    window.toggleCommentForm = function() {
+        var wrapper = document.getElementById('commentFormWrapper');
+        wrapper.style.display = wrapper.style.display === 'none' ? '' : 'none';
+        if (wrapper.style.display !== 'none') {
+            document.getElementById('commentContent').focus();
+        } else {
+            cancelReply();
+        }
+    };
+
+    // ── Submit ──
+    window.submitComment = function() {
+        var content = document.getElementById('commentContent').value.trim();
+        if (!content) return;
+
+        var btn = document.getElementById('btnSubmitComment');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang gui...';
+
+        var body = {
+            EntityType: ENTITY_TYPE,
+            EntityId: ENTITY_ID,
+            ParentCommentId: document.getElementById('replyToCommentId').value
+                ? parseInt(document.getElementById('replyToCommentId').value) : null,
+            Content: content,
+            MentionedUserIds: mentionedUsers.map(function(u) { return u.UserId; }),
+            IsInternal: false
+        };
+
+        fetch('/TaskComment/Create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gui';
+            if (data.success) {
+                document.getElementById('commentContent').value = '';
+                mentionedUsers = [];
+                document.getElementById('mentionedUserIds').value = '[]';
+                cancelReply();
+                loadComments();
+            } else {
+                alert(data.message || 'Loi');
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gui';
+        });
+    };
+
+    // ── Reply ──
+    window.replyTo = function(commentId, authorName) {
+        document.getElementById('replyToCommentId').value = commentId;
+        document.getElementById('replyIndicator').style.display = '';
+        document.getElementById('replyToName').textContent = authorName;
+        var wrapper = document.getElementById('commentFormWrapper');
+        wrapper.style.display = '';
+        document.getElementById('commentContent').focus();
+    };
+
+    window.cancelReply = function() {
+        document.getElementById('replyToCommentId').value = '';
+        document.getElementById('replyIndicator').style.display = 'none';
+        document.getElementById('replyToName').textContent = '';
+    };
+
+    // ── Edit ──
+    window.editComment = function(commentId) {
+        var el = document.querySelector('[data-comment-id="' + commentId + '"] .comment-bubble');
+        if (!el) return;
+        var oldText = el.textContent.replace('(da sua)', '').trim();
+        var newText = prompt('Sua binh luan:', oldText);
+        if (newText === null || newText.trim() === '' || newText.trim() === oldText) return;
+
+        fetch('/TaskComment/Edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ CommentId: commentId, Content: newText.trim() })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) loadComments();
+            else alert(data.message || 'Loi');
+        });
+    };
+
+    // ── Delete ──
+    window.deleteComment = function(commentId) {
+        if (!confirm('Xoa binh luan nay?')) return;
+        fetch('/TaskComment/Delete/' + commentId, { method: 'POST' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) loadComments();
+                else alert(data.message || 'Loi');
+            });
+    };
+
+    // ── Mention ──
+    var textarea = document.getElementById('commentContent');
+    var mentionDropdown = document.getElementById('mentionDropdown');
+    var mentionSearchTimeout = null;
+
+    textarea.addEventListener('input', function() {
+        var val = this.value;
+        var pos = this.selectionStart;
+        // Find @@ before cursor
+        var textBefore = val.substring(0, pos);
+        var atMatch = textBefore.match(/@@(\S*)$/);
+
+        if (atMatch) {
+            var query = atMatch[1];
+            if (query.length >= 1) {
+                clearTimeout(mentionSearchTimeout);
+                mentionSearchTimeout = setTimeout(function() { searchUsers(query); }, 250);
+            } else {
+                searchUsers('');
+            }
+        } else {
+            mentionDropdown.style.display = 'none';
+        }
+    });
+
+    textarea.addEventListener('keydown', function(e) {
+        if (mentionDropdown.style.display !== 'none') {
+            var items = mentionDropdown.querySelectorAll('.mention-option');
+            var active = mentionDropdown.querySelector('.mention-option.active');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (active) {
+                    active.classList.remove('active');
+                    var next = active.nextElementSibling || items[0];
+                    next.classList.add('active');
+                    next.style.background = '#e2e8f0';
+                    active.style.background = '';
+                } else if (items.length) {
+                    items[0].classList.add('active');
+                    items[0].style.background = '#e2e8f0';
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (active) {
+                    active.classList.remove('active');
+                    active.style.background = '';
+                    var prev = active.previousElementSibling || items[items.length - 1];
+                    prev.classList.add('active');
+                    prev.style.background = '#e2e8f0';
+                }
+            } else if (e.key === 'Enter' && active) {
+                e.preventDefault();
+                var uid = parseInt(active.dataset.userId);
+                var uname = active.dataset.userName;
+                selectMention(uid, uname);
+            } else if (e.key === 'Escape') {
+                mentionDropdown.style.display = 'none';
+            }
+        }
+
+        // Ctrl+Enter to submit
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            window.submitComment();
+        }
+    });
+
+    function searchUsers(query) {
+        fetch('/TaskComment/SearchUsers?q=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.data && data.data.length > 0) {
+                    mentionDropdown.innerHTML = data.data.map(function(u, idx) {
+                        var initial = u.FullName ? u.FullName.charAt(0).toUpperCase() : '?';
+                        return '<div class="mention-option d-flex align-items-center gap-2' + (idx === 0 ? ' active' : '') + '"' +
+                            ' data-user-id="' + u.UserId + '"' +
+                            ' data-user-name="' + escapeHtml(u.FullName) + '"' +
+                            ' onclick="selectMentionFromClick(this)"' +
+                            (idx === 0 ? ' style="background:#e2e8f0;"' : '') + '>' +
+                            '<div class="comment-avatar small-avatar">' + initial + '</div>' +
+                            '<div><div class="fw-semibold" style="font-size:0.8rem;">' + escapeHtml(u.FullName) + '</div>' +
+                            '<div class="text-muted" style="font-size:0.7rem;">' + escapeHtml(u.UserCode) + '</div></div></div>';
+                    }).join('');
+                    mentionDropdown.style.display = 'block';
+                } else {
+                    mentionDropdown.style.display = 'none';
+                }
+            });
+    }
+
+    window.selectMentionFromClick = function(el) {
+        var uid = parseInt(el.dataset.userId);
+        var uname = el.dataset.userName;
+        selectMention(uid, uname);
+    };
+
+    function selectMention(userId, fullName) {
+        var val = textarea.value;
+        var pos = textarea.selectionStart;
+        var textBefore = val.substring(0, pos);
+        var textAfter = val.substring(pos);
+        // Replace @@query with @@FullName
+        var newBefore = textBefore.replace(/@@\S*$/, '@@' + fullName + ' ');
+        textarea.value = newBefore + textAfter;
+        textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+        textarea.focus();
+        mentionDropdown.style.display = 'none';
+
+        // Track mentioned user
+        if (!mentionedUsers.find(function(u) { return u.UserId === userId; })) {
+            mentionedUsers.push({ UserId: userId, FullName: fullName });
+        }
+        document.getElementById('mentionedUserIds').value = JSON.stringify(mentionedUsers.map(function(u) { return u.UserId; }));
+    }
+
+    // Close mention dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#commentFormWrapper')) {
+            mentionDropdown.style.display = 'none';
+        }
+    });
+
+    // ── SignalR: real-time comment updates ──
+    if (typeof connection !== 'undefined') {
+        connection.on('NewComment', function(data) {
+            if (data.EntityType === ENTITY_TYPE && data.EntityId === ENTITY_ID) {
+                loadComments();
+            }
+        });
+    }
+
+    // ── Init ──
+    loadComments();
+
+    // Scroll to #comments if URL has hash
+    if (window.location.hash === '#comments') {
+        setTimeout(function() {
+            document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' });
+        }, 500);
+    }
+})();
+</script>

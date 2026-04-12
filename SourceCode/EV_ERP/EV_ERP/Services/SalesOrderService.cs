@@ -17,14 +17,16 @@ public class SalesOrderService : ISalesOrderService
     private readonly ILogger<SalesOrderService> _logger;
     private readonly IWebHostEnvironment _env;
     private readonly string _storageRoot;
+    private readonly ISlaService _slaService;
 
     public SalesOrderService(IUnitOfWork uow, ILogger<SalesOrderService> logger,
-        IWebHostEnvironment env, IConfiguration config)
+        IWebHostEnvironment env, IConfiguration config, ISlaService slaService)
     {
         _uow = uow;
         _logger = logger;
         _env = env;
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
+        _slaService = slaService;
     }
 
     // ══════════════════════════════════════════════════
@@ -260,6 +262,9 @@ public class SalesOrderService : ISalesOrderService
         await _uow.Repository<SalesOrder>().AddAsync(so);
         await _uow.SaveChangesAsync();
 
+        // SLA: start tracking DRAFT
+        await _slaService.StartTrackingAsync("SALES_ORDER", so.SalesOrderId, "DRAFT", q.SalesPersonId);
+
         _logger.LogInformation("SO created from Quotation: {SONo} ← {QNo} by UserId={UserId}",
             soNo, q.QuotationNo, userId);
 
@@ -287,6 +292,10 @@ public class SalesOrderService : ISalesOrderService
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
+
+        // SLA: complete DRAFT, start WAIT
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "DRAFT");
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "WAIT", so.CreatedBy);
 
         _logger.LogInformation("SO submitted to WAIT: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);
@@ -328,6 +337,10 @@ public class SalesOrderService : ISalesOrderService
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
 
+        // SLA: complete WAIT, start BUYING
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "WAIT");
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "BUYING", so.CreatedBy);
+
         _logger.LogInformation("SO started buying: {No} VendorId={VendorId} by UserId={UserId}",
             so.SalesOrderNo, model.VendorId, userId);
         return (true, null);
@@ -348,6 +361,10 @@ public class SalesOrderService : ISalesOrderService
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
 
+        // SLA: complete BUYING, start RECEIVED
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "BUYING");
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED", so.CreatedBy);
+
         _logger.LogInformation("SO received: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);
     }
@@ -367,6 +384,10 @@ public class SalesOrderService : ISalesOrderService
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
 
+        // SLA: complete RECEIVED, start DELIVERING
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED");
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERING", so.CreatedBy);
+
         _logger.LogInformation("SO delivering: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);
     }
@@ -385,6 +406,10 @@ public class SalesOrderService : ISalesOrderService
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
+
+        // SLA: complete DELIVERING, start DELIVERED
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERING");
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERED", so.CreatedBy);
 
         _logger.LogInformation("SO delivered: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);
@@ -424,6 +449,9 @@ public class SalesOrderService : ISalesOrderService
 
         await _uow.SaveChangesAsync();
 
+        // SLA: complete DELIVERED tracking
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERED");
+
         _logger.LogInformation("SO completed: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);
     }
@@ -445,6 +473,9 @@ public class SalesOrderService : ISalesOrderService
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
+
+        // SLA: skip all active tracking
+        await _slaService.SkipTrackingAsync("SALES_ORDER", salesOrderId);
 
         _logger.LogInformation("SO cancelled: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);

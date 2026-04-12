@@ -14,12 +14,15 @@ public class RfqService : IRfqService
     private readonly IUnitOfWork _uow;
     private readonly ILogger<RfqService> _logger;
     private readonly string _storageRoot;
+    private readonly ISlaService _slaService;
 
-    public RfqService(IUnitOfWork uow, ILogger<RfqService> logger, IConfiguration config, IWebHostEnvironment env)
+    public RfqService(IUnitOfWork uow, ILogger<RfqService> logger, IConfiguration config,
+        IWebHostEnvironment env, ISlaService slaService)
     {
         _uow = uow;
         _logger = logger;
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
+        _slaService = slaService;
     }
 
     // ══════════════════════════════════════════════════
@@ -172,6 +175,9 @@ public class RfqService : IRfqService
             await _uow.Repository<RFQ>().AddAsync(rfq);
             await _uow.SaveChangesAsync();
 
+            // SLA: start tracking INPROGRESS
+            await _slaService.StartTrackingAsync("RFQ", rfq.RfqId, "INPROGRESS", rfq.AssignedTo);
+
             _logger.LogInformation("RFQ created: {No} by UserId={UserId}", rfqNo, createdBy);
             return (true, null, rfq.RfqId);
         }
@@ -282,6 +288,9 @@ public class RfqService : IRfqService
         rfq.UpdatedAt = DateTime.Now;
 
         await _uow.SaveChangesAsync();
+
+        // SLA: skip all active tracking
+        await _slaService.SkipTrackingAsync("RFQ", rfqId);
 
         _logger.LogInformation("RFQ cancelled: {No} by UserId={UserId}", rfq.RfqNo, userId);
         return (true, null);

@@ -73,10 +73,12 @@ namespace EV_ERP.Data
         public DbSet<TemplateAssignment> TemplateAssignments => Set<TemplateAssignment>();
         public DbSet<GeneratedPdf> GeneratedPdfs => Set<GeneratedPdf>();
 
-        // ── Hệ thống (3 bảng) ────────────────────────────
+        // ── Hệ thống (5 bảng) ────────────────────────────
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<Attachment> Attachments => Set<Attachment>();
+        public DbSet<SlaConfig> SlaConfigs => Set<SlaConfig>();
+        public DbSet<SlaTracking> SlaTrackings => Set<SlaTracking>();
 
         // =================================================================
         // FLUENT API CONFIGURATIONS
@@ -553,8 +555,49 @@ namespace EV_ERP.Data
             {
                 e.HasKey(x => x.NotificationId);
                 e.HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAt });
+                e.HasIndex(x => new { x.UserId, x.Severity, x.IsRead });
                 e.Property(x => x.NotificationType).HasMaxLength(30);
+                e.Property(x => x.Severity).HasMaxLength(10).HasDefaultValue("INFO");
+                e.Property(x => x.ActionUrl).HasMaxLength(500);
                 e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+            });
+
+            // ─────────────────────────────────────────────
+            // SLA
+            // ─────────────────────────────────────────────
+            mb.Entity<SlaConfig>(e =>
+            {
+                e.ToTable("SlaConfigs");
+                e.HasKey(x => x.SlaConfigId);
+                e.HasIndex(x => new { x.EntityType, x.FromStatus, x.IsActive });
+                e.HasIndex(x => new { x.EntityType, x.FromStatus }).IsUnique();
+                e.Property(x => x.EntityType).HasMaxLength(20);
+                e.Property(x => x.FromStatus).HasMaxLength(25);
+                e.Property(x => x.DurationHours).HasColumnType("decimal(10,2)");
+                e.Property(x => x.WarningPercent).HasColumnType("decimal(5,2)");
+                e.Property(x => x.ConfigName).HasMaxLength(200);
+                e.Property(x => x.Description).HasMaxLength(500);
+                e.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            mb.Entity<SlaTracking>(e =>
+            {
+                e.ToTable("SlaTracking");
+                e.HasKey(x => x.SlaTrackingId);
+                e.HasIndex(x => new { x.Status, x.WarningAt, x.DeadlineAt });
+                e.HasIndex(x => new { x.EntityType, x.EntityId, x.Status });
+                e.HasIndex(x => new { x.AssigneeId, x.Status });
+                e.HasIndex(x => x.SlaConfigId);
+                e.Property(x => x.EntityType).HasMaxLength(20);
+                e.Property(x => x.TrackedStatus).HasMaxLength(25);
+                e.Property(x => x.Status).HasMaxLength(15).HasDefaultValue("ACTIVE");
+                e.Property(x => x.ElapsedHours)
+                 .HasColumnType("decimal(18,1)")
+                 .HasComputedColumnSql("(DATEDIFF(MINUTE, StartedAt, ISNULL(CompletedAt, SYSDATETIME())) / 60.0)", stored: false);
+                e.Property(x => x.IsOnTime)
+                 .HasComputedColumnSql("(CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1 WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0 ELSE NULL END)", stored: false);
+                e.HasOne(x => x.SlaConfig).WithMany().HasForeignKey(x => x.SlaConfigId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.Assignee).WithMany().HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.NoAction);
             });
 
             // ─────────────────────────────────────────────

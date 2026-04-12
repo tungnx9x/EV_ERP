@@ -43,7 +43,13 @@
                         <div class="task-list" style="max-height:320px; overflow-y:auto;">
                             @foreach (var task in card.Tasks)
                             {
-                                <a href="@task.DetailUrl" class="task-item d-block text-decoration-none">
+                                var slaClass = task.SlaSeverity switch
+                                {
+                                    "DANGER" => "sla-danger",
+                                    "WARNING" => "sla-warning",
+                                    _ => ""
+                                };
+                                <a href="@task.DetailUrl" class="task-item d-block text-decoration-none @slaClass">
                                     <div class="d-flex align-items-start justify-content-between">
                                         <div style="min-width:0;">
                                             <div class="fw-semibold text-dark" style="font-size:0.8rem;">
@@ -57,12 +63,23 @@
                                                 @task.CustomerName
                                             </div>
                                         </div>
-                                        @if (task.ExtraInfo != null)
-                                        {
-                                            <span class="badge bg-light text-muted border ms-2 flex-shrink-0" style="font-size:0.68rem;">
-                                                @task.ExtraInfo
-                                            </span>
-                                        }
+                                        <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">
+                                            @if (task.SlaTimeRemaining != null)
+                                            {
+                                                var slaBadge = task.SlaSeverity == "DANGER" ? "bg-danger text-white"
+                                                             : task.SlaSeverity == "WARNING" ? "bg-warning text-dark"
+                                                             : "bg-light text-muted border";
+                                                <span class="badge @slaBadge" style="font-size:0.65rem;" title="SLA">
+                                                    <i class="bi bi-clock me-1"></i>@task.SlaTimeRemaining
+                                                </span>
+                                            }
+                                            @if (task.ExtraInfo != null)
+                                            {
+                                                <span class="badge bg-light text-muted border" style="font-size:0.68rem;">
+                                                    @task.ExtraInfo
+                                                </span>
+                                            }
+                                        </div>
                                     </div>
                                 </a>
                             }
@@ -148,10 +165,22 @@
     .task-item {
         padding: 0.5rem 0.75rem;
         border-bottom: 1px solid #f1f5f9;
-        transition: background 0.1s;
+        transition: background 0.15s;
     }
     .task-item:last-child { border-bottom: none; }
     .task-item:hover { background: #f8fafc; }
+
+    /* SLA highlighting */
+    .task-item.sla-warning {
+        background: #fefce8;
+        border-left: 3px solid #eab308;
+    }
+    .task-item.sla-warning:hover { background: #fef9c3; }
+    .task-item.sla-danger {
+        background: #fef2f2;
+        border-left: 3px solid #ef4444;
+    }
+    .task-item.sla-danger:hover { background: #fee2e2; }
 
     /* 2 rows of 5 */
     .workspace-step:nth-child(n+6) {

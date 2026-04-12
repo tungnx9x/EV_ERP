@@ -94,6 +94,13 @@
             font-size: 1rem; font-weight: 600; color: #1e293b;
             margin: 0; flex: 1;
         }
+        /* ── Notification bell ── */
+        .notification-bell .btn-link:hover { color: #1e293b !important; }
+        .notification-bell .btn-link:focus { box-shadow: none; }
+        .notif-item { transition: background 0.1s; }
+        .notif-item:hover { background: #f8fafc; }
+        .notif-item.notif-read { opacity: 0.6; }
+
         .user-menu .dropdown-toggle {
             background: none; border: none; padding: 0;
             display: flex; align-items: center; gap: 0.5rem;
@@ -234,6 +241,9 @@
             <a href="/User" class="sidebar-link @NavClass("/User")">
                 <i class="bi bi-people"></i> Quản lý User
             </a>
+            <a href="/SlaConfig" class="sidebar-link @NavClass("/SlaConfig")">
+                <i class="bi bi-clock-history"></i> Cấu hình SLA
+            </a>
         }
     </div>
 
@@ -255,6 +265,30 @@
 
     @if (currentUser != null)
     {
+        <!-- Notification Bell -->
+        <div class="notification-bell dropdown" id="notificationBell">
+            <button class="btn btn-link position-relative p-1" data-bs-toggle="dropdown"
+                    aria-expanded="false" data-bs-auto-close="outside"
+                    style="color:#64748b; font-size:1.2rem; text-decoration:none;">
+                <i class="bi bi-bell"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                      id="notifCount" style="font-size:0.6rem; display:none;">0</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow-sm p-0" style="width:360px; max-height:420px;">
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                    <span class="fw-semibold" style="font-size:0.85rem;">Thông báo</span>
+                    <button class="btn btn-sm btn-link text-primary p-0" style="font-size:0.75rem;"
+                            onclick="markAllRead()" id="btnMarkAllRead">Đọc tất cả</button>
+                </div>
+                <div id="notifList" style="max-height:340px; overflow-y:auto;">
+                    <div class="text-center text-muted py-4" style="font-size:0.8rem;">
+                        <i class="bi bi-bell-slash d-block mb-1" style="font-size:1.2rem;"></i>
+                        Không có thông báo
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="user-menu dropdown">
             <button class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                 <div class="user-avatar">
@@ -339,6 +373,132 @@
         link.addEventListener('click', closeSidebar);
     });
 </script>
+@if (currentUser != null)
+{
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+<script>
+    // ── Notification System ──
+    const notifCount = document.getElementById('notifCount');
+    const notifList = document.getElementById('notifList');
+    const btnMarkAll = document.getElementById('btnMarkAllRead');
+
+    function updateBadge(count) {
+        if (count > 0) {
+            notifCount.textContent = count > 99 ? '99+' : count;
+            notifCount.style.display = '';
+        } else {
+            notifCount.style.display = 'none';
+        }
+    }
+
+    function severityIcon(sev) {
+        if (sev === 'DANGER') return '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>';
+        if (sev === 'WARNING') return '<i class="bi bi-exclamation-circle-fill text-warning me-2"></i>';
+        return '<i class="bi bi-info-circle-fill text-info me-2"></i>';
+    }
+
+    function renderNotifications(items) {
+        if (!items || items.length === 0) {
+            notifList.innerHTML = '<div class="text-center text-muted py-4" style="font-size:0.8rem;"><i class="bi bi-bell-slash d-block mb-1" style="font-size:1.2rem;"></i>Không có thông báo</div>';
+            return;
+        }
+        notifList.innerHTML = items.map(n => `
+            <a href="${n.ActionUrl || '#'}" class="d-block text-decoration-none notif-item ${n.IsRead ? 'notif-read' : ''}"
+               onclick="markRead(${n.NotificationId}, event)" data-id="${n.NotificationId}">
+                <div class="d-flex align-items-start px-3 py-2 border-bottom" style="font-size:0.82rem;">
+                    <div class="flex-shrink-0 mt-1">${severityIcon(n.Severity)}</div>
+                    <div style="min-width:0;">
+                        <div class="fw-semibold text-dark text-truncate">${n.Title}</div>
+                        <div class="text-muted" style="font-size:0.75rem;">${n.Message}</div>
+                        <div class="text-muted" style="font-size:0.68rem; margin-top:2px;">${n.TimeAgo}</div>
+                    </div>
+                </div>
+            </a>`).join('');
+    }
+
+    function loadNotifications() {
+        fetch('/Notification/GetRecent')
+            .then(r => r.json())
+            .then(data => {
+                updateBadge(data.unreadCount);
+                renderNotifications(data.items);
+            })
+            .catch(() => {});
+    }
+
+    function markRead(id, e) {
+        fetch('/Notification/MarkRead/' + id, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateBadge(data.unreadCount);
+                    var el = document.querySelector(`[data-id="${id}"]`);
+                    if (el) el.classList.add('notif-read');
+                }
+            });
+    }
+
+    function markAllRead() {
+        fetch('/Notification/MarkAllRead', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateBadge(0);
+                    document.querySelectorAll('.notif-item').forEach(el => el.classList.add('notif-read'));
+                }
+            });
+    }
+
+    // Load on page load
+    loadNotifications();
+
+    // Reload when dropdown opens
+    document.getElementById('notificationBell')?.addEventListener('show.bs.dropdown', loadNotifications);
+
+    // ── SignalR connection ──
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/notification')
+        .withAutomaticReconnect()
+        .build();
+
+    connection.on('UpdateNotificationCount', function(count) {
+        updateBadge(count);
+    });
+
+    connection.on('ReceiveNotification', function(notif) {
+        // Show toast
+        showNotifToast(notif);
+        // Reload dropdown data
+        loadNotifications();
+    });
+
+    connection.start().catch(function(err) {
+        console.warn('SignalR connection failed:', err);
+    });
+
+    function showNotifToast(notif) {
+        var toastHtml = `
+            <div class="alert alert-${notif.Severity === 'DANGER' ? 'danger' : notif.Severity === 'WARNING' ? 'warning' : 'info'}
+                        alert-dismissible fade show alert-fixed" role="alert" style="z-index:10000;">
+                <div class="d-flex align-items-start gap-2">
+                    ${severityIcon(notif.Severity)}
+                    <div>
+                        <div class="fw-semibold" style="font-size:0.85rem;">${notif.Title}</div>
+                        <div style="font-size:0.8rem;">${notif.Message}</div>
+                        ${notif.ActionUrl ? '<a href="' + notif.ActionUrl + '" class="small">Xem chi tiết</a>' : ''}
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+        setTimeout(() => {
+            document.querySelectorAll('.alert-fixed').forEach(el => {
+                try { bootstrap.Alert.getOrCreateInstance(el).close(); } catch(e) {}
+            });
+        }, 6000);
+    }
+</script>
+}
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

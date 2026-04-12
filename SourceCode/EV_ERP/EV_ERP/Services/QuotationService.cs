@@ -17,14 +17,16 @@ public class QuotationService : IQuotationService
     private readonly ILogger<QuotationService> _logger;
     private readonly IWebHostEnvironment _env;
     private readonly ISalesOrderService _salesOrderService;
+    private readonly ISlaService _slaService;
 
     public QuotationService(IUnitOfWork uow, ILogger<QuotationService> logger, IWebHostEnvironment env,
-        ISalesOrderService salesOrderService)
+        ISalesOrderService salesOrderService, ISlaService slaService)
     {
         _uow = uow;
         _logger = logger;
         _env = env;
         _salesOrderService = salesOrderService;
+        _slaService = slaService;
     }
 
     // ══════════════════════════════════════════════════
@@ -249,6 +251,9 @@ public class QuotationService : IQuotationService
         await _uow.Repository<Quotation>().AddAsync(quotation);
         await _uow.SaveChangesAsync();
 
+        // SLA: start tracking DRAFT
+        await _slaService.StartTrackingAsync("QUOTATION", quotation.QuotationId, "DRAFT", quotation.SalesPersonId);
+
         _logger.LogInformation("Quotation created: {No} by UserId={UserId}", code, createdBy);
         return (true, null, quotation.QuotationId);
     }
@@ -438,6 +443,10 @@ public class QuotationService : IQuotationService
         _uow.Repository<Quotation>().Update(q);
         await _uow.SaveChangesAsync();
 
+        // SLA: complete DRAFT, start SENT
+        await _slaService.CompleteTrackingAsync("QUOTATION", quotationId, "DRAFT");
+        await _slaService.StartTrackingAsync("QUOTATION", quotationId, "SENT", q.SalesPersonId);
+
         _logger.LogInformation("Quotation sent: {No} by UserId={UserId}", q.QuotationNo, userId);
         return (true, null);
     }
@@ -454,6 +463,9 @@ public class QuotationService : IQuotationService
         q.UpdatedAt = DateTime.Now;
         _uow.Repository<Quotation>().Update(q);
         await _uow.SaveChangesAsync();
+
+        // SLA: complete SENT tracking
+        await _slaService.CompleteTrackingAsync("QUOTATION", quotationId, "SENT");
 
         _logger.LogInformation("Quotation approved: {No} by UserId={UserId}", q.QuotationNo, userId);
 
@@ -478,6 +490,9 @@ public class QuotationService : IQuotationService
         q.UpdatedAt = DateTime.Now;
         _uow.Repository<Quotation>().Update(q);
         await _uow.SaveChangesAsync();
+
+        // SLA: complete SENT tracking
+        await _slaService.CompleteTrackingAsync("QUOTATION", quotationId, "SENT");
 
         _logger.LogInformation("Quotation rejected: {No} by UserId={UserId}", q.QuotationNo, userId);
         return (true, null);
@@ -568,6 +583,9 @@ public class QuotationService : IQuotationService
         _uow.Repository<Quotation>().Update(q);
         await _uow.SaveChangesAsync();
 
+        // SLA: complete SENT tracking (expired = done waiting)
+        await _slaService.CompleteTrackingAsync("QUOTATION", quotationId, "SENT");
+
         _logger.LogInformation("Quotation expired: {No} by UserId={UserId}", q.QuotationNo, userId);
         return (true, null);
     }
@@ -586,6 +604,9 @@ public class QuotationService : IQuotationService
         q.UpdatedAt = DateTime.Now;
         _uow.Repository<Quotation>().Update(q);
         await _uow.SaveChangesAsync();
+
+        // SLA: skip all active tracking
+        await _slaService.SkipTrackingAsync("QUOTATION", quotationId);
 
         _logger.LogInformation("Quotation cancelled: {No} by UserId={UserId}", q.QuotationNo, userId);
         return (true, null);

@@ -1,0 +1,360 @@
+@model List<EV_ERP.Models.Entities.System.SlaConfig>
+@{
+    ViewData["Title"] = "Cấu hình SLA";
+
+    var entityLabels = new Dictionary<string, string>
+    {
+        ["RFQ"] = "Yêu cầu báo giá",
+        ["QUOTATION"] = "Báo giá",
+        ["SALES_ORDER"] = "Đơn hàng"
+    };
+
+    var statusOptions = new Dictionary<string, List<(string Value, string Label)>>
+    {
+        ["RFQ"] = new() { ("INPROGRESS", "Đang xử lý") },
+        ["QUOTATION"] = new() { ("DRAFT", "Nháp"), ("SENT", "Đã gửi") },
+        ["SALES_ORDER"] = new()
+        {
+            ("DRAFT", "Nháp"), ("WAIT", "Chờ tạm ứng"), ("BUYING", "Đang mua"),
+            ("RECEIVED", "Đã nhận hàng"), ("DELIVERING", "Đang giao"), ("DELIVERED", "Đã giao")
+        }
+    };
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <p class="text-muted small mb-0">Cấu hình thời gian cho phép cho từng bước trong quy trình</p>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+        <i class="bi bi-plus-lg me-1"></i> Thêm cấu hình
+    </button>
+</div>
+
+<!-- Grouped by EntityType -->
+@foreach (var group in Model.GroupBy(c => c.EntityType))
+{
+    var entityLabel = entityLabels.GetValueOrDefault(group.Key, group.Key);
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-bottom py-2 px-3">
+            <span class="fw-semibold" style="font-size:0.9rem;">
+                <i class="bi @(group.Key == "RFQ" ? "bi-clipboard-check" : group.Key == "QUOTATION" ? "bi-file-earmark-text" : "bi-receipt") me-1 text-primary"></i>
+                @entityLabel
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:180px;">Tên cấu hình</th>
+                            <th style="width:120px;">Trạng thái</th>
+                            <th style="width:100px;">Thời gian (h)</th>
+                            <th style="width:80px;">Loại giờ</th>
+                            <th style="width:100px;">Cảnh báo (%)</th>
+                            <th style="width:90px;">Gửi NV</th>
+                            <th style="width:90px;">Gửi QL</th>
+                            <th style="width:90px;">Leo thang</th>
+                            <th style="width:80px;">Kích hoạt</th>
+                            <th style="width:60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in group.OrderBy(x => x.SlaConfigId))
+                        {
+                            <tr id="row-@c.SlaConfigId" class="@(c.IsActive ? "" : "opacity-50")">
+                                <td>
+                                    <input type="text" class="form-control form-control-sm border-0 bg-transparent px-0"
+                                           value="@c.ConfigName" data-field="ConfigName" data-id="@c.SlaConfigId"
+                                           onchange="saveField(this)" style="font-weight:500;" />
+                                    <input type="text" class="form-control form-control-sm border-0 bg-transparent px-0 text-muted"
+                                           value="@c.Description" data-field="Description" data-id="@c.SlaConfigId"
+                                           onchange="saveField(this)" style="font-size:0.75rem;" placeholder="Mô tả..." />
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">
+                                        @c.FromStatus
+                                    </span>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm text-center"
+                                           value="@c.DurationHours" data-field="DurationHours" data-id="@c.SlaConfigId"
+                                           onchange="saveField(this)" min="0.1" step="0.5" style="width:80px;" />
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" data-field="DurationCalendar" data-id="@c.SlaConfigId"
+                                            onchange="saveField(this)" style="width:75px; font-size:0.78rem;">
+                                        <option value="false" selected="@(!c.DurationCalendar)">Làm việc</option>
+                                        <option value="true" selected="@(c.DurationCalendar)">24/7</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm" style="width:90px;">
+                                        <input type="number" class="form-control text-center"
+                                               value="@c.WarningPercent" data-field="WarningPercent" data-id="@c.SlaConfigId"
+                                               onchange="saveField(this)" min="1" max="99" step="5" />
+                                        <span class="input-group-text" style="font-size:0.75rem;">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input" @(c.NotifyAssignee ? "checked" : "")
+                                           data-field="NotifyAssignee" data-id="@c.SlaConfigId" onchange="saveField(this)" />
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input" @(c.NotifyManager ? "checked" : "")
+                                           data-field="NotifyManager" data-id="@c.SlaConfigId" onchange="saveField(this)" />
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input" @(c.EscalateOnOverdue ? "checked" : "")
+                                           data-field="EscalateOnOverdue" data-id="@c.SlaConfigId" onchange="saveField(this)" />
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check form-switch d-inline-block mb-0">
+                                        <input type="checkbox" class="form-check-input" role="switch" @(c.IsActive ? "checked" : "")
+                                               data-field="IsActive" data-id="@c.SlaConfigId" onchange="saveField(this)" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger" title="Xóa"
+                                            onclick="deleteConfig(@c.SlaConfigId, '@c.ConfigName.Replace("'", "\\'")'))">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Add Config Modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Thêm cấu hình SLA</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">Loại đối tượng</label>
+                        <select class="form-select form-select-sm" id="addEntityType" onchange="updateStatusOptions()">
+                            <option value="">-- Chọn --</option>
+                            <option value="RFQ">Yêu cầu báo giá (RFQ)</option>
+                            <option value="QUOTATION">Báo giá</option>
+                            <option value="SALES_ORDER">Đơn hàng</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">Trạng thái</label>
+                        <select class="form-select form-select-sm" id="addFromStatus">
+                            <option value="">-- Chọn loại trước --</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Tên cấu hình</label>
+                        <input type="text" class="form-control form-control-sm" id="addConfigName" placeholder="VD: Thời gian soạn báo giá" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Mô tả</label>
+                        <input type="text" class="form-control form-control-sm" id="addDescription" placeholder="Mô tả chi tiết (tùy chọn)" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-semibold">Thời gian (giờ)</label>
+                        <input type="number" class="form-control form-control-sm" id="addDuration" value="8" min="0.1" step="0.5" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-semibold">Cảnh báo (%)</label>
+                        <input type="number" class="form-control form-control-sm" id="addWarning" value="80" min="1" max="99" step="5" />
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label small fw-semibold">Loại giờ</label>
+                        <select class="form-select form-select-sm" id="addCalendar">
+                            <option value="false">Giờ làm việc</option>
+                            <option value="true">24/7</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="addNotifyAssignee" checked />
+                                <label class="form-check-label small" for="addNotifyAssignee">Gửi nhân viên</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="addNotifyManager" />
+                                <label class="form-check-label small" for="addNotifyManager">Gửi quản lý</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="addEscalate" />
+                                <label class="form-check-label small" for="addEscalate">Leo thang khi quá hạn</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="addError" class="text-danger small mt-2" style="display:none;"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="submitAdd()">
+                    <i class="bi bi-plus-lg me-1"></i> Thêm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save indicator -->
+<div id="saveIndicator" class="position-fixed" style="bottom:1.5rem; right:1.5rem; z-index:9999; display:none;">
+    <div class="alert alert-success alert-sm py-2 px-3 shadow-sm mb-0" style="font-size:0.82rem;">
+        <i class="bi bi-check-circle me-1"></i> Đã lưu
+    </div>
+</div>
+
+<style>
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+</style>
+
+<script>
+    // Status options per entity type
+    var statusOptionsMap = {
+        'RFQ': [{ v: 'INPROGRESS', l: 'Đang xử lý' }],
+        'QUOTATION': [{ v: 'DRAFT', l: 'Nháp' }, { v: 'SENT', l: 'Đã gửi' }],
+        'SALES_ORDER': [
+            { v: 'DRAFT', l: 'Nháp' }, { v: 'WAIT', l: 'Chờ tạm ứng' }, { v: 'BUYING', l: 'Đang mua' },
+            { v: 'RECEIVED', l: 'Đã nhận hàng' }, { v: 'DELIVERING', l: 'Đang giao' }, { v: 'DELIVERED', l: 'Đã giao' }
+        ]
+    };
+
+    function updateStatusOptions() {
+        var et = document.getElementById('addEntityType').value;
+        var sel = document.getElementById('addFromStatus');
+        sel.innerHTML = '<option value="">-- Chọn --</option>';
+        if (statusOptionsMap[et]) {
+            statusOptionsMap[et].forEach(function(o) {
+                sel.innerHTML += '<option value="' + o.v + '">' + o.l + ' (' + o.v + ')</option>';
+            });
+        }
+    }
+
+    // Collect full row data for saving
+    function collectRowData(id) {
+        var row = document.getElementById('row-' + id);
+        if (!row) return null;
+        var data = { SlaConfigId: id };
+
+        row.querySelectorAll('[data-field]').forEach(function(el) {
+            var field = el.dataset.field;
+            if (el.type === 'checkbox') {
+                data[field] = el.checked;
+            } else if (el.tagName === 'SELECT') {
+                data[field] = el.value === 'true' ? true : el.value === 'false' ? false : el.value;
+            } else if (el.type === 'number') {
+                data[field] = parseFloat(el.value) || 0;
+            } else {
+                data[field] = el.value;
+            }
+        });
+        return data;
+    }
+
+    function saveField(el) {
+        var id = el.dataset.id;
+        var data = collectRowData(id);
+        if (!data) return;
+
+        fetch('/SlaConfig/Update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.Success) {
+                showSaved();
+                // Toggle row opacity for IsActive
+                var row = document.getElementById('row-' + id);
+                if (data.IsActive === false) row.classList.add('opacity-50');
+                else row.classList.remove('opacity-50');
+            } else {
+                alert('Lỗi: ' + result.Message);
+            }
+        });
+    }
+
+    function showSaved() {
+        var el = document.getElementById('saveIndicator');
+        el.style.display = 'block';
+        setTimeout(function() { el.style.display = 'none'; }, 1500);
+    }
+
+    function openAddModal() {
+        document.getElementById('addEntityType').value = '';
+        document.getElementById('addFromStatus').innerHTML = '<option value="">-- Chọn loại trước --</option>';
+        document.getElementById('addConfigName').value = '';
+        document.getElementById('addDescription').value = '';
+        document.getElementById('addDuration').value = '8';
+        document.getElementById('addWarning').value = '80';
+        document.getElementById('addCalendar').value = 'false';
+        document.getElementById('addNotifyAssignee').checked = true;
+        document.getElementById('addNotifyManager').checked = false;
+        document.getElementById('addEscalate').checked = false;
+        document.getElementById('addError').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('addModal')).show();
+    }
+
+    function submitAdd() {
+        var errEl = document.getElementById('addError');
+        var data = {
+            EntityType: document.getElementById('addEntityType').value,
+            FromStatus: document.getElementById('addFromStatus').value,
+            ConfigName: document.getElementById('addConfigName').value.trim(),
+            Description: document.getElementById('addDescription').value.trim() || null,
+            DurationHours: parseFloat(document.getElementById('addDuration').value) || 0,
+            WarningPercent: parseFloat(document.getElementById('addWarning').value) || 80,
+            DurationCalendar: document.getElementById('addCalendar').value === 'true',
+            NotifyAssignee: document.getElementById('addNotifyAssignee').checked,
+            NotifyManager: document.getElementById('addNotifyManager').checked,
+            EscalateOnOverdue: document.getElementById('addEscalate').checked
+        };
+
+        if (!data.EntityType || !data.FromStatus) {
+            errEl.textContent = 'Vui lòng chọn loại đối tượng và trạng thái';
+            errEl.style.display = 'block'; return;
+        }
+        if (!data.ConfigName) {
+            errEl.textContent = 'Vui lòng nhập tên cấu hình';
+            errEl.style.display = 'block'; return;
+        }
+        errEl.style.display = 'none';
+
+        fetch('/SlaConfig/Create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+                location.reload();
+            } else {
+                errEl.textContent = result.Message;
+                errEl.style.display = 'block';
+            }
+        });
+    }
+
+    function deleteConfig(id, name) {
+        if (!confirm('Bạn có chắc muốn xóa cấu hình "' + name + '"?\n\nNếu đã có dữ liệu tracking, cấu hình sẽ bị vô hiệu hóa thay vì xóa.')) return;
+
+        fetch('/SlaConfig/Delete/' + id, { method: 'POST' })
+            .then(r => r.json())
+            .then(result => {
+                if (result.Success) location.reload();
+                else alert('Lỗi: ' + result.Message);
+            });
+    }
+</script>

@@ -1,4 +1,5 @@
 using EV_ERP.Data;
+using EV_ERP.Hubs;
 using EV_ERP.Repositories;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Middleware;
@@ -45,8 +46,14 @@ builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IQuotationService, QuotationService>();
 builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 builder.Services.AddScoped<IRfqService, RfqService>();
-// Đăng ký thêm khi implement từng module
-// builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<ISlaService, SlaService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// SignalR
+builder.Services.AddSignalR();
+
+// Background job — SLA checker (mỗi 60s)
+builder.Services.AddHostedService<SlaBackgroundService>();
 
 // SESSION
 builder.Services.AddDistributedMemoryCache();
@@ -101,6 +108,8 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Workspace}/{action=Index}/{id?}");
+
+app.MapHub<NotificationHub>("/hubs/notification");
 
 // ── Start ────────────────────────────────────────────
 Log.Information("═══ ERP EV — Starting on {Env} ═══",

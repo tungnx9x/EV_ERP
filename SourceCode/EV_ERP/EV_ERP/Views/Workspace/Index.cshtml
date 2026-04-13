@@ -1,11 +1,40 @@
 @model EV_ERP.Models.ViewModels.Workspace.WorkspaceViewModel
+@using EV_ERP.Helpers
 @{
     ViewData["Title"] = "Workspace";
+    var me = Context.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!;
+    var isViewingOther = Model.CanViewOthers && Model.ViewingUserId != me.UserId;
 }
 
-<div class="mb-4">
-    <h5 class="fw-bold mb-1">Công việc cần làm</h5>
-    @* <p class="text-muted small mb-0">Công việc cần làm</p> *@
+<div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h5 class="fw-bold mb-0">
+            Công việc cần làm
+            @if (isViewingOther)
+            {
+                <span class="badge bg-info fw-normal ms-2" style="font-size:0.75rem;">
+                    <i class="bi bi-eye me-1"></i>@Model.ViewingUserName
+                </span>
+            }
+        </h5>
+    </div>
+    @if (Model.CanViewOthers)
+    {
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label small fw-semibold mb-0 text-muted text-nowrap">
+                <i class="bi bi-people me-1"></i>Xem của:
+            </label>
+            <select id="viewUserSelect" class="form-select form-select-sm" style="width:220px;"
+                    onchange="window.location.href='/Workspace?viewUserId='+this.value;">
+                @foreach (var u in Model.Users)
+                {
+                    <option value="@u.UserId" selected="@(u.UserId == Model.ViewingUserId)">
+                        @u.FullName (@u.UserCode)
+                    </option>
+                }
+            </select>
+        </div>
+    }
 </div>
 
 <!-- Flow arrow connector -->
@@ -35,7 +64,7 @@
                     {
                         <div class="text-center text-muted py-4" style="font-size:0.8rem;">
                             <i class="bi bi-check-circle d-block mb-1" style="font-size:1.2rem;"></i>
-                            Không có công việc
+                            Không có công việc
                         </div>
                     }
                     else

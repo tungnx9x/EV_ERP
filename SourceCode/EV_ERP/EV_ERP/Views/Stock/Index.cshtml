@@ -1,0 +1,184 @@
+@model EV_ERP.Models.ViewModels.Stock.StockTransactionListViewModel
+@{
+    ViewData["Title"] = "Phiếu kho";
+    bool canEdit = ViewBag.CanEdit == true;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <p class="text-muted small mb-0">Tổng cộng @Model.TotalCount phiếu kho</p>
+    </div>
+    @if (canEdit)
+    {
+        <div class="d-flex gap-1">
+            <a href="/Stock/Create?type=INBOUND" class="btn btn-primary btn-sm">
+                <i class="bi bi-box-arrow-in-down me-1"></i> Nhập kho
+            </a>
+            <a href="/Stock/Create?type=OUTBOUND" class="btn btn-warning btn-sm">
+                <i class="bi bi-box-arrow-up me-1"></i> Xuất kho
+            </a>
+        </div>
+    }
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-12 col-sm-4 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Mã phiếu, mã SO..."
+                           value="@Model.SearchKeyword" />
+                </div>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Loại</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    <option value="INBOUND" selected="@(Model.FilterType == "INBOUND")">Nhập kho</option>
+                    <option value="OUTBOUND" selected="@(Model.FilterType == "OUTBOUND")">Xuất kho</option>
+                    <option value="ADJUSTMENT" selected="@(Model.FilterType == "ADJUSTMENT")">Điều chỉnh</option>
+                    <option value="RETURN" selected="@(Model.FilterType == "RETURN")">Trả hàng</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    <option value="DRAFT" selected="@(Model.FilterStatus == "DRAFT")">Nháp</option>
+                    <option value="CONFIRMED" selected="@(Model.FilterStatus == "CONFIRMED")">Đã xác nhận</option>
+                    <option value="DELIVERING" selected="@(Model.FilterStatus == "DELIVERING")">Đang giao</option>
+                    <option value="DELIVERED" selected="@(Model.FilterStatus == "DELIVERED")">Đã giao</option>
+                    <option value="CANCELLED" selected="@(Model.FilterStatus == "CANCELLED")">Đã hủy</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Kho</label>
+                <select name="warehouseId" class="form-select form-select-sm">
+                    <option value="">Tất cả kho</option>
+                    @foreach (var w in Model.Warehouses)
+                    {
+                        <option value="@w.WarehouseId" selected="@(Model.FilterWarehouseId == w.WarehouseId)">
+                            @w.WarehouseCode - @w.WarehouseName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
+                <a href="/Stock" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!Model.Transactions.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-archive" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">Không tìm thấy phiếu kho nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Mã phiếu</th>
+                            <th>Loại</th>
+                            <th class="d-none d-md-table-cell">Kho</th>
+                            <th class="d-none d-lg-table-cell">Đơn hàng</th>
+                            <th class="d-none d-md-table-cell">Ngày</th>
+                            <th class="text-center">SP</th>
+                            <th class="text-end d-none d-lg-table-cell">Tổng SL</th>
+                            <th>Trạng thái</th>
+                            <th style="width:80px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var t in Model.Transactions)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    <a href="/Stock/Detail/@t.TransactionId"
+                                       class="fw-semibold text-decoration-none text-dark link-hover">
+                                        @t.TransactionNo
+                                    </a>
+                                    <div class="text-muted small">@t.CreatedByName</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-@(t.TypeBadge)-subtle text-@(t.TypeBadge)-emphasis rounded-pill">
+                                        @t.TypeText
+                                    </span>
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">@t.WarehouseName</td>
+                                <td class="d-none d-lg-table-cell small">
+                                    @if (t.SalesOrderId.HasValue)
+                                    {
+                                        <a href="/SalesOrder/Detail/@t.SalesOrderId" class="text-decoration-none">
+                                            @t.SalesOrderNo
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">
+                                    @t.TransactionDate.ToString("dd/MM/yyyy")
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">@t.ItemCount</span>
+                                </td>
+                                <td class="text-end d-none d-lg-table-cell fw-semibold small">
+                                    @t.TotalQuantity.ToString("N0")
+                                </td>
+                                <td>
+                                    <span class="badge bg-@(t.StatusBadge)-subtle text-@(t.StatusBadge)-emphasis rounded-pill">
+                                        @t.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="/Stock/Detail/@t.TransactionId"
+                                       class="btn btn-sm btn-outline-secondary" title="Xem chi tiết">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .link-hover:hover { color: #2563eb !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-primary-subtle { background-color: #dbeafe !important; }
+    .text-primary-emphasis { color: #1e40af !important; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; }
+    .text-warning-emphasis { color: #92400e !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #075985 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+</style>

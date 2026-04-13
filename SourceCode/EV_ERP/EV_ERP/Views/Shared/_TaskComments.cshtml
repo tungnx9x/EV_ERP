@@ -16,11 +16,11 @@
 <div class="card border-0 shadow-sm mt-3" id="comments">
     <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
         <h6 class="mb-0 fw-semibold small text-uppercase">
-            <i class="bi bi-chat-dots me-1"></i> Trao doi
+            <i class="bi bi-chat-dots me-1"></i> Trao đổi
             <span class="badge bg-secondary rounded-pill ms-1" id="commentCount">0</span>
         </h6>
         <button class="btn btn-sm btn-outline-primary" onclick="toggleCommentForm()" id="btnToggleComment">
-            <i class="bi bi-plus-lg me-1"></i> Them
+            <i class="bi bi-plus-lg me-1"></i> Thêm
         </button>
     </div>
     <div class="card-body p-0">
@@ -28,7 +28,7 @@
         <div id="commentFormWrapper" style="display:none;" class="border-bottom p-3 bg-light">
             <div class="position-relative">
                 <textarea id="commentContent" class="form-control form-control-sm" rows="3"
-                          placeholder="Nhap noi dung trao doi... Dung @@ de mention nguoi dung"></textarea>
+                          placeholder="Nhập nội dung trao đổi... Dùng @@ để mention người dùng"></textarea>
                 <!-- Mention dropdown -->
                 <div id="mentionDropdown" class="dropdown-menu shadow-sm" style="display:none; position:absolute; z-index:1060; max-height:200px; overflow-y:auto; width:260px;"></div>
             </div>
@@ -37,7 +37,7 @@
             <div class="d-flex align-items-center justify-content-between mt-2">
                 <div class="d-flex align-items-center gap-2">
                     <span id="replyIndicator" class="small text-primary" style="display:none;">
-                        <i class="bi bi-reply me-1"></i> Tra loi <strong id="replyToName"></strong>
+                        <i class="bi bi-reply me-1"></i> Trả lời <strong id="replyToName"></strong>
                         <button class="btn btn-sm btn-link p-0 ms-1 text-muted" onclick="cancelReply()">
                             <i class="bi bi-x"></i>
                         </button>
@@ -46,7 +46,7 @@
                 <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-outline-secondary" onclick="toggleCommentForm()">Huy</button>
                     <button class="btn btn-sm btn-primary" onclick="submitComment()" id="btnSubmitComment">
-                        <i class="bi bi-send me-1"></i> Gui
+                        <i class="bi bi-send me-1"></i> Gửi
                     </button>
                 </div>
             </div>
@@ -56,7 +56,7 @@
         <div id="commentList" class="p-3">
             <div class="text-center text-muted py-4" style="font-size:0.82rem;" id="noCommentsMsg">
                 <i class="bi bi-chat-left-text d-block mb-1" style="font-size:1.5rem; opacity:0.4;"></i>
-                Chua co trao doi nao
+                Chưa có trao đổi nào
             </div>
         </div>
     </div>
@@ -164,12 +164,12 @@
         var actionsHtml = '';
         if (isMine) {
             actionsHtml = '<span class="comment-actions">' +
-                '<button class="btn btn-sm btn-link text-muted p-0 me-2" onclick="editComment(' + c.CommentId + ')" title="Sua"><i class="bi bi-pencil" style="font-size:0.7rem;"></i></button>' +
-                '<button class="btn btn-sm btn-link text-muted p-0" onclick="deleteComment(' + c.CommentId + ')" title="Xoa"><i class="bi bi-trash" style="font-size:0.7rem;"></i></button>' +
+                '<button class="btn btn-sm btn-link text-muted p-0 me-2" onclick="editComment(' + c.CommentId + ')" title="Sửa"><i class="bi bi-pencil" style="font-size:0.7rem;"></i></button>' +
+                '<button class="btn btn-sm btn-link text-muted p-0" onclick="deleteComment(' + c.CommentId + ')" title="Xóa"><i class="bi bi-trash" style="font-size:0.7rem;"></i></button>' +
                 '</span>';
         }
 
-        var editedHtml = c.IsEdited ? ' <span class="comment-edited">(da sua)</span>' : '';
+        var editedHtml = c.IsEdited ? ' <span class="comment-edited">(đã sửa)</span>' : '';
 
         var html = '<div class="' + wrapperClass + '" data-comment-id="' + c.CommentId + '">';
 
@@ -185,7 +185,7 @@
             html += '<div class="d-flex align-items-center justify-content-end gap-2 mt-1">';
             html += '<span class="text-muted" style="font-size:0.68rem;">' + escapeHtml(c.TimeAgo) + '</span>';
             if (!isReply) {
-                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Tra loi</button>';
+                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Trả lời</button>';
             }
             html += '</div></div>';
             html += '<div class="' + avatarClass + '">' + initial + '</div>';
@@ -203,7 +203,7 @@
             html += '<div class="d-flex align-items-center gap-2 mt-1">';
             html += '<span class="text-muted" style="font-size:0.68rem;">' + escapeHtml(c.TimeAgo) + '</span>';
             if (!isReply) {
-                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Tra loi</button>';
+                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Trả lời</button>';
             }
             html += '</div></div></div>';
         }
@@ -244,7 +244,7 @@
 
         var btn = document.getElementById('btnSubmitComment');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang gui...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang gửi...';
 
         var body = {
             EntityType: ENTITY_TYPE,
@@ -264,7 +264,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gui';
+            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gửi';
             if (data.success) {
                 document.getElementById('commentContent').value = '';
                 mentionedUsers = [];
@@ -272,12 +272,12 @@
                 cancelReply();
                 loadComments();
             } else {
-                alert(data.message || 'Loi');
+                alert(data.message || 'Lỗi');
             }
         })
         .catch(function() {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gui';
+            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gửi';
         });
     };
 
@@ -301,8 +301,8 @@
     window.editComment = function(commentId) {
         var el = document.querySelector('[data-comment-id="' + commentId + '"] .comment-bubble');
         if (!el) return;
-        var oldText = el.textContent.replace('(da sua)', '').trim();
-        var newText = prompt('Sua binh luan:', oldText);
+        var oldText = el.textContent.replace('(đã sửa)', '').trim();
+        var newText = prompt('Sửa bình luận:', oldText);
         if (newText === null || newText.trim() === '' || newText.trim() === oldText) return;
 
         fetch('/TaskComment/Edit', {
@@ -313,7 +313,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.success) loadComments();
-            else alert(data.message || 'Loi');
+            else alert(data.message || 'Lỗi');
         });
     };
 
@@ -324,7 +324,7 @@
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) loadComments();
-                else alert(data.message || 'Loi');
+                else alert(data.message || 'Lỗi');
             });
     };
 

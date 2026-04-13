@@ -11,10 +11,12 @@ namespace EV_ERP.Controllers;
 public class SalesOrderController : Controller
 {
     private readonly ISalesOrderService _salesOrderService;
+    private readonly ILogger<SalesOrderController> _logger;
 
-    public SalesOrderController(ISalesOrderService salesOrderService)
+    public SalesOrderController(ISalesOrderService salesOrderService, ILogger<SalesOrderController> logger)
     {
         _salesOrderService = salesOrderService;
+        _logger = logger;
     }
 
     private int CurrentUserId =>
@@ -52,88 +54,152 @@ public class SalesOrderController : Controller
     [HttpPost]
     public async Task<IActionResult> UpdateDraftInfo(int id, string? customerPoNo, IFormFile? customerPoFile)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.UpdateDraftInfoAsync(id, customerPoNo, customerPoFile, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã lưu thông tin PO khách hàng" : error });
+            var (success, error) = await _salesOrderService.UpdateDraftInfoAsync(id, customerPoNo, customerPoFile, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã lưu thông tin PO khách hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UpdateDraftInfo failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Status: DRAFT → WAIT ─────────────────────────
     [HttpPost]
     public async Task<IActionResult> SubmitWait(int id, [FromBody] SalesOrderDraftModel model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.SubmitWaitAsync(id, model, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gửi đề nghị tạm ứng" : error });
+            var (success, error) = await _salesOrderService.SubmitWaitAsync(id, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gửi đề nghị tạm ứng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SubmitWait failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Status: WAIT → BUYING ────────────────────────
     [HttpPost]
     public async Task<IActionResult> StartBuying(int id, [FromBody] SalesOrderBuyingModel model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.StartBuyingAsync(id, model, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bắt đầu mua hàng" : error });
+            var (success, error) = await _salesOrderService.StartBuyingAsync(id, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bắt đầu mua hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "StartBuying failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Status: BUYING → RECEIVED ────────────────────
     [HttpPost]
     public async Task<IActionResult> ConfirmReceived(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.ConfirmReceivedAsync(id, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận nhận hàng" : error });
+            var (success, error) = await _salesOrderService.ConfirmReceivedAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận nhận hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ConfirmReceived failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Status: RECEIVED → DELIVERING ────────────────
     [HttpPost]
     public async Task<IActionResult> StartDelivering(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.StartDeliveringAsync(id, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bàn giao cho vận chuyển" : error });
+            var (success, error) = await _salesOrderService.StartDeliveringAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bàn giao cho vận chuyển" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "StartDelivering failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Status: DELIVERING → DELIVERED ───────────────
     [HttpPost]
     public async Task<IActionResult> ConfirmDelivered(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.ConfirmDeliveredAsync(id, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Khách hàng đã nhận hàng" : error });
+            var (success, error) = await _salesOrderService.ConfirmDeliveredAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Khách hàng đã nhận hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ConfirmDelivered failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Status: DELIVERED → COMPLETED ────────────────
     [HttpPost]
     public async Task<IActionResult> Complete(int id, [FromBody] SalesOrderCompleteModel model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.CompleteAsync(id, model, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hoàn tất đơn hàng" : error });
+            var (success, error) = await _salesOrderService.CompleteAsync(id, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hoàn tất đơn hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Complete failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Cancel ───────────────────────────────────────
     [HttpPost]
     public async Task<IActionResult> Cancel(int id, [FromBody] ReasonModel? model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _salesOrderService.CancelAsync(id, CurrentUserId, model?.Reason);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy đơn hàng" : error });
+            var (success, error) = await _salesOrderService.CancelAsync(id, CurrentUserId, model?.Reason);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy đơn hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cancel failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Export ĐNTU Excel ────────────────────────────

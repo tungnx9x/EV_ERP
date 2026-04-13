@@ -1,0 +1,525 @@
+@model EV_ERP.Models.ViewModels.Stock.StockTransactionFormViewModel
+@{
+    var isEdit = Model.IsEditMode;
+    var typeLabel = Model.TransactionType == "OUTBOUND" ? "Xuất kho" : "Nhập kho";
+    ViewData["Title"] = isEdit ? $"Sửa phiếu {typeLabel}" : $"Tạo phiếu {typeLabel}";
+}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom py-3">
+        <div class="d-flex align-items-center gap-2">
+            <a href="@(isEdit ? $"/Stock/Detail/{Model.TransactionId}" : "/Stock")" class="btn btn-sm btn-light border">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h5 class="mb-0 fw-semibold">
+                <i class="bi @(Model.TransactionType == "OUTBOUND" ? "bi-box-arrow-up" : "bi-box-arrow-in-down") me-2 text-@(Model.TransactionType == "OUTBOUND" ? "warning" : "primary")"></i>
+                @ViewData["Title"]
+            </h5>
+            @if (Model.SalesOrderNo != null)
+            {
+                <span class="badge bg-light text-dark border ms-2">
+                    <i class="bi bi-receipt me-1"></i>SO: @Model.SalesOrderNo
+                </span>
+            }
+        </div>
+    </div>
+    <div class="card-body p-4">
+        <!-- General info -->
+        <div class="row g-3 mb-4">
+            <input type="hidden" id="frm_transactionId" value="@Model.TransactionId" />
+            <input type="hidden" id="frm_transactionType" value="@Model.TransactionType" />
+            <input type="hidden" id="frm_salesOrderId" value="@Model.SalesOrderId" />
+
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Kho <span class="text-danger">*</span></label>
+                <select id="frm_warehouseId" class="form-select form-select-sm" onchange="onWarehouseChange()">
+                    <option value="">— Chọn kho —</option>
+                    @foreach (var w in Model.Warehouses)
+                    {
+                        <option value="@w.WarehouseId" selected="@(Model.WarehouseId == w.WarehouseId)">
+                            @w.WarehouseCode - @w.WarehouseName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Ngày</label>
+                <input type="date" id="frm_transactionDate" class="form-control form-control-sm"
+                       value="@Model.TransactionDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Ghi chú</label>
+                <input type="text" id="frm_notes" class="form-control form-control-sm"
+                       value="@Model.Notes" placeholder="Ghi chú phiếu..." />
+            </div>
+
+            @if (Model.TransactionType == "OUTBOUND")
+            {
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Nhân viên giao</label>
+                    <select id="frm_deliveryPersonId" class="form-select form-select-sm">
+                        <option value="">— Chọn NV giao —</option>
+                        @foreach (var u in Model.DeliveryPersons)
+                        {
+                            <option value="@u.UserId" selected="@(Model.DeliveryPersonId == u.UserId)">
+                                @u.FullName
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Người nhận</label>
+                    <input type="text" id="frm_receiverName" class="form-control form-control-sm"
+                           value="@Model.ReceiverName" placeholder="Tên người nhận" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">SĐT người nhận</label>
+                    <input type="text" id="frm_receiverPhone" class="form-control form-control-sm"
+                           value="@Model.ReceiverPhone" placeholder="Số điện thoại" />
+                </div>
+            }
+        </div>
+
+        <!-- Barcode scanner section -->
+        <div class="card border-1 border-primary mb-3" style="border-style:dashed !important;">
+            <div class="card-body py-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col">
+                        <label class="form-label small fw-semibold mb-1">
+                            <i class="bi bi-upc-scan me-1 text-primary"></i> Quét Barcode / Nhập mã SP
+                        </label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-primary text-white"><i class="bi bi-upc"></i></span>
+                            <input type="text" id="barcodeInput" class="form-control form-control-sm"
+                                   placeholder="Quét barcode hoặc nhập mã sản phẩm rồi nhấn Enter..."
+                                   autofocus autocomplete="off" />
+                            <button class="btn btn-primary btn-sm" type="button" onclick="doBarcodeLookup()">
+                                <i class="bi bi-search me-1"></i> Tìm
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" type="button" onclick="openCameraScanner()" title="Quét bằng camera">
+                                <i class="bi bi-camera"></i>
+                            </button>
+                        </div>
+                        <div id="barcodeError" class="text-danger small mt-1" style="display:none;"></div>
+                        <div id="barcodeSuccess" class="text-success small mt-1" style="display:none;"></div>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="addEmptyRow()">
+                            <i class="bi bi-plus-lg me-1"></i> Thêm dòng trống
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items table -->
+        <div class="table-responsive mb-4">
+            <table class="table table-sm align-middle mb-0" id="itemsTable" style="font-size:0.82rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:36px;">#</th>
+                        <th style="width:44px;"></th>
+                        <th style="min-width:200px;">Sản phẩm</th>
+                        <th style="width:140px;">Barcode</th>
+                        <th style="width:160px;">Vị trí</th>
+                        <th style="width:100px;" class="text-end">Số lượng</th>
+                        <th style="width:80px;">ĐVT</th>
+                        <th style="width:140px;">Ghi chú</th>
+                        <th style="width:36px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    <!-- Rows added by JS -->
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="5" class="text-end fw-semibold">Tổng:</td>
+                        <td class="text-end fw-bold" id="totalQty">0</td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div id="saveError" class="alert alert-danger py-2 small" style="display:none;"></div>
+
+        <hr class="my-3" />
+        <div class="d-flex gap-2 justify-content-end">
+            <a href="@(isEdit ? $"/Stock/Detail/{Model.TransactionId}" : "/Stock")" class="btn btn-outline-secondary">Hủy</a>
+            <button type="button" class="btn btn-primary" onclick="saveForm()" id="btnSave">
+                <i class="bi bi-check-lg me-1"></i> @(isEdit ? "Lưu thay đổi" : "Tạo phiếu")
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-primary-subtle { background-color: #dbeafe !important; }
+    #itemsBody tr td { vertical-align: middle; }
+    #itemsBody input, #itemsBody select { font-size: 0.82rem; }
+    #barcodeInput:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.25); border-color: #3b82f6; }
+</style>
+
+<script>
+    // ── State ────────────────────────────────────────────
+    var items = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items));
+    var locations = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Locations));
+
+    // ── Init ─────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        renderItems();
+
+        // Barcode input: Enter key triggers lookup
+        document.getElementById('barcodeInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                doBarcodeLookup();
+            }
+        });
+    });
+
+    // ── Barcode Lookup ───────────────────────────────────
+    function doBarcodeLookup() {
+        var input = document.getElementById('barcodeInput');
+        var barcode = input.value.trim();
+        if (!barcode) return;
+
+        var whId = document.getElementById('frm_warehouseId').value;
+        var url = '/Stock/LookupBarcode?barcode=' + encodeURIComponent(barcode);
+        if (whId) url += '&warehouseId=' + whId;
+
+        hideBarcodeMessages();
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.Success) {
+                    showBarcodeError(data.Message || 'Không tìm thấy');
+                    return;
+                }
+
+                var product = data.Data;
+
+                // Check if product already exists in items
+                var existingIdx = items.findIndex(i => i.ProductId === product.ProductId);
+                if (existingIdx >= 0) {
+                    // Increment quantity
+                    items[existingIdx].Quantity = (items[existingIdx].Quantity || 0) + 1;
+                    showBarcodeSuccess(product.ProductName + ' — SL +1 (tổng: ' + items[existingIdx].Quantity + ')');
+                } else {
+                    // Add new row
+                    items.push({
+                        TransItemId: null,
+                        ProductId: product.ProductId,
+                        ProductName: product.ProductName,
+                        ProductCode: product.ProductCode,
+                        Barcode: product.Barcode || '',
+                        ImageUrl: product.ImageUrl || '',
+                        LocationId: null,
+                        Quantity: 1,
+                        UnitName: product.UnitName || '',
+                        Notes: ''
+                    });
+                    showBarcodeSuccess('Đã thêm: ' + product.ProductName +
+                        (product.QuantityOnHand > 0 ? ' (Tồn: ' + product.QuantityOnHand + ')' : ''));
+                }
+
+                renderItems();
+                input.value = '';
+                input.focus();
+            })
+            .catch(err => {
+                showBarcodeError('Lỗi kết nối');
+            });
+    }
+
+    // ── Render Items Table ───────────────────────────────
+    function renderItems() {
+        var tbody = document.getElementById('itemsBody');
+        tbody.innerHTML = '';
+
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">' +
+                '<i class="bi bi-upc-scan" style="font-size:2rem;opacity:.3;"></i>' +
+                '<p class="mt-2 mb-0">Quét barcode hoặc nhập mã SP để thêm sản phẩm</p></td></tr>';
+            updateTotal();
+            return;
+        }
+
+        items.forEach(function (item, idx) {
+            var imgHtml = item.ImageUrl
+                ? '<img src="' + item.ImageUrl + '" class="rounded" style="width:32px;height:32px;object-fit:cover;" />'
+                : '<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:32px;height:32px;"><i class="bi bi-box text-muted"></i></div>';
+
+            var locOptions = '<option value="">—</option>';
+            locations.forEach(function (l) {
+                var sel = (item.LocationId === l.LocationId) ? ' selected' : '';
+                locOptions += '<option value="' + l.LocationId + '"' + sel + '>' + l.LocationCode + '</option>';
+            });
+
+            var row = '<tr>' +
+                '<td class="text-muted">' + (idx + 1) + '</td>' +
+                '<td>' + imgHtml + '</td>' +
+                '<td>' +
+                    '<div class="fw-semibold small">' + escHtml(item.ProductName) + '</div>' +
+                    '<div class="text-muted" style="font-size:0.75rem;">' + escHtml(item.ProductCode) + '</div>' +
+                    '<input type="hidden" class="item-productId" value="' + item.ProductId + '" />' +
+                    '<input type="hidden" class="item-productName" value="' + escAttr(item.ProductName) + '" />' +
+                    '<input type="hidden" class="item-productCode" value="' + escAttr(item.ProductCode) + '" />' +
+                    '<input type="hidden" class="item-imageUrl" value="' + escAttr(item.ImageUrl || '') + '" />' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control form-control-sm item-barcode font-monospace" ' +
+                        'value="' + escAttr(item.Barcode || '') + '" placeholder="Barcode" ' +
+                        'onchange="updateItemField(' + idx + ', \'Barcode\', this.value)" />' +
+                '</td>' +
+                '<td>' +
+                    '<select class="form-select form-select-sm item-location" ' +
+                        'onchange="updateItemField(' + idx + ', \'LocationId\', this.value ? parseInt(this.value) : null)">' +
+                        locOptions +
+                    '</select>' +
+                '</td>' +
+                '<td>' +
+                    '<input type="number" class="form-control form-control-sm text-end item-qty" ' +
+                        'value="' + item.Quantity + '" min="0.001" step="1" ' +
+                        'onchange="updateItemField(' + idx + ', \'Quantity\', parseFloat(this.value) || 0)" />' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control form-control-sm item-unit" ' +
+                        'value="' + escAttr(item.UnitName) + '" ' +
+                        'onchange="updateItemField(' + idx + ', \'UnitName\', this.value)" />' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control form-control-sm item-notes" ' +
+                        'value="' + escAttr(item.Notes || '') + '" placeholder="..." ' +
+                        'onchange="updateItemField(' + idx + ', \'Notes\', this.value)" />' +
+                '</td>' +
+                '<td>' +
+                    '<button class="btn btn-sm btn-outline-danger border-0" onclick="removeItem(' + idx + ')" title="Xóa">' +
+                        '<i class="bi bi-trash"></i>' +
+                    '</button>' +
+                '</td>' +
+            '</tr>';
+
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+
+        updateTotal();
+    }
+
+    function updateItemField(idx, field, value) {
+        if (idx >= 0 && idx < items.length) {
+            items[idx][field] = value;
+            if (field === 'Quantity') updateTotal();
+        }
+    }
+
+    function removeItem(idx) {
+        items.splice(idx, 1);
+        renderItems();
+    }
+
+    function addEmptyRow() {
+        items.push({
+            TransItemId: null,
+            ProductId: 0,
+            ProductName: '',
+            ProductCode: '',
+            Barcode: '',
+            ImageUrl: '',
+            LocationId: null,
+            Quantity: 1,
+            UnitName: '',
+            Notes: ''
+        });
+        renderItems();
+    }
+
+    function updateTotal() {
+        var total = items.reduce(function (sum, i) { return sum + (i.Quantity || 0); }, 0);
+        document.getElementById('totalQty').textContent = total.toLocaleString('vi-VN');
+    }
+
+    // ── Warehouse Change → reload locations ──────────────
+    function onWarehouseChange() {
+        var whId = document.getElementById('frm_warehouseId').value;
+        if (!whId) { locations = []; renderItems(); return; }
+
+        fetch('/Stock/GetLocations?warehouseId=' + whId)
+            .then(r => r.json())
+            .then(data => {
+                if (data.Success) {
+                    locations = data.Data || [];
+                    renderItems();
+                }
+            });
+    }
+
+    // ── Save ─────────────────────────────────────────────
+    function saveForm() {
+        var whId = parseInt(document.getElementById('frm_warehouseId').value);
+        if (!whId) { showSaveError('Vui lòng chọn kho'); return; }
+        if (items.length === 0) { showSaveError('Phiếu phải có ít nhất 1 sản phẩm'); return; }
+
+        // Validate items
+        for (var i = 0; i < items.length; i++) {
+            if (!items[i].ProductId || items[i].ProductId <= 0) {
+                showSaveError('Dòng ' + (i + 1) + ': chưa chọn sản phẩm. Sử dụng barcode/mã SP để thêm.');
+                return;
+            }
+            if (!items[i].Quantity || items[i].Quantity <= 0) {
+                showSaveError('Dòng ' + (i + 1) + ': số lượng phải > 0');
+                return;
+            }
+        }
+
+        var transIdVal = document.getElementById('frm_transactionId').value;
+        var payload = {
+            TransactionId: transIdVal ? parseInt(transIdVal) : null,
+            TransactionType: document.getElementById('frm_transactionType').value,
+            WarehouseId: whId,
+            SalesOrderId: parseInt(document.getElementById('frm_salesOrderId').value) || null,
+            TransactionDate: document.getElementById('frm_transactionDate').value,
+            Notes: document.getElementById('frm_notes').value.trim() || null,
+            IsDropship: false,
+            DeliveryPersonId: document.getElementById('frm_deliveryPersonId')?.value
+                ? parseInt(document.getElementById('frm_deliveryPersonId').value) : null,
+            DeliveryNote: null,
+            ReceiverName: document.getElementById('frm_receiverName')?.value?.trim() || null,
+            ReceiverPhone: document.getElementById('frm_receiverPhone')?.value?.trim() || null,
+            Items: items.map(function (it) {
+                return {
+                    TransItemId: it.TransItemId || null,
+                    ProductId: it.ProductId,
+                    ProductName: it.ProductName,
+                    ProductCode: it.ProductCode,
+                    Barcode: it.Barcode || null,
+                    ImageUrl: it.ImageUrl || null,
+                    LocationId: it.LocationId || null,
+                    Quantity: it.Quantity,
+                    UnitName: it.UnitName,
+                    Notes: it.Notes || null
+                };
+            })
+        };
+
+        var isEdit = !!transIdVal;
+        var url = isEdit ? '/Stock/Edit' : '/Stock/Create';
+
+        document.getElementById('btnSave').disabled = true;
+        hideSaveError();
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('btnSave').disabled = false;
+            if (data.Success) {
+                window.location.href = '/Stock/Detail/' + data.Data.TransactionId;
+            } else {
+                showSaveError(data.Message || 'Lỗi lưu phiếu kho');
+            }
+        })
+        .catch(err => {
+            document.getElementById('btnSave').disabled = false;
+            showSaveError('Lỗi kết nối');
+        });
+    }
+
+    // ── Helpers ───────────────────────────────────────────
+    function showBarcodeError(msg) {
+        var el = document.getElementById('barcodeError');
+        el.textContent = msg; el.style.display = 'block';
+    }
+    function showBarcodeSuccess(msg) {
+        var el = document.getElementById('barcodeSuccess');
+        el.textContent = msg; el.style.display = 'block';
+        setTimeout(function () { el.style.display = 'none'; }, 3000);
+    }
+    function hideBarcodeMessages() {
+        document.getElementById('barcodeError').style.display = 'none';
+        document.getElementById('barcodeSuccess').style.display = 'none';
+    }
+    function showSaveError(msg) {
+        var el = document.getElementById('saveError');
+        el.textContent = msg; el.style.display = 'block';
+    }
+    function hideSaveError() {
+        document.getElementById('saveError').style.display = 'none';
+    }
+    function escHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+
+    // ── Camera Barcode Scanner ──────────────────────────
+    var html5QrCode = null;
+
+    function openCameraScanner() {
+        var modal = new bootstrap.Modal(document.getElementById('cameraScannerModal'));
+        modal.show();
+        document.getElementById('cameraScannerModal').addEventListener('shown.bs.modal', startCameraScanner, { once: true });
+    }
+
+    function startCameraScanner() {
+        var readerEl = document.getElementById('cameraScannerReader');
+        readerEl.innerHTML = '';
+        document.getElementById('cameraScanStatus').textContent = 'Đang khởi động camera...';
+
+        html5QrCode = new Html5Qrcode('cameraScannerReader');
+        html5QrCode.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5 },
+            function (decodedText) {
+                document.getElementById('cameraScanStatus').innerHTML =
+                    '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Đã quét: ' + decodedText + '</span>';
+                stopCameraScanner();
+                bootstrap.Modal.getInstance(document.getElementById('cameraScannerModal')).hide();
+                document.getElementById('barcodeInput').value = decodedText;
+                doBarcodeLookup();
+            },
+            function () { }
+        ).then(function () {
+            document.getElementById('cameraScanStatus').textContent = 'Đưa barcode vào khung hình để quét...';
+        }).catch(function (err) {
+            document.getElementById('cameraScanStatus').innerHTML =
+                '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Không thể mở camera: ' + err + '</span>';
+        });
+    }
+
+    function stopCameraScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().catch(function () { });
+        }
+    }
+
+    document.getElementById('cameraScannerModal').addEventListener('hidden.bs.modal', stopCameraScanner);
+</script>
+
+<!-- Camera Scanner Modal -->
+<div class="modal fade" id="cameraScannerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-camera me-1"></i> Quét Barcode bằng Camera</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-2">
+                <div id="cameraScannerReader" style="width:100%;"></div>
+                <div id="cameraScanStatus" class="text-center small text-muted mt-2">Đang khởi động camera...</div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()

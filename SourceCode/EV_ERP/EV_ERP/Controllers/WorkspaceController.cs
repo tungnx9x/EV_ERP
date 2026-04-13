@@ -1,6 +1,7 @@
 using EV_ERP.Filters;
 using EV_ERP.Helpers;
 using EV_ERP.Models.Common;
+using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.Entities.System;
@@ -24,14 +25,53 @@ public class WorkspaceController : Controller
         _slaService = slaService;
     }
 
-    private int CurrentUserId =>
-        HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.UserId;
+    private CurrentUser CurrentUserObj =>
+        HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!;
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int? viewUserId)
     {
         ViewData["Title"] = "Workspace";
-        var userId = CurrentUserId;
-        var vm = new WorkspaceViewModel();
+        var currentUser = CurrentUserObj;
+        var canViewOthers = currentUser.RoleCode is "ADMIN" or "MANAGER";
+
+        // Determine which user's tasks to show
+        var userId = currentUser.UserId;
+        var viewingUserName = currentUser.FullName;
+
+        if (canViewOthers && viewUserId.HasValue && viewUserId.Value != currentUser.UserId)
+        {
+            var targetUser = await _uow.Repository<User>().Query()
+                .Where(u => u.UserId == viewUserId.Value && u.IsActive)
+                .Select(u => new { u.UserId, u.FullName })
+                .FirstOrDefaultAsync();
+            if (targetUser != null)
+            {
+                userId = targetUser.UserId;
+                viewingUserName = targetUser.FullName;
+            }
+        }
+
+        var vm = new WorkspaceViewModel
+        {
+            CanViewOthers = canViewOthers,
+            ViewingUserId = userId,
+            ViewingUserName = viewingUserName
+        };
+
+        // Load user list for manager/admin
+        if (canViewOthers)
+        {
+            vm.Users = await _uow.Repository<User>().Query()
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.FullName)
+                .Select(u => new UserOption
+                {
+                    UserId = u.UserId,
+                    FullName = u.FullName,
+                    UserCode = u.UserCode
+                })
+                .ToListAsync();
+        }
 
         // ── 1. RFQs assigned to current user, not yet having a Quotation ──
         var rfqTasks = await _uow.Repository<RFQ>().Query()
@@ -243,7 +283,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.ReceivedAt.HasValue ? "Nhan " + s.ReceivedAt.Value.ToString("dd/MM") : null
+                ExtraInfo = s.ReceivedAt.HasValue ? "Nhận " + s.ReceivedAt.Value.ToString("dd/MM") : null
             })
             .ToListAsync();
 

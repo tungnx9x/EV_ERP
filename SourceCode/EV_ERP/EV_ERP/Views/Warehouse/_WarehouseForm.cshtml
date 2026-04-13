@@ -1,0 +1,52 @@
+@model EV_ERP.Models.ViewModels.Stock.WarehouseFormViewModel
+
+<div class="row g-3">
+    @if (Model.IsEditMode)
+    {
+        <input type="hidden" asp-for="WarehouseId" />
+    }
+
+    <div class="col-md-6">
+        <label asp-for="WarehouseCode" class="form-label small fw-semibold">
+            Mã kho <span class="text-danger">*</span>
+        </label>
+        <input asp-for="WarehouseCode" class="form-control form-control-sm"
+               placeholder="VD: KHO01" style="text-transform:uppercase;" />
+        <span asp-validation-for="WarehouseCode" class="text-danger small"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="WarehouseName" class="form-label small fw-semibold">
+            Tên kho <span class="text-danger">*</span>
+        </label>
+        <input asp-for="WarehouseName" class="form-control form-control-sm"
+               placeholder="VD: Kho chính HCM" />
+        <span asp-validation-for="WarehouseName" class="text-danger small"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Address" class="form-label small fw-semibold">Địa chỉ</label>
+        <input asp-for="Address" class="form-control form-control-sm"
+               placeholder="Địa chỉ kho hàng" />
+    </div>
+
+    <div class="col-md-6">
+        <label asp-for="ManagerId" class="form-label small fw-semibold">Quản lý kho</label>
+        <select asp-for="ManagerId" class="form-select form-select-sm">
+            <option value="">— Chọn quản lý —</option>
+            @foreach (var m in Model.Managers)
+            {
+                <option value="@m.UserId">@m.FullName (@m.RoleCode)</option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-6 d-flex align-items-end">
+        <div class="form-check mb-2">
+            <input asp-for="IsVirtual" class="form-check-input" />
+            <label asp-for="IsVirtual" class="form-check-label small fw-semibold">
+                Kho ảo (drop-ship — hàng giao thẳng, không qua kho thực)
+            </label>
+        </div>
+    </div>
+</div>

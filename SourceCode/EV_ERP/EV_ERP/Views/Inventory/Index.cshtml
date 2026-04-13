@@ -1,0 +1,301 @@
+@model EV_ERP.Models.ViewModels.Stock.InventoryListViewModel
+@{
+    ViewData["Title"] = "Tồn kho";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <p class="text-muted small mb-0">
+            @Model.TotalProducts sản phẩm — Tổng tồn: <strong>@Model.TotalQuantity.ToString("N0")</strong>
+        </p>
+    </div>
+    <div class="d-flex gap-1">
+        <a href="/Stock" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-archive me-1"></i> Phiếu kho
+        </a>
+        <a href="/Warehouse" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-building me-1"></i> Quản lý kho
+        </a>
+    </div>
+</div>
+
+<!-- Barcode quick lookup -->
+<div class="card border-1 border-primary mb-3" style="border-style:dashed !important;">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-primary text-white"><i class="bi bi-upc-scan"></i></span>
+                    <input type="text" id="quickBarcode" class="form-control"
+                           placeholder="Quét barcode hoặc nhập mã SP để tra cứu tồn kho nhanh..."
+                           autocomplete="off" />
+                    <button class="btn btn-primary btn-sm" onclick="doQuickLookup()">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" type="button" onclick="openCameraScanner()" title="Quét bằng camera">
+                        <i class="bi bi-camera"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="lookupResult" class="mt-2" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-12 col-sm-4 col-lg-4">
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="Tên, mã SP, barcode..."
+                           value="@Model.SearchKeyword" />
+                </div>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Kho</label>
+                <select name="warehouseId" class="form-select form-select-sm">
+                    <option value="">Tất cả kho</option>
+                    @foreach (var w in Model.Warehouses)
+                    {
+                        <option value="@w.WarehouseId" selected="@(Model.FilterWarehouseId == w.WarehouseId)">
+                            @w.WarehouseCode - @w.WarehouseName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-3">
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    <option value="low" selected="@(Model.FilterStatus == "low")">Dưới mức tối thiểu</option>
+                    <option value="out" selected="@(Model.FilterStatus == "out")">Hết hàng</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-2 col-lg-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
+                <a href="/Inventory" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Inventory Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!Model.Records.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-archive" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">Chưa có dữ liệu tồn kho</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th style="width:44px;"></th>
+                            <th>Sản phẩm</th>
+                            <th class="d-none d-md-table-cell">Barcode</th>
+                            <th class="d-none d-lg-table-cell">Danh mục</th>
+                            <th class="text-end">Tồn kho</th>
+                            <th class="text-end d-none d-md-table-cell">Đã giữ</th>
+                            <th class="text-end d-none d-md-table-cell">Khả dụng</th>
+                            <th>ĐVT</th>
+                            <th style="width:80px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var r in Model.Records)
+                        {
+                            <tr class="@(r.IsLowStock ? "table-warning" : "")">
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(r.ImageUrl))
+                                    {
+                                        <img src="@r.ImageUrl" alt="" class="rounded"
+                                             style="width:32px;height:32px;object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                             style="width:32px;height:32px;">
+                                            <i class="bi bi-box text-muted"></i>
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <a href="/Inventory/ProductDetail/@r.ProductId"
+                                       class="fw-semibold text-decoration-none text-dark link-hover">
+                                        @r.ProductName
+                                    </a>
+                                    <div class="text-muted small">@r.ProductCode</div>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    @if (!string.IsNullOrEmpty(r.Barcode))
+                                    {
+                                        <span class="font-monospace small bg-light px-2 py-1 rounded">
+                                            <i class="bi bi-upc me-1"></i>@r.Barcode
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+                                <td class="d-none d-lg-table-cell text-muted small">@(r.CategoryName ?? "—")</td>
+                                <td class="text-end fw-bold @(r.IsLowStock ? "text-danger" : "")">
+                                    @r.QuantityOnHand.ToString("N0")
+                                    @if (r.IsLowStock)
+                                    {
+                                        <i class="bi bi-exclamation-triangle-fill text-danger ms-1" style="font-size:0.7rem;"
+                                           title="Dưới mức tối thiểu (@r.MinStockLevel)"></i>
+                                    }
+                                </td>
+                                <td class="text-end d-none d-md-table-cell text-muted">@r.QuantityReserved.ToString("N0")</td>
+                                <td class="text-end d-none d-md-table-cell fw-semibold">@r.QuantityAvailable.ToString("N0")</td>
+                                <td class="text-muted small">@r.UnitName</td>
+                                <td>
+                                    <a href="/Inventory/ProductDetail/@r.ProductId"
+                                       class="btn btn-sm btn-outline-secondary" title="Chi tiết tồn kho">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .link-hover:hover { color: #2563eb !important; }
+    #quickBarcode:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.25); border-color: #3b82f6; }
+</style>
+
+<script>
+    document.getElementById('quickBarcode').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); doQuickLookup(); }
+    });
+
+    function doQuickLookup() {
+        var input = document.getElementById('quickBarcode');
+        var barcode = input.value.trim();
+        if (!barcode) return;
+
+        var resultDiv = document.getElementById('lookupResult');
+        resultDiv.style.display = 'none';
+
+        fetch('/Inventory/QuickLookup?barcode=' + encodeURIComponent(barcode))
+            .then(r => r.json())
+            .then(data => {
+                if (!data.Success) {
+                    resultDiv.innerHTML = '<div class="alert alert-warning py-2 small mb-0">' +
+                        '<i class="bi bi-exclamation-triangle me-1"></i>' + data.Message + '</div>';
+                    resultDiv.style.display = 'block';
+                    return;
+                }
+
+                var p = data.Data;
+                var imgHtml = p.ImageUrl
+                    ? '<img src="' + p.ImageUrl + '" class="rounded me-2" style="width:40px;height:40px;object-fit:cover;" />'
+                    : '';
+
+                resultDiv.innerHTML =
+                    '<div class="d-flex align-items-center justify-content-between bg-light rounded p-2">' +
+                        '<div class="d-flex align-items-center">' +
+                            imgHtml +
+                            '<div>' +
+                                '<div class="fw-semibold small">' + p.ProductName + '</div>' +
+                                '<div class="text-muted" style="font-size:0.75rem;">' +
+                                    p.ProductCode +
+                                    (p.Barcode ? ' | <i class="bi bi-upc"></i> ' + p.Barcode : '') +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="text-end">' +
+                            '<div class="fw-bold">' + p.QuantityOnHand.toLocaleString('vi-VN') + ' ' + p.UnitName + '</div>' +
+                            '<a href="/Inventory/ProductDetail/' + p.ProductId + '" class="small">Chi tiết &rarr;</a>' +
+                        '</div>' +
+                    '</div>';
+                resultDiv.style.display = 'block';
+                input.value = '';
+                input.focus();
+            });
+    }
+
+    // ── Camera Barcode Scanner ──────────────────────────
+    var html5QrCode = null;
+
+    function openCameraScanner() {
+        var modal = new bootstrap.Modal(document.getElementById('cameraScannerModal'));
+        modal.show();
+        document.getElementById('cameraScannerModal').addEventListener('shown.bs.modal', startCameraScanner, { once: true });
+    }
+
+    function startCameraScanner() {
+        var readerEl = document.getElementById('cameraScannerReader');
+        readerEl.innerHTML = '';
+        document.getElementById('cameraScanStatus').textContent = 'Đang khởi động camera...';
+
+        html5QrCode = new Html5Qrcode('cameraScannerReader');
+        html5QrCode.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5 },
+            function (decodedText) {
+                document.getElementById('cameraScanStatus').innerHTML =
+                    '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Đã quét: ' + decodedText + '</span>';
+                stopCameraScanner();
+                bootstrap.Modal.getInstance(document.getElementById('cameraScannerModal')).hide();
+                document.getElementById('quickBarcode').value = decodedText;
+                doQuickLookup();
+            },
+            function () { }
+        ).then(function () {
+            document.getElementById('cameraScanStatus').textContent = 'Đưa barcode vào khung hình để quét...';
+        }).catch(function (err) {
+            document.getElementById('cameraScanStatus').innerHTML =
+                '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Không thể mở camera: ' + err + '</span>';
+        });
+    }
+
+    function stopCameraScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().catch(function () { });
+        }
+    }
+
+    document.getElementById('cameraScannerModal').addEventListener('hidden.bs.modal', stopCameraScanner);
+</script>
+
+<!-- Camera Scanner Modal -->
+<div class="modal fade" id="cameraScannerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-camera me-1"></i> Quét Barcode bằng Camera</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-2">
+                <div id="cameraScannerReader" style="width:100%;"></div>
+                <div id="cameraScanStatus" class="text-center small text-muted mt-2">Đang khởi động camera...</div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>

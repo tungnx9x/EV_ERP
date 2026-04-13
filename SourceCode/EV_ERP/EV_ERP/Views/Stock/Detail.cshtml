@@ -1,0 +1,366 @@
+@model EV_ERP.Models.ViewModels.Stock.StockTransactionDetailViewModel
+@{
+    ViewData["Title"] = Model.TransactionNo;
+    bool canEdit = ViewBag.CanEdit == true;
+    bool canConfirm = ViewBag.CanConfirm == true;
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="/Stock" class="btn btn-sm btn-light border">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h5 class="mb-0 fw-bold">@Model.TransactionNo</h5>
+            <div class="text-muted small">
+                <span class="badge bg-@(Model.TransactionType == "INBOUND" ? "primary" : "warning")-subtle text-@(Model.TransactionType == "INBOUND" ? "primary" : "warning")-emphasis rounded-pill me-1">
+                    @Model.TypeText
+                </span>
+                <span class="badge bg-@(Model.Status switch { "DRAFT" => "secondary", "CONFIRMED" or "DELIVERED" => "success", "DELIVERING" => "info", "CANCELLED" => "danger", _ => "light" })-subtle text-@(Model.Status switch { "DRAFT" => "secondary", "CONFIRMED" or "DELIVERED" => "success", "DELIVERING" => "info", "CANCELLED" => "danger", _ => "light" })-emphasis rounded-pill">
+                    <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>
+                    @Model.StatusText
+                </span>
+                @if (Model.SalesOrderNo != null)
+                {
+                    <span class="ms-2">
+                        <i class="bi bi-receipt me-1"></i>SO:
+                        <a href="/SalesOrder/Detail/@Model.SalesOrderId">@Model.SalesOrderNo</a>
+                    </span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="d-flex gap-1 flex-wrap">
+        @if (canEdit && Model.IsEditable)
+        {
+            <a href="/Stock/Edit/@Model.TransactionId" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i> Sửa
+            </a>
+        }
+        @if (canConfirm && Model.CanConfirm)
+        {
+            <button class="btn btn-sm btn-success" onclick="confirmInbound()">
+                <i class="bi bi-check-circle me-1"></i> Xác nhận nhập kho
+            </button>
+        }
+        @if (canConfirm && Model.CanStartDelivery)
+        {
+            <button class="btn btn-sm btn-info text-white" onclick="startDelivery()">
+                <i class="bi bi-truck me-1"></i> Bắt đầu giao hàng
+            </button>
+        }
+        @if (canConfirm && Model.CanConfirmDelivered)
+        {
+            <button class="btn btn-sm btn-success" onclick="showDeliveredModal()">
+                <i class="bi bi-check2-all me-1"></i> Xác nhận đã giao
+            </button>
+        }
+        @if (canEdit && Model.CanCancel)
+        {
+            <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
+                <i class="bi bi-x-circle me-1"></i> Hủy
+            </button>
+        }
+    </div>
+</div>
+
+<!-- Content -->
+<div class="row g-3">
+    <!-- Left: Info cards -->
+    <div class="col-lg-4">
+        <!-- Transaction info -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                    Thông tin phiếu
+                </h6>
+                <div class="d-flex align-items-center gap-2 mb-2 small">
+                    <i class="bi bi-archive text-muted" style="width:16px;"></i>
+                    <span>Kho: <strong>@Model.WarehouseName</strong> (@Model.WarehouseCode)</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2 small">
+                    <i class="bi bi-calendar text-muted" style="width:16px;"></i>
+                    <span>Ngày: <strong>@Model.TransactionDate.ToString("dd/MM/yyyy")</strong></span>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2 small">
+                    <i class="bi bi-person text-muted" style="width:16px;"></i>
+                    <span>Tạo bởi: <strong>@Model.CreatedByName</strong></span>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2 small">
+                    <i class="bi bi-clock text-muted" style="width:16px;"></i>
+                    <span>Tạo lúc: @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+                @if (Model.ConfirmedAt.HasValue)
+                {
+                    <hr class="my-2" />
+                    <div class="d-flex align-items-center gap-2 mb-2 small">
+                        <i class="bi bi-check-circle text-success" style="width:16px;"></i>
+                        <span>XN bởi: <strong>@Model.ConfirmedByName</strong></span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2 small">
+                        <i class="bi bi-clock text-success" style="width:16px;"></i>
+                        <span>XN lúc: @Model.ConfirmedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Notes))
+                {
+                    <hr class="my-2" />
+                    <div class="small text-muted" style="white-space:pre-wrap;">@Model.Notes</div>
+                }
+            </div>
+        </div>
+
+        <!-- Delivery info (OUTBOUND) -->
+        @if (Model.TransactionType == "OUTBOUND")
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        Thông tin giao hàng
+                    </h6>
+                    @if (!string.IsNullOrEmpty(Model.DeliveryPersonName))
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2 small">
+                            <i class="bi bi-person-badge text-muted" style="width:16px;"></i>
+                            <span>NV giao: <strong>@Model.DeliveryPersonName</strong></span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ReceiverName))
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2 small">
+                            <i class="bi bi-person-check text-muted" style="width:16px;"></i>
+                            <span>Người nhận: <strong>@Model.ReceiverName</strong></span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ReceiverPhone))
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2 small">
+                            <i class="bi bi-telephone text-muted" style="width:16px;"></i>
+                            <span>SĐT: @Model.ReceiverPhone</span>
+                        </div>
+                    }
+                    @if (Model.DeliveredAt.HasValue)
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2 small">
+                            <i class="bi bi-check2-all text-success" style="width:16px;"></i>
+                            <span>Giao lúc: @Model.DeliveredAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.DeliveryNote))
+                    {
+                        <hr class="my-2" />
+                        <div class="small text-muted" style="white-space:pre-wrap;">@Model.DeliveryNote</div>
+                    }
+                    @if (string.IsNullOrEmpty(Model.DeliveryPersonName) && string.IsNullOrEmpty(Model.ReceiverName) && !Model.DeliveredAt.HasValue)
+                    {
+                        <div class="text-muted small">Chưa có thông tin giao hàng</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Right: Items table -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-list-check me-1"></i>
+                    Danh sách sản phẩm
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Items.Count</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.82rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th style="width:50px;"></th>
+                                <th>Sản phẩm</th>
+                                <th class="d-none d-md-table-cell">Barcode</th>
+                                <th class="d-none d-lg-table-cell">Vị trí</th>
+                                <th class="text-end">Số lượng</th>
+                                <th>ĐVT</th>
+                                <th class="d-none d-lg-table-cell">Ghi chú</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ int idx = 1; }
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td class="text-muted small">@(idx++)</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                        {
+                                            <img src="@item.ImageUrl" alt="" class="rounded"
+                                                 style="width:36px;height:36px;object-fit:cover;" />
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                                 style="width:36px;height:36px;">
+                                                <i class="bi bi-box text-muted"></i>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">@item.ProductName</div>
+                                        <div class="text-muted small">@item.ProductCode</div>
+                                    </td>
+                                    <td class="d-none d-md-table-cell">
+                                        @if (!string.IsNullOrEmpty(item.Barcode))
+                                        {
+                                            <span class="font-monospace small bg-light px-2 py-1 rounded">
+                                                <i class="bi bi-upc me-1"></i>@item.Barcode
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
+                                        }
+                                    </td>
+                                    <td class="d-none d-lg-table-cell text-muted small">
+                                        @if (!string.IsNullOrEmpty(item.LocationCode))
+                                        {
+                                            <span class="font-monospace">@item.LocationCode</span>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                    <td class="text-end fw-semibold">@item.Quantity.ToString("N0")</td>
+                                    <td class="text-muted small">@item.UnitName</td>
+                                    <td class="d-none d-lg-table-cell text-muted small">@(item.Notes ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="5" class="text-end fw-semibold">Tổng:</td>
+                                <td class="text-end fw-bold">@Model.Items.Sum(i => i.Quantity).ToString("N0")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delivered Confirmation Modal -->
+<div class="modal fade" id="deliveredModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Xác nhận đã giao hàng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Người nhận</label>
+                        <input type="text" id="dlv_receiver" class="form-control form-control-sm"
+                               value="@Model.ReceiverName" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">SĐT người nhận</label>
+                        <input type="text" id="dlv_phone" class="form-control form-control-sm"
+                               value="@Model.ReceiverPhone" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Ghi chú giao hàng</label>
+                        <textarea id="dlv_note" class="form-control form-control-sm" rows="2">@Model.DeliveryNote</textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="doConfirmDelivered()">
+                    <i class="bi bi-check2-all me-1"></i> Xác nhận đã giao
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-primary-subtle { background-color: #dbeafe !important; }
+    .text-primary-emphasis { color: #1e40af !important; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; }
+    .text-warning-emphasis { color: #92400e !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #075985 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+</style>
+
+<script>
+    var transId = @Model.TransactionId;
+
+    function confirmInbound() {
+        if (!confirm('Xác nhận nhập kho? Tồn kho sẽ được cập nhật.')) return;
+        doAction('/Stock/ConfirmInbound/' + transId);
+    }
+
+    function startDelivery() {
+        if (!confirm('Bắt đầu giao hàng? Tồn kho sẽ bị trừ.')) return;
+        doAction('/Stock/StartDelivery/' + transId);
+    }
+
+    function showDeliveredModal() {
+        new bootstrap.Modal(document.getElementById('deliveredModal')).show();
+    }
+
+    function doConfirmDelivered() {
+        var payload = {
+            ReceiverName: document.getElementById('dlv_receiver').value.trim() || null,
+            ReceiverPhone: document.getElementById('dlv_phone').value.trim() || null,
+            DeliveryNote: document.getElementById('dlv_note').value.trim() || null
+        };
+        fetch('/Stock/ConfirmDelivered/' + transId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.Success) location.reload();
+            else alert('Lỗi: ' + data.Message);
+        });
+    }
+
+    function doCancel() {
+        if (!confirm('Bạn có chắc muốn hủy phiếu này?')) return;
+        doAction('/Stock/Cancel/' + transId);
+    }
+
+    function doAction(url) {
+        var form = new FormData();
+        form.append('__RequestVerificationToken', getAntiForgeryToken());
+        fetch(url, { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.Success) location.reload();
+                else alert('Lỗi: ' + data.Message);
+            });
+    }
+
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+</script>
+@Html.AntiForgeryToken()

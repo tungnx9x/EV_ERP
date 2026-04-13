@@ -18,15 +18,18 @@ public class SalesOrderService : ISalesOrderService
     private readonly IWebHostEnvironment _env;
     private readonly string _storageRoot;
     private readonly ISlaService _slaService;
+    private readonly IStockService _stockService;
 
     public SalesOrderService(IUnitOfWork uow, ILogger<SalesOrderService> logger,
-        IWebHostEnvironment env, IConfiguration config, ISlaService slaService)
+        IWebHostEnvironment env, IConfiguration config, ISlaService slaService,
+        IStockService stockService)
     {
         _uow = uow;
         _logger = logger;
         _env = env;
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         _slaService = slaService;
+        _stockService = stockService;
     }
 
     // ══════════════════════════════════════════════════
@@ -361,6 +364,11 @@ public class SalesOrderService : ISalesOrderService
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
 
+        // Auto-create INBOUND StockTransaction
+        var (stkOk, stkErr, stkId) = await _stockService.CreateFromSalesOrderAsync(salesOrderId, "INBOUND", userId);
+        if (!stkOk)
+            _logger.LogWarning("Failed to auto-create INBOUND for SO {No}: {Err}", so.SalesOrderNo, stkErr);
+
         // SLA: complete BUYING, start RECEIVED
         await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "BUYING");
         await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED", so.CreatedBy);
@@ -383,6 +391,11 @@ public class SalesOrderService : ISalesOrderService
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
+
+        // Auto-create OUTBOUND StockTransaction
+        var (stkOk, stkErr, stkId) = await _stockService.CreateFromSalesOrderAsync(salesOrderId, "OUTBOUND", userId);
+        if (!stkOk)
+            _logger.LogWarning("Failed to auto-create OUTBOUND for SO {No}: {Err}", so.SalesOrderNo, stkErr);
 
         // SLA: complete RECEIVED, start DELIVERING
         await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED");

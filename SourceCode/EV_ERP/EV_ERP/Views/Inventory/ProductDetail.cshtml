@@ -1,0 +1,217 @@
+@model EV_ERP.Models.ViewModels.Stock.ProductInventoryDetailViewModel
+@{
+    ViewData["Title"] = "Tồn kho: " + Model.ProductName;
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+        <a href="/Inventory" class="btn btn-sm btn-light border">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            @if (!string.IsNullOrEmpty(Model.ImageUrl))
+            {
+                <img src="@Model.ImageUrl" alt="" class="rounded"
+                     style="width:48px;height:48px;object-fit:cover;" />
+            }
+            <div>
+                <h5 class="mb-0 fw-bold">@Model.ProductName</h5>
+                <div class="text-muted small">
+                    @Model.ProductCode
+                    @if (!string.IsNullOrEmpty(Model.Barcode))
+                    {
+                        <span class="ms-2 font-monospace bg-light px-2 py-0 rounded">
+                            <i class="bi bi-upc me-1"></i>@Model.Barcode
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <a href="/Product/Detail/@Model.ProductId" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-box-seam me-1"></i> Xem sản phẩm
+    </a>
+</div>
+
+<!-- Summary cards -->
+<div class="row g-3 mb-3">
+    <div class="col-sm-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="text-muted small">Tổng tồn kho</div>
+                <div class="fs-3 fw-bold text-primary">@Model.TotalOnHand.ToString("N0")</div>
+                <div class="text-muted small">@Model.UnitName</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="text-muted small">Đã giữ chỗ</div>
+                <div class="fs-3 fw-bold text-warning">@Model.TotalReserved.ToString("N0")</div>
+                <div class="text-muted small">@Model.UnitName</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <div class="text-muted small">Khả dụng</div>
+                <div class="fs-3 fw-bold @(Model.TotalAvailable <= Model.MinStockLevel && Model.MinStockLevel > 0 ? "text-danger" : "text-success")">
+                    @Model.TotalAvailable.ToString("N0")
+                </div>
+                <div class="text-muted small">
+                    @Model.UnitName
+                    @if (Model.MinStockLevel > 0)
+                    {
+                        <span class="ms-1">(min: @Model.MinStockLevel)</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Inventory by location -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-pin-map me-1"></i> Phân bổ kho
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.LocationRecords.Count</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                @if (!Model.LocationRecords.Any())
+                {
+                    <div class="text-center py-4 text-muted">
+                        <p class="small mb-0">Chưa có dữ liệu phân bổ</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0" style="font-size:0.82rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Kho</th>
+                                    <th>Vị trí</th>
+                                    <th class="text-end">Tồn</th>
+                                    <th class="text-end">Giữ</th>
+                                    <th class="text-end">KD</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var loc in Model.LocationRecords)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold small">@loc.WarehouseCode</td>
+                                        <td class="small text-muted font-monospace">@(loc.LocationCode ?? "—")</td>
+                                        <td class="text-end fw-semibold">@loc.QuantityOnHand.ToString("N0")</td>
+                                        <td class="text-end text-muted">@loc.QuantityReserved.ToString("N0")</td>
+                                        <td class="text-end fw-semibold">@loc.QuantityAvailable.ToString("N0")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent transactions -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-clock-history me-1"></i> Lịch sử giao dịch gần đây
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.RecentTransactions.Count</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                @if (!Model.RecentTransactions.Any())
+                {
+                    <div class="text-center py-4 text-muted">
+                        <p class="small mb-0">Chưa có giao dịch nào</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.82rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mã phiếu</th>
+                                    <th>Loại</th>
+                                    <th class="d-none d-md-table-cell">Kho</th>
+                                    <th class="text-end">SL</th>
+                                    <th class="d-none d-md-table-cell">Ngày</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var tx in Model.RecentTransactions)
+                                {
+                                    <tr>
+                                        <td>
+                                            <a href="/Stock/Detail/@tx.TransactionId" class="text-decoration-none small">
+                                                @tx.TransactionNo
+                                            </a>
+                                        </td>
+                                        <td>
+                                            @if (tx.TransactionType == "INBOUND")
+                                            {
+                                                <span class="text-success small"><i class="bi bi-arrow-down-circle me-1"></i>@tx.TypeText</span>
+                                            }
+                                            else if (tx.TransactionType == "OUTBOUND")
+                                            {
+                                                <span class="text-warning small"><i class="bi bi-arrow-up-circle me-1"></i>@tx.TypeText</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">@tx.TypeText</span>
+                                            }
+                                        </td>
+                                        <td class="d-none d-md-table-cell text-muted small">@tx.WarehouseName</td>
+                                        <td class="text-end fw-semibold">
+                                            @if (tx.TransactionType == "INBOUND")
+                                            {
+                                                <span class="text-success">+@tx.Quantity.ToString("N0")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-danger">-@tx.Quantity.ToString("N0")</span>
+                                            }
+                                        </td>
+                                        <td class="d-none d-md-table-cell text-muted small">
+                                            @tx.TransactionDate.ToString("dd/MM/yyyy")
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@(tx.Status switch { "CONFIRMED" or "DELIVERED" => "success", "DELIVERING" => "info", "CANCELLED" => "danger", _ => "secondary" })-subtle text-@(tx.Status switch { "CONFIRMED" or "DELIVERED" => "success", "DELIVERING" => "info", "CANCELLED" => "danger", _ => "secondary" })-emphasis rounded-pill" style="font-size:0.7rem;">
+                                                @tx.Status
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; }
+    .text-info-emphasis { color: #075985 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .text-danger-emphasis { color: #991b1b !important; }
+</style>

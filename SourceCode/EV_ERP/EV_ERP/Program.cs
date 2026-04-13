@@ -49,6 +49,9 @@ builder.Services.AddScoped<IRfqService, RfqService>();
 builder.Services.AddScoped<ISlaService, SlaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITaskCommentService, TaskCommentService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IStockService, StockService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
 
 // SignalR
 builder.Services.AddSignalR();

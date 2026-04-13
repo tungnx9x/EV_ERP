@@ -7,7 +7,7 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
-        <p class="text-muted small mb-0">Tong cong @p.TotalCount don hang</p>
+        <p class="text-muted small mb-0">Tổng cộng @p.TotalCount đơn hàng</p>
     </div>
 </div>
 
@@ -16,33 +16,33 @@
     <div class="card-body py-3">
         <form method="get" asp-action="Index" class="row g-2 align-items-end">
             <div class="col-12 col-sm-3 col-lg-3">
-                <label class="form-label small fw-semibold mb-1">Tim kiem</label>
+                <label class="form-label small fw-semibold mb-1">Tìm kiếm</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input type="text" name="keyword" class="form-control"
-                           placeholder="Ma SO, khach hang, PO KH..."
+                           placeholder="Mã SO, khách hàng, PO KH..."
                            value="@Model.SearchKeyword" />
                 </div>
             </div>
             <div class="col-6 col-sm-2 col-lg-2">
-                <label class="form-label small fw-semibold mb-1">Trang thai</label>
+                <label class="form-label small fw-semibold mb-1">Trạng thái</label>
                 <select name="status" class="form-select form-select-sm">
-                    <option value="">Tat ca</option>
+                    <option value="">Tất cả</option>
                     @foreach (var s in new[] {
-                        ("DRAFT","Nhap"), ("WAIT","Cho tam ung"), ("BUYING","Dang mua"),
-                        ("RECEIVED","Da nhan hang"), ("DELIVERING","Dang giao"), ("DELIVERED","Da giao"),
-                        ("COMPLETED","Hoan tat"), ("CANCELLED","Da huy") })
+                        ("DRAFT","Nháp"), ("WAIT","Chờ tạm ứng"), ("BUYING","Đang mua"),
+                        ("RECEIVED","Đã nhận hàng"), ("DELIVERING","Đang giao"), ("DELIVERED","Đã giao"),
+                        ("COMPLETED","Hoàn tất"), ("CANCELLED","Đã hủy") })
                     {
                         <option value="@s.Item1" selected="@(Model.FilterStatus == s.Item1)">@s.Item2</option>
                     }
                 </select>
             </div>
             <div class="col-6 col-sm-2 col-lg-2">
-                <label class="form-label small fw-semibold mb-1">Khach hang</label>
+                <label class="form-label small fw-semibold mb-1">Khách hàng</label>
                 <div class="position-relative" id="customerFilterWrapper">
                     <input type="hidden" name="customerId" id="filterCustomerId" value="@Model.FilterCustomerId" />
                     <input type="text" class="form-control form-control-sm" id="customerSearchInput"
-                           placeholder="Tim khach hang..."
+                           placeholder="Tìm khách hàng..."
                            autocomplete="off"
                            value="@(Model.FilterCustomerId.HasValue ? Model.Customers.FirstOrDefault(c => c.CustomerId == Model.FilterCustomerId)?.CustomerName : "")" />
                     <div id="customerDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none"
@@ -51,9 +51,9 @@
                 </div>
             </div>
             <div class="col-6 col-sm-2 col-lg-2">
-                <label class="form-label small fw-semibold mb-1">Phu trach</label>
+                <label class="form-label small fw-semibold mb-1">Phụ trách</label>
                 <select name="salesPersonId" class="form-select form-select-sm">
-                    <option value="">Tat ca</option>
+                    <option value="">Tất cả</option>
                     @foreach (var sp in Model.SalesPersons)
                     {
                         <option value="@sp.UserId" selected="@(Model.FilterSalesPersonId == sp.UserId)">@sp.FullName</option>
@@ -62,9 +62,9 @@
             </div>
             <div class="col-6 col-sm-3 col-lg-2 d-flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
-                    <i class="bi bi-funnel me-1"></i> Loc
+                    <i class="bi bi-funnel me-1"></i> Lọc
                 </button>
-                <a href="/SalesOrder" class="btn btn-outline-secondary btn-sm" title="Xoa bo loc">
+                <a href="/SalesOrder" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
                     <i class="bi bi-x-lg"></i>
                 </a>
             </div>
@@ -79,7 +79,7 @@
         {
             <div class="text-center py-5 text-muted">
                 <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
-                <p class="mt-2 mb-0">Khong tim thay don hang nao</p>
+                <p class="mt-2 mb-0">Không tìm thấy đơn hàng nào</p>
             </div>
         }
         else
@@ -89,14 +89,14 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width:40px;">#</th>
-                            <th>Ma SO</th>
-                            <th>Khach hang</th>
+                            <th>Mã SO</th>
+                            <th>Khách hàng</th>
                             <th class="d-none d-md-table-cell">PO KH</th>
-                            <th class="d-none d-md-table-cell">Ngay tao</th>
-                            <th>Trang thai</th>
+                            <th class="d-none d-md-table-cell">Ngày tạo</th>
+                            <th>Trạng thái</th>
                             <th class="d-none d-lg-table-cell">NCC</th>
-                            <th class="text-end">Tong ban</th>
-                            <th class="text-end d-none d-lg-table-cell">Chi phi mua</th>
+                            <th class="text-end">Tổng bán</th>
+                            <th class="text-end d-none d-lg-table-cell">Chi phí mua</th>
                             <th style="width:70px;">Xem</th>
                         </tr>
                     </thead>
@@ -227,7 +227,7 @@
             return !kw || c.CustomerName.toLowerCase().indexOf(kw) >= 0 || c.CustomerCode.toLowerCase().indexOf(kw) >= 0;
         });
 
-        var html = '<div class="cs-item" data-id="">Tat ca KH</div>';
+        var html = '<div class="cs-item" data-id="">Tất cả KH</div>';
         items.forEach(function (c) {
             html += '<div class="cs-item" data-id="' + c.CustomerId + '">' + c.CustomerName + ' <span class="text-muted">(' + c.CustomerCode + ')</span></div>';
         });

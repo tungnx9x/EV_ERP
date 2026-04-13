@@ -43,49 +43,49 @@
             @if (Model.Status == "DRAFT")
             {
                 <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Xuat DNTU
+                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất DNTU
                 </a>
                 <button class="btn btn-sm btn-primary" onclick="showSubmitWaitModal()">
-                    <i class="bi bi-send me-1"></i> Gui de nghi tam ung
+                    <i class="bi bi-send me-1"></i> Gửi DNTU
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Huy
+                    <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
             @if (Model.Status == "WAIT")
             {
                 <button class="btn btn-sm btn-info text-white" onclick="showBuyingModal()">
-                    <i class="bi bi-cart3 me-1"></i> Bat dau mua hang
+                    <i class="bi bi-cart3 me-1"></i> Bắt đầu mua hàng
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Huy
+                    <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
             @if (Model.Status == "BUYING")
             {
-                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xac nhan hang da ve kho?')">
-                    <i class="bi bi-box-seam me-1"></i> Xac nhan nhan hang
+                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xác nhận hàng đã về kho?')">
+                    <i class="bi bi-box-seam me-1"></i> Xác nhận nhận hàng
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Huy
+                    <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
             @if (Model.Status == "RECEIVED")
             {
-                <button class="btn btn-sm btn-info text-white" onclick="doSimpleAction('StartDelivering', 'Xac nhan ban giao cho van chuyen?')">
-                    <i class="bi bi-truck me-1"></i> Giao cho van chuyen
+                <button class="btn btn-sm btn-info text-white" onclick="doSimpleAction('StartDelivering', 'Xác nhận bàn giao cho vận chuyển?')">
+                    <i class="bi bi-truck me-1"></i> Giao cho vận chuyển
                 </button>
             }
             @if (Model.Status == "DELIVERING")
             {
-                <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xac nhan khach hang da nhan hang?')">
-                    <i class="bi bi-check-circle me-1"></i> KH da nhan hang
+                <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xác nhận khách hàng đã nhận hàng?')">
+                    <i class="bi bi-check-circle me-1"></i> KH đã nhận hàng
                 </button>
             }
             @if (Model.Status == "DELIVERED")
             {
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
-                    <i class="bi bi-check-all me-1"></i> Hoan tat quyet toan
+                    <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
                 </button>
             }
         }
@@ -98,9 +98,9 @@
         <div class="d-flex align-items-center gap-1 flex-wrap" style="font-size:0.78rem;">
             @{
                 var steps = new[] {
-                    ("DRAFT", "Nhap"), ("WAIT", "Cho tam ung"), ("BUYING", "Dang mua"),
-                    ("RECEIVED", "Nhan hang"), ("DELIVERING", "Dang giao"),
-                    ("DELIVERED", "Da giao"), ("COMPLETED", "Hoan tat")
+                    ("DRAFT", "Nháp"), ("WAIT", "Chờ tạm ứng"), ("BUYING", "Đang mua"),
+                    ("RECEIVED", "Nhận hàng"), ("DELIVERING", "Đang giao"),
+                    ("DELIVERED", "Đã giao"), ("COMPLETED", "Hoàn tất")
                 };
                 var statusOrder = steps.Select(s => s.Item1).ToList();
                 var currentIdx = statusOrder.IndexOf(Model.Status);
@@ -124,7 +124,7 @@
             }
             @if (isCancelled)
             {
-                <span class="badge bg-danger ms-2">Da huy</span>
+                <span class="badge bg-danger ms-2">Đã hủy</span>
             }
         </div>
     </div>
@@ -137,7 +137,7 @@
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                    Thong tin khach hang
+                    Thông tin khách hàng
                 </h6>
                 <div class="mb-2">
                     <div class="fw-semibold">@Model.CustomerName</div>
@@ -164,21 +164,21 @@
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                    Thong tin don hang
+                    Thông tin đơn hàng
                 </h6>
                 <div class="row g-2 small">
                     <div class="col-6">
-                        <div class="text-muted">Ngay tao</div>
+                        <div class="text-muted">Ngày tạo</div>
                         <div class="fw-semibold">@Model.OrderDate.ToString("dd/MM/yyyy")</div>
                     </div>
                     <div class="col-6">
-                        <div class="text-muted">Phu trach</div>
+                        <div class="text-muted">Phụ trách</div>
                         <div class="fw-semibold">@Model.SalesPersonName</div>
                     </div>
                     @if (Model.Status != "DRAFT" && Model.CustomerPoNo != null)
                     {
                         <div class="col-6">
-                            <div class="text-muted">Ma PO KH</div>
+                            <div class="text-muted">Mã PO KH</div>
                             <div class="fw-semibold">@Model.CustomerPoNo</div>
                         </div>
                     }
@@ -186,13 +186,13 @@
                     {
                         <div class="col-6">
                             <div class="text-muted">File PO KH</div>
-                            <div><a href="@Model.CustomerPoFile" target="_blank" class="text-primary"><i class="bi bi-file-earmark-arrow-down me-1"></i>Tai xuong</a></div>
+                            <div><a href="@Model.CustomerPoFile" target="_blank" class="text-primary"><i class="bi bi-file-earmark-arrow-down me-1"></i>Tải xuống</a></div>
                         </div>
                     }
                     @if (Model.PaymentDueDate.HasValue)
                     {
                         <div class="col-6">
-                            <div class="text-muted">Han thanh toan</div>
+                            <div class="text-muted">Hạn thanh toán</div>
                             <div class="fw-semibold">@Model.PaymentDueDate.Value.ToString("dd/MM/yyyy")</div>
                         </div>
                     }
@@ -206,30 +206,30 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-primary">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-file-earmark-text me-1"></i> PO Khach hang
+                        <i class="bi bi-file-earmark-text me-1"></i> PO Khách hàng
                     </h6>
                     <form id="draftInfoForm" enctype="multipart/form-data">
                         <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">Ma PO khach hang</label>
+                            <label class="form-label small fw-semibold mb-1">Mã PO khách hàng</label>
                             <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
-                                   placeholder="Nhap ma PO..." value="@Model.CustomerPoNo" />
+                                   placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">File PO khach hang</label>
+                            <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
                             @if (Model.CustomerPoFile != null)
                             {
                                 <div class="mb-1">
                                     <a href="@Model.CustomerPoFile" target="_blank" class="text-primary small">
-                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>File hien tai
+                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>File hiện tại
                                     </a>
                                 </div>
                             }
                             <input type="file" id="draftCustomerPoFile" class="form-control form-control-sm"
                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
-                            <div class="form-text" style="font-size:0.7rem;">PDF, anh, Word, Excel (toi da 10MB)</div>
+                            <div class="form-text" style="font-size:0.7rem;">PDF, ảnh, Word, Excel (tối đa 10MB)</div>
                         </div>
                         <button type="button" class="btn btn-sm btn-primary w-100" onclick="saveDraftInfo()">
-                            <i class="bi bi-check-lg me-1"></i> Luu thong tin PO
+                            <i class="bi bi-check-lg me-1"></i> Lưu thông tin PO
                         </button>
                     </form>
                 </div>
@@ -242,15 +242,15 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-cash-stack me-1"></i> Tam ung
+                        <i class="bi bi-cash-stack me-1"></i> Tạm ứng
                     </h6>
                     <div class="row g-2 small">
                         <div class="col-6">
-                            <div class="text-muted">So tien</div>
+                            <div class="text-muted">Số tiền</div>
                             <div class="fw-bold text-warning">@Model.AdvanceAmount?.ToString("N0") @Model.Currency</div>
                         </div>
                         <div class="col-6">
-                            <div class="text-muted">Trang thai</div>
+                            <div class="text-muted">Trạng thái</div>
                             <div class="fw-semibold">@(Model.AdvanceStatus ?? "—")</div>
                         </div>
                     </div>
@@ -264,11 +264,11 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-info">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-cart3 me-1"></i> Thong tin mua hang
+                        <i class="bi bi-cart3 me-1"></i> Thông tin mua hàng
                     </h6>
                     <div class="row g-2 small">
                         <div class="col-12">
-                            <div class="text-muted">Nha cung cap</div>
+                            <div class="text-muted">Nhà cung cấp</div>
                             <div class="fw-semibold">@(Model.VendorName ?? "—")
                                 @if (Model.VendorCode != null) { <span class="text-muted">(@Model.VendorCode)</span> }
                             </div>
@@ -276,28 +276,28 @@
                         @if (Model.ExpectedReceiveDate.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Du kien ve kho</div>
+                                <div class="text-muted">Dự kiến về kho</div>
                                 <div class="fw-semibold">@Model.ExpectedReceiveDate.Value.ToString("dd/MM/yyyy")</div>
                             </div>
                         }
                         @if (Model.BuyingAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Bat dau mua</div>
+                                <div class="text-muted">Bắt đầu mua</div>
                                 <div class="fw-semibold">@Model.BuyingAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (Model.ReceivedAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Nhan hang</div>
+                                <div class="text-muted">Nhận hàng</div>
                                 <div class="fw-semibold text-success">@Model.ReceivedAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (!string.IsNullOrEmpty(Model.BuyingNotes))
                         {
                             <div class="col-12">
-                                <div class="text-muted">Ghi chu mua</div>
+                                <div class="text-muted">Ghi chú mua</div>
                                 <div style="white-space:pre-wrap;">@Model.BuyingNotes</div>
                             </div>
                         }
@@ -312,27 +312,27 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-clock-history me-1"></i> Tien trinh
+                        <i class="bi bi-clock-history me-1"></i> Tiến trình
                     </h6>
                     <div class="row g-2 small">
                         @if (Model.DeliveringAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Giao van chuyen</div>
+                                <div class="text-muted">Giao vận chuyển</div>
                                 <div class="fw-semibold">@Model.DeliveringAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (Model.DeliveredAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">KH nhan hang</div>
+                                <div class="text-muted">KH nhận hàng</div>
                                 <div class="fw-semibold text-success">@Model.DeliveredAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (Model.CompletedAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Hoan tat</div>
+                                <div class="text-muted">Hoàn tất</div>
                                 <div class="fw-semibold text-success">@Model.CompletedAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
@@ -347,17 +347,17 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-calculator me-1"></i> Quyet toan
+                        <i class="bi bi-calculator me-1"></i> Quyết toán
                     </h6>
                     <div class="row g-2 small">
                         <div class="col-6">
-                            <div class="text-muted">Chi phi thuc te</div>
+                            <div class="text-muted">Chi phí thực tế</div>
                             <div class="fw-bold">@Model.ActualCost?.ToString("N0") @Model.Currency</div>
                         </div>
                         @if (!string.IsNullOrEmpty(Model.SettlementNotes))
                         {
                             <div class="col-12">
-                                <div class="text-muted">Ghi chu</div>
+                                <div class="text-muted">Ghi chú</div>
                                 <div>@Model.SettlementNotes</div>
                             </div>
                         }
@@ -372,13 +372,13 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-danger">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-x-circle me-1"></i> Thong tin huy
+                        <i class="bi bi-x-circle me-1"></i> Thông tin hủy
                     </h6>
                     <div class="small">
-                        <div class="text-muted">Huy luc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
+                        <div class="text-muted">Hủy lúc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
                         @if (!string.IsNullOrEmpty(Model.CancelReason))
                         {
-                            <div class="mt-1">Ly do: @Model.CancelReason</div>
+                            <div class="mt-1">Lý do: @Model.CancelReason</div>
                         }
                     </div>
                 </div>
@@ -391,7 +391,7 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        Ghi chu
+                        Ghi chú
                     </h6>
                     <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
                 </div>
@@ -402,7 +402,7 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-lock me-1"></i> Ghi chu noi bo
+                        <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
                     </h6>
                     <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
                 </div>
@@ -415,7 +415,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom py-2">
                 <h6 class="mb-0 fw-semibold small text-uppercase">
-                    <i class="bi bi-box-seam me-1"></i> Chi tiet san pham
+                    <i class="bi bi-box-seam me-1"></i> Chi tiết sản phẩm
                     <span class="badge bg-primary rounded-pill ms-1">@Model.Items.Count</span>
                 </h6>
             </div>
@@ -425,17 +425,17 @@
                         <thead class="table-light">
                             <tr>
                                 <th style="width:30px;" class="text-center">STT</th>
-                                <th>San pham</th>
+                                <th>Sản phẩm</th>
                                 <th>DVT</th>
                                 <th class="text-end">SL</th>
-                                <th class="text-end bg-success-subtle">Don gia ban</th>
-                                <th class="text-end bg-success-subtle">Thanh tien</th>
+                                <th class="text-end bg-success-subtle">Đơn giá bán</th>
+                                <th class="text-end bg-success-subtle">Thành tiền</th>
                                 @if (showBuyingInfo)
                                 {
-                                    <th class="text-end bg-warning-subtle">Gia mua</th>
-                                    <th class="text-end bg-warning-subtle">Chi phi</th>
+                                    <th class="text-end bg-warning-subtle">Giá mua</th>
+                                    <th class="text-end bg-warning-subtle">Chi phí</th>
                                 }
-                                <th class="d-none d-md-table-cell">Ghi chu</th>
+                                <th class="d-none d-md-table-cell">Ghi chú</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -469,26 +469,26 @@
                 <div class="row">
                     <div class="col-md-6">
                         <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                            <i class="bi bi-cash me-1"></i> Gia tri ban
+                            <i class="bi bi-cash me-1"></i> Giá trị bán
                         </h6>
                         <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
                             <tr>
-                                <td class="text-muted">Tam tinh</td>
+                                <td class="text-muted">Tạm tính</td>
                                 <td class="text-end">@Model.SubTotal.ToString("N0")</td>
                             </tr>
                             @if (Model.DiscountAmount > 0)
                             {
                                 <tr>
-                                    <td class="text-muted">Chiet khau</td>
+                                    <td class="text-muted">Chiết khấu</td>
                                     <td class="text-end text-danger">-@Model.DiscountAmount.ToString("N0")</td>
                                 </tr>
                             }
                             <tr>
-                                <td class="text-muted">Thue (@Model.TaxRate%)</td>
+                                <td class="text-muted">Thuế (@Model.TaxRate%)</td>
                                 <td class="text-end">@Model.TaxAmount.ToString("N0")</td>
                             </tr>
                             <tr class="fw-bold border-top">
-                                <td>Tong ban</td>
+                                <td>Tổng bán</td>
                                 <td class="text-end text-primary fs-6">@Model.TotalAmount.ToString("N0") @Model.Currency</td>
                             </tr>
                         </table>
@@ -497,15 +497,15 @@
                     {
                         <div class="col-md-6">
                             <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                                <i class="bi bi-calculator me-1"></i> Chi phi & Loi nhuan
+                                <i class="bi bi-calculator me-1"></i> Chi phí & Lợi nhuận
                             </h6>
                             <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
                                 <tr>
-                                    <td class="text-muted">Chi phi mua</td>
+                                    <td class="text-muted">Chi phí mua</td>
                                     <td class="text-end">@(Model.PurchaseCost?.ToString("N0") ?? "—")</td>
                                 </tr>
                                 <tr class="fw-bold border-top">
-                                    <td>Loi nhuan</td>
+                                    <td>Lợi nhuận</td>
                                     <td class="text-end @(Model.ProfitAmount >= 0 ? "text-success" : "text-danger")">
                                         @Model.ProfitAmount.ToString("N0") @Model.Currency
                                     </td>
@@ -533,25 +533,25 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Gui de nghi tam ung</h6>
+                <h6 class="modal-title fw-bold">Gửi DNTU</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Ma PO khach hang</label>
+                    <label class="form-label small fw-semibold">Mã PO khách hàng</label>
                     <input type="text" id="inputCustomerPoNo" class="form-control form-control-sm"
-                           placeholder="Nhap ma PO cua khach hang..." value="@Model.CustomerPoNo" />
+                           placeholder="Nhập mã PO của khách hàng..." value="@Model.CustomerPoNo" />
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">So tien tam ung</label>
+                    <label class="form-label small fw-semibold">Số tiền tạm ứng</label>
                     <input type="number" id="inputAdvanceAmount" class="form-control form-control-sm"
                            placeholder="0" value="@(Model.AdvanceAmount ?? 0)" />
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Huy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-primary" onclick="confirmSubmitWait()">
-                    <i class="bi bi-send me-1"></i> Gui
+                    <i class="bi bi-send me-1"></i> Gửi
                 </button>
             </div>
         </div>
@@ -563,15 +563,15 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Bat dau mua hang</h6>
+                <h6 class="modal-title fw-bold">Bắt đầu mua hàng</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label small fw-semibold">Nha cung cap <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Nhà cung cấp <span class="text-danger">*</span></label>
                         <select id="inputVendorId" class="form-select form-select-sm">
-                            <option value="">-- Chon NCC --</option>
+                            <option value="">-- Chọn NCC --</option>
                             @foreach (var v in Model.Vendors)
                             {
                                 <option value="@v.VendorId" selected="@(Model.VendorId == v.VendorId)">@v.VendorName (@v.VendorCode)</option>
@@ -579,26 +579,26 @@
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-semibold">Du kien hang ve kho</label>
+                        <label class="form-label small fw-semibold">Dự kiến hàng về kho</label>
                         <input type="date" id="inputExpectedReceiveDate" class="form-control form-control-sm" />
                     </div>
                     <div class="col-12">
-                        <label class="form-label small fw-semibold">Ghi chu mua hang</label>
+                        <label class="form-label small fw-semibold">Ghi chú mua hàng</label>
                         <textarea id="inputBuyingNotes" class="form-control form-control-sm" rows="2"
-                                  placeholder="Ghi chu..."></textarea>
+                                  placeholder="Ghi chú..."></textarea>
                     </div>
                 </div>
 
-                <h6 class="fw-semibold small mb-2">Gia mua tung san pham</h6>
+                <h6 class="fw-semibold small mb-2">Giá mua từng sản phẩm</h6>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
                         <thead class="table-light">
                             <tr>
-                                <th>San pham</th>
+                                <th>Sản phẩm</th>
                                 <th class="text-end" style="width:80px;">SL</th>
-                                <th class="text-end" style="width:120px;">Gia ban</th>
-                                <th class="text-end" style="width:140px;">Gia mua (nhap)</th>
-                                <th class="text-end" style="width:120px;">Chi phi dong</th>
+                                <th class="text-end" style="width:120px;">Giá bán</th>
+                                <th class="text-end" style="width:140px;">Giá mua (nhập)</th>
+                                <th class="text-end" style="width:120px;">Chi phí dòng</th>
                             </tr>
                         </thead>
                         <tbody id="buyingItemsBody">
@@ -619,7 +619,7 @@
                         </tbody>
                         <tfoot class="table-light">
                             <tr class="fw-bold">
-                                <td colspan="4" class="text-end">Tong chi phi mua:</td>
+                                <td colspan="4" class="text-end">Tổng chi phí mua:</td>
                                 <td class="text-end" id="totalPurchaseCost">0</td>
                             </tr>
                         </tfoot>
@@ -627,9 +627,9 @@
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Huy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-info text-white" onclick="confirmBuying()">
-                    <i class="bi bi-cart3 me-1"></i> Xac nhan mua hang
+                    <i class="bi bi-cart3 me-1"></i> Xác nhận mua hàng
                 </button>
             </div>
         </div>
@@ -641,25 +641,25 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Hoan tat quyet toan</h6>
+                <h6 class="modal-title fw-bold">Hoàn tất quyết toán</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Chi phi thuc te</label>
+                    <label class="form-label small fw-semibold">Chi phí thực tế</label>
                     <input type="number" id="inputActualCost" class="form-control form-control-sm"
                            placeholder="0" value="@(Model.PurchaseCost ?? 0)" />
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Ghi chu quyet toan</label>
+                    <label class="form-label small fw-semibold">Ghi chú quyết toán</label>
                     <textarea id="inputSettlementNotes" class="form-control form-control-sm" rows="3"
-                              placeholder="Hoan ung / thanh toan bo sung..."></textarea>
+                              placeholder="Hoàn ứng / thanh toán bổ sung..."></textarea>
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Huy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-success" onclick="confirmComplete()">
-                    <i class="bi bi-check-all me-1"></i> Hoan tat
+                    <i class="bi bi-check-all me-1"></i> Hoàn tất
                 </button>
             </div>
         </div>
@@ -671,18 +671,18 @@
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Huy don hang</h6>
+                <h6 class="modal-title fw-bold">Hủy đơn hàng</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label small fw-semibold">Ly do huy</label>
+                <label class="form-label small fw-semibold">Lý do hủy</label>
                 <textarea id="cancelReason" class="form-control form-control-sm" rows="3"
-                          placeholder="Nhap ly do..."></textarea>
+                          placeholder="Nhập lý do..."></textarea>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Dong</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
                 <button type="button" class="btn btn-sm btn-danger" onclick="confirmCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Huy don hang
+                    <i class="bi bi-x-circle me-1"></i> Hủy đơn hàng
                 </button>
             </div>
         </div>
@@ -727,7 +727,7 @@
         if (!confirm(msg)) return;
         postAction('/SalesOrder/' + action + '/' + soId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Loi');
+            else alert(data.Message || 'Lỗi');
         });
     }
 
@@ -742,7 +742,7 @@
 
         var btn = event.target.closest('button');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang luu...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang lưu...';
 
         fetch('/SalesOrder/UpdateDraftInfo/' + soId, {
             method: 'POST',
@@ -754,9 +754,9 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.Success) location.reload();
-            else { alert(data.Message || 'Loi'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Luu thong tin PO'; }
+            else { alert(data.Message || 'Loi'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; }
         })
-        .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Luu thong tin PO'; });
+        .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; });
     }
 
     // ── DRAFT → WAIT ────────────────────────────────
@@ -771,7 +771,7 @@
         };
         postAction('/SalesOrder/SubmitWait/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Loi');
+            else alert(data.Message || 'Lỗi');
         });
     }
 
@@ -799,7 +799,7 @@
 
     function confirmBuying() {
         var vendorId = parseInt(document.getElementById('inputVendorId').value);
-        if (!vendorId) { alert('Vui long chon nha cung cap'); return; }
+        if (!vendorId) { alert('Vui lòng chọn nhà cung cấp'); return; }
 
         var items = [];
         document.querySelectorAll('.purchase-price-input').forEach(function (input) {
@@ -818,7 +818,7 @@
 
         postAction('/SalesOrder/StartBuying/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Loi');
+            else alert(data.Message || 'Lỗi');
         });
     }
 
@@ -834,7 +834,7 @@
         };
         postAction('/SalesOrder/Complete/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Loi');
+            else alert(data.Message || 'Lỗi');
         });
     }
 
@@ -851,7 +851,7 @@
                 bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Loi');
+                alert(data.Message || 'Lỗi');
             }
         });
     }

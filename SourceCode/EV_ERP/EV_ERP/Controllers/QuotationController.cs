@@ -11,10 +11,12 @@ namespace EV_ERP.Controllers;
 public class QuotationController : Controller
 {
     private readonly IQuotationService _quotationService;
+    private readonly ILogger<QuotationController> _logger;
 
-    public QuotationController(IQuotationService quotationService)
+    public QuotationController(IQuotationService quotationService, ILogger<QuotationController> logger)
     {
         _quotationService = quotationService;
+        _logger = logger;
     }
 
     private int CurrentUserId =>
@@ -112,64 +114,112 @@ public class QuotationController : Controller
     [HttpPost]
     public async Task<IActionResult> Send(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _quotationService.SendAsync(id, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gửi báo giá" : error });
+            var (success, error) = await _quotationService.SendAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gửi báo giá" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Send failed for Quotation #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     [HttpPost]
     public async Task<IActionResult> Approve(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _quotationService.ApproveAsync(id, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã duyệt báo giá" : error });
+            var (success, error) = await _quotationService.ApproveAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã duyệt báo giá" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Approve failed for Quotation #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     [HttpPost]
     public async Task<IActionResult> Reject(int id, [FromBody] ReasonModel? model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _quotationService.RejectAsync(id, CurrentUserId, model?.Reason);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã từ chối báo giá" : error });
+            var (success, error) = await _quotationService.RejectAsync(id, CurrentUserId, model?.Reason);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã từ chối báo giá" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Reject failed for Quotation #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     [HttpPost]
     public async Task<IActionResult> Amend(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error, newId) = await _quotationService.AmendAsync(id, CurrentUserId);
-        if (!success)
-            return Json(ApiResult<object>.Fail(error ?? "Lỗi tạo bản chỉnh sửa"));
+            var (success, error, newId) = await _quotationService.AmendAsync(id, CurrentUserId);
+            if (!success)
+                return Json(ApiResult<object>.Fail(error ?? "Lỗi tạo bản chỉnh sửa"));
 
-        return Json(ApiResult<object>.Ok(new { QuotationId = newId }, "Đã tạo bản chỉnh sửa"));
+            return Json(ApiResult<object>.Ok(new { QuotationId = newId }, "Đã tạo bản chỉnh sửa"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Amend failed for Quotation #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     [HttpPost]
     public async Task<IActionResult> Expire(int id)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _quotationService.ExpireAsync(id, CurrentUserId);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã đánh hết hạn" : error });
+            var (success, error) = await _quotationService.ExpireAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã đánh hết hạn" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Expire failed for Quotation #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     [HttpPost]
     public async Task<IActionResult> Cancel(int id, [FromBody] ReasonModel? model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-        var (success, error) = await _quotationService.CancelAsync(id, CurrentUserId, model?.Reason);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy báo giá" : error });
+            var (success, error) = await _quotationService.CancelAsync(id, CurrentUserId, model?.Reason);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy báo giá" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cancel failed for Quotation #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Export Excel from Detail (by ID) ───────────────

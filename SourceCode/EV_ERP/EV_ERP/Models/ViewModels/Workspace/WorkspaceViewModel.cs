@@ -3,6 +3,19 @@ namespace EV_ERP.Models.ViewModels.Workspace;
 public class WorkspaceViewModel
 {
     public List<WorkspaceCard> Cards { get; set; } = [];
+
+    // Manager view-as feature
+    public bool CanViewOthers { get; set; }
+    public int ViewingUserId { get; set; }
+    public string ViewingUserName { get; set; } = string.Empty;
+    public List<UserOption> Users { get; set; } = [];
+}
+
+public class UserOption
+{
+    public int UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string UserCode { get; set; } = string.Empty;
 }
 
 public class WorkspaceCard

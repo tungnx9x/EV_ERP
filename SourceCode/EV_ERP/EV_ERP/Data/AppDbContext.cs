@@ -596,7 +596,7 @@ namespace EV_ERP.Data
                  .HasColumnType("decimal(18,1)")
                  .HasComputedColumnSql("(DATEDIFF(MINUTE, StartedAt, ISNULL(CompletedAt, SYSDATETIME())) / 60.0)", stored: false);
                 e.Property(x => x.IsOnTime)
-                 .HasComputedColumnSql("(CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1 WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0 ELSE NULL END)", stored: false);
+                 .HasComputedColumnSql("(CAST(CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1 WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0 ELSE NULL END AS BIT))", stored: false);
                 e.HasOne(x => x.SlaConfig).WithMany().HasForeignKey(x => x.SlaConfigId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Assignee).WithMany().HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.NoAction);
             });

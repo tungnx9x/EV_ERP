@@ -1,3 +1,4 @@
+using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.System;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
@@ -9,11 +10,22 @@ public class SlaService : ISlaService
 {
     private readonly IUnitOfWork _uow;
     private readonly ILogger<SlaService> _logger;
+    private List<int>? _managerUserIds;
 
     public SlaService(IUnitOfWork uow, ILogger<SlaService> logger)
     {
         _uow = uow;
         _logger = logger;
+    }
+
+    private async Task<List<int>> GetManagerUserIdsAsync()
+    {
+        _managerUserIds ??= await _uow.Repository<User>().Query()
+            .Include(u => u.Role)
+            .Where(u => u.IsActive && (u.Role.RoleCode == "MANAGER" || u.Role.RoleCode == "ADMIN"))
+            .Select(u => u.UserId)
+            .ToListAsync();
+        return _managerUserIds;
     }
 
     public async Task StartTrackingAsync(string entityType, int entityId, string fromStatus, int? assigneeId)
@@ -169,10 +181,23 @@ public class SlaService : ISlaService
             t.WarningNotifiedAt = now;
             _uow.Repository<SlaTracking>().Update(t);
 
-            if (t.AssigneeId.HasValue)
+            // Notify assignee
+            if (t.AssigneeId.HasValue && t.SlaConfig.NotifyAssignee)
             {
-                await CreateSlaNotificationAsync(t, "WARNING");
+                await CreateSlaNotificationAsync(t, "WARNING", t.AssigneeId.Value);
                 userIdsToNotify.Add(t.AssigneeId.Value);
+            }
+
+            // Notify managers
+            if (t.SlaConfig.NotifyManager)
+            {
+                var managerIds = await GetManagerUserIdsAsync();
+                foreach (var mId in managerIds)
+                {
+                    if (mId == t.AssigneeId) continue; // avoid duplicate
+                    await CreateSlaNotificationAsync(t, "WARNING", mId);
+                    userIdsToNotify.Add(mId);
+                }
             }
         }
 
@@ -190,10 +215,23 @@ public class SlaService : ISlaService
             t.OverdueNotifiedAt = now;
             _uow.Repository<SlaTracking>().Update(t);
 
-            if (t.AssigneeId.HasValue)
+            // Notify assignee
+            if (t.AssigneeId.HasValue && t.SlaConfig.NotifyAssignee)
             {
-                await CreateSlaNotificationAsync(t, "DANGER");
+                await CreateSlaNotificationAsync(t, "DANGER", t.AssigneeId.Value);
                 userIdsToNotify.Add(t.AssigneeId.Value);
+            }
+
+            // Escalate to managers on overdue
+            if (t.SlaConfig.EscalateOnOverdue || t.SlaConfig.NotifyManager)
+            {
+                var managerIds = await GetManagerUserIdsAsync();
+                foreach (var mId in managerIds)
+                {
+                    if (mId == t.AssigneeId) continue;
+                    await CreateSlaNotificationAsync(t, "DANGER", mId);
+                    userIdsToNotify.Add(mId);
+                }
             }
         }
 
@@ -206,10 +244,8 @@ public class SlaService : ISlaService
         return userIdsToNotify.ToList();
     }
 
-    private async Task CreateSlaNotificationAsync(SlaTracking tracking, string severity)
+    private async Task CreateSlaNotificationAsync(SlaTracking tracking, string severity, int userId)
     {
-        if (!tracking.AssigneeId.HasValue) return;
-
         var entityLabel = tracking.EntityType switch
         {
             "RFQ" => "RFQ",
@@ -237,7 +273,7 @@ public class SlaService : ISlaService
 
         var notification = new Notification
         {
-            UserId = tracking.AssigneeId.Value,
+            UserId = userId,
             Title = title,
             Message = message,
             NotificationType = "SLA",

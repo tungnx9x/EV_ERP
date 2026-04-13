@@ -114,10 +114,10 @@ CREATE TABLE SlaTracking (
 
     -- Thống kê
     ElapsedHours    AS (DATEDIFF(MINUTE, StartedAt, ISNULL(CompletedAt, SYSDATETIME())) / 60.0),  -- Giờ đã dùng
-    IsOnTime        AS (CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1
-                              WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0
-                              ELSE NULL END),              -- Đúng hạn hay trễ
-
+    --IsOnTime        AS (CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1
+    --                          WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0
+    --                          ELSE NULL END),              -- Đúng hạn hay trễ
+	IsOnTime AS (CAST(CASE WHEN CompletedAt IS NOT NULL AND CompletedAt <= DeadlineAt THEN 1 WHEN CompletedAt IS NOT NULL AND CompletedAt > DeadlineAt THEN 0 ELSE NULL END AS BIT)),
     CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
 
     CONSTRAINT FK_SlaTrack_Config FOREIGN KEY (SlaConfigId) REFERENCES SlaConfigs(SlaConfigId),

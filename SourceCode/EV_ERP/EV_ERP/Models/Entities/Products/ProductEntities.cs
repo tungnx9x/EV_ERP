@@ -1,6 +1,5 @@
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Customers;
-using EV_ERP.Models.Entities.Vendors;
 
 namespace EV_ERP.Models.Entities.Products;
 
@@ -53,7 +52,6 @@ public class Product : AuditableEntity, ISoftDeletable
     public virtual ProductCategory? Category { get; set; }
     public virtual Unit Unit { get; set; } = null!;
     public virtual ICollection<ProductImage> Images { get; set; } = [];
-    public virtual ICollection<VendorPrice> VendorPrices { get; set; } = [];
     public virtual ICollection<CustomerPrice> CustomerPrices { get; set; } = [];
 }
 
@@ -68,25 +66,6 @@ public class ProductImage
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public virtual Product Product { get; set; } = null!;
-}
-
-// ─── VENDOR PRICE (Giá mua theo NCC) ────────────────
-public class VendorPrice : BaseEntity, ISoftDeletable
-{
-    public int VendorPriceId { get; set; }
-    public int ProductId { get; set; }
-    public int VendorId { get; set; }
-    public decimal PurchasePrice { get; set; }
-    public string Currency { get; set; } = "VND";
-    public int? MinOrderQty { get; set; }
-    public int? LeadTimeDays { get; set; }
-    public DateTime EffectiveFrom { get; set; } = DateTime.Today;
-    public DateTime? EffectiveTo { get; set; }
-    public string? Notes { get; set; }
-    public bool IsActive { get; set; } = true;
-
-    public virtual Product Product { get; set; } = null!;
-    public virtual Vendor Vendor { get; set; } = null!;
 }
 
 // ─── CUSTOMER PRICE (Giá bán theo KH / nhóm KH) ────

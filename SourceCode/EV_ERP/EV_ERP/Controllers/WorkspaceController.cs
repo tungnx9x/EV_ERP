@@ -244,7 +244,6 @@ public class WorkspaceController : Controller
         var soBuyingTasks = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
             .Include(s => s.Rfq)
-            .Include(s => s.Vendor)
             .Where(s => s.CreatedBy == userId
                      && s.Status == "BUYING"
                      && !soIdsWithInbound.Contains(s.SalesOrderId))
@@ -255,7 +254,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.Vendor != null ? s.Vendor.VendorName : null
+                //ExtraInfo = s.PurchaseSource
             })
             .ToListAsync();
 

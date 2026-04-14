@@ -3,7 +3,6 @@ using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Sales;
-using EV_ERP.Models.Entities.Vendors;
 using EV_ERP.Models.ViewModels.SalesOrders;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
@@ -41,7 +40,6 @@ public class SalesOrderService : ISalesOrderService
     {
         var query = _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
-            .Include(s => s.Vendor)
             .Include(s => s.SalesPerson)
             .Include(s => s.Items)
             .AsQueryable();
@@ -77,7 +75,7 @@ public class SalesOrderService : ISalesOrderService
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 CustomerCode = s.Customer.CustomerCode,
-                VendorName = s.Vendor != null ? s.Vendor.VendorName : null,
+                PurchaseSource = s.PurchaseSource,
                 SalesPersonName = s.SalesPerson.FullName,
                 OrderDate = s.OrderDate,
                 Status = s.Status,
@@ -115,7 +113,6 @@ public class SalesOrderService : ISalesOrderService
         var s = await _uow.Repository<SalesOrder>().Query()
             .Include(x => x.Customer)
             .Include(x => x.Contact)
-            .Include(x => x.Vendor)
             .Include(x => x.Quotation)
             .Include(x => x.Rfq)
             .Include(x => x.SalesPerson)
@@ -123,8 +120,6 @@ public class SalesOrderService : ISalesOrderService
             .FirstOrDefaultAsync(x => x.SalesOrderId == salesOrderId);
 
         if (s == null) return null;
-
-        var vendors = await GetVendorOptionsAsync();
 
         return new SalesOrderDetailViewModel
         {
@@ -144,9 +139,7 @@ public class SalesOrderService : ISalesOrderService
             Status = s.Status,
             CustomerPoNo = s.CustomerPoNo,
             CustomerPoFile = s.CustomerPoFile,
-            VendorId = s.VendorId,
-            VendorName = s.Vendor?.VendorName,
-            VendorCode = s.Vendor?.VendorCode,
+            PurchaseSource = s.PurchaseSource,
             ExpectedReceiveDate = s.ExpectedReceiveDate,
             BuyingNotes = s.BuyingNotes,
             BuyingAt = s.BuyingAt,
@@ -196,9 +189,10 @@ public class SalesOrderService : ISalesOrderService
                 LineTotal = i.LineTotal,
                 PurchasePrice = i.PurchasePrice,
                 LineCost = i.LineCost,
+                SourceUrl = i.SourceUrl,
+                SourceName = i.SourceName,
                 Notes = i.Notes
-            }).ToList(),
-            Vendors = vendors
+            }).ToList()
         };
     }
 
@@ -257,6 +251,8 @@ public class SalesOrderService : ISalesOrderService
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
                 LineTotal = i.LineTotal,
+                SourceUrl = i.SourceUrl,
+                SourceName = i.SourceName,
                 SortOrder = i.SortOrder,
                 Notes = i.Notes
             }).ToList()
@@ -315,7 +311,7 @@ public class SalesOrderService : ISalesOrderService
         if (so == null) return (false, "Không tìm thấy đơn hàng");
         if (so.Status != "WAIT") return (false, "Chỉ có thể bắt đầu mua hàng ở trạng thái Chờ tạm ứng");
 
-        so.VendorId = model.VendorId;
+        so.PurchaseSource = model.PurchaseSource?.Trim();
         so.ExpectedReceiveDate = model.ExpectedReceiveDate;
         so.BuyingNotes = model.BuyingNotes?.Trim();
         so.BuyingAt = DateTime.Now;
@@ -331,6 +327,8 @@ public class SalesOrderService : ISalesOrderService
             if (item != null)
             {
                 item.PurchasePrice = itemModel.PurchasePrice;
+                item.SourceUrl = itemModel.SourceUrl?.Trim();
+                item.SourceName = itemModel.SourceName?.Trim();
                 item.LineCost = item.Quantity * itemModel.PurchasePrice;
                 totalCost += item.LineCost ?? 0;
             }
@@ -344,8 +342,8 @@ public class SalesOrderService : ISalesOrderService
         await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "WAIT");
         await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "BUYING", so.CreatedBy);
 
-        _logger.LogInformation("SO started buying: {No} VendorId={VendorId} by UserId={UserId}",
-            so.SalesOrderNo, model.VendorId, userId);
+        _logger.LogInformation("SO started buying: {No} Source={Source} by UserId={UserId}",
+            so.SalesOrderNo, model.PurchaseSource, userId);
         return (true, null);
     }
 
@@ -689,17 +687,4 @@ public class SalesOrderService : ISalesOrderService
             .ToListAsync();
     }
 
-    private async Task<List<VendorOptionVM>> GetVendorOptionsAsync()
-    {
-        return await _uow.Repository<Vendor>().Query()
-            .Where(v => v.IsActive)
-            .OrderBy(v => v.VendorName)
-            .Select(v => new VendorOptionVM
-            {
-                VendorId = v.VendorId,
-                VendorCode = v.VendorCode,
-                VendorName = v.VendorName
-            })
-            .ToListAsync();
-    }
 }

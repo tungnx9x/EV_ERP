@@ -6,7 +6,8 @@
       "Bash(dotnet add:*)",
       "Bash(dotnet script eval ':*)",
       "Bash(dotnet build:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(node -e ':*)"
     ]
   }
 }

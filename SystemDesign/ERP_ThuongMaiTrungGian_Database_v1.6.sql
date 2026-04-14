@@ -1,15 +1,17 @@
 -- ============================================================================
 -- ERP DATABASE - DOANH NGHIỆP THƯƠNG MẠI TRUNG GIAN (PHỤC VỤ KHÁCH SẠN)
 -- Platform: SQL Server 2019+
--- Version:  1.3
--- Date:     2026-04-10
--- Changelog v1.3:
---   [!] XÓA PurchaseOrders + PurchaseOrderItems — gộp vào SalesOrders
---       Lý do: Mô hình trung gian mua thẳng từ PO khách hàng, không cần PO nội bộ
---   [~] SalesOrder — thêm luồng mua hàng: VendorId, BuyingAt, ReceivedAt...
---       Status mới: DRAFT → WAIT → BUYING → RECEIVED → DELIVERING → DELIVERED → COMPLETED
---   [~] VendorInvoices, StockTransactions, VendorPayments — FK chuyển sang SalesOrderId
---   [-] Bỏ index PO, bỏ seed/view liên quan PO
+-- Version:  1.6
+-- Date:     2026-04-14
+-- Changelog v1.6:
+--   [!] XÓA Vendors, VendorContacts — không có NCC cố định, mua online từ nhiều nguồn
+--   [!] XÓA VendorPrices — giá mua nhập trực tiếp trên SOItems
+--   [!] XÓA VendorInvoices, VendorPayments — chỉ cần PurchasePrice trên SOItems
+--   [~] SalesOrders — bỏ VendorId, thêm PurchaseSource (ghi chú nguồn mua chung)
+--   [~] SalesOrderItems — thêm SourceUrl, SourceName (link + tên nguồn mua mỗi dòng)
+--   [~] QuotationItems — thêm SourceUrl, SourceName (link nguồn giá khi báo giá)
+--   [-] Bỏ view vw_AccountsPayable (không còn AP)
+--   [-] Bỏ toàn bộ index Vendor
 -- ============================================================================
 
 -- Tạo database
@@ -193,54 +195,7 @@ CREATE TABLE CustomerNotes (
 );
 
 
--- ============================================================================
--- MODULE 3: QUẢN LÝ NHÀ CUNG CẤP (VENDOR MANAGEMENT)
--- ============================================================================
-
--- 3.1 Bảng Nhà cung cấp
-CREATE TABLE Vendors (
-    VendorId        INT IDENTITY(1,1) PRIMARY KEY,
-    VendorCode      NVARCHAR(20)    NOT NULL UNIQUE,       -- Mã NCC: NCC-0001
-    VendorName      NVARCHAR(300)   NOT NULL,
-    TaxCode         NVARCHAR(20)    NULL,
-    Address         NVARCHAR(500)   NULL,
-    City            NVARCHAR(100)   NULL,
-    District        NVARCHAR(100)   NULL,
-    Phone           NVARCHAR(20)    NULL,
-    Email           NVARCHAR(200)   NULL,
-    Website         NVARCHAR(200)   NULL,
-    BankAccountNo   NVARCHAR(30)    NULL,
-    BankName        NVARCHAR(200)   NULL,
-    BankBranch      NVARCHAR(200)   NULL,
-    ContactPerson   NVARCHAR(200)   NULL,
-    ContactPhone    NVARCHAR(20)    NULL,
-    ContactEmail    NVARCHAR(200)   NULL,
-    PaymentTermDays INT             NOT NULL DEFAULT 30,
-    -- Đánh giá NCC
-    AvgDeliveryDays DECIMAL(5,1)    NULL,                  -- Thời gian giao hàng TB
-    QualityRating   DECIMAL(3,1)    NULL,                  -- Đánh giá chất lượng (1-5)
-    OnTimeRate      DECIMAL(5,2)    NULL,                  -- Tỉ lệ giao đúng hạn (%)
-    InternalNotes   NVARCHAR(MAX)   NULL,
-    IsActive        BIT             NOT NULL DEFAULT 1,
-    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    UpdatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    CreatedBy       INT             NULL,
-    UpdatedBy       INT             NULL
-);
-
--- 3.2 Bảng Liên hệ nhà cung cấp
-CREATE TABLE VendorContacts (
-    ContactId       INT IDENTITY(1,1) PRIMARY KEY,
-    VendorId        INT             NOT NULL,
-    ContactName     NVARCHAR(200)   NOT NULL,
-    JobTitle        NVARCHAR(100)   NULL,
-    Phone           NVARCHAR(20)    NULL,
-    Email           NVARCHAR(200)   NULL,
-    IsPrimary       BIT             NOT NULL DEFAULT 0,
-    IsActive        BIT             NOT NULL DEFAULT 1,
-    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    CONSTRAINT FK_VContact_Vendor FOREIGN KEY (VendorId) REFERENCES Vendors(VendorId)
-);
+-- (MODULE 3: VENDOR — ĐÃ BỎ từ v1.6. Mua hàng online từ nhiều nguồn, không có NCC cố định.)
 
 
 -- ============================================================================
@@ -305,24 +260,7 @@ CREATE TABLE ProductImages (
     CONSTRAINT FK_ProdImage_Product FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
 );
 
--- 4.5 Bảng Giá mua theo NCC (một SP mua từ nhiều NCC với giá khác nhau)
-CREATE TABLE VendorPrices (
-    VendorPriceId   INT IDENTITY(1,1) PRIMARY KEY,
-    ProductId       INT             NOT NULL,
-    VendorId        INT             NOT NULL,
-    PurchasePrice   DECIMAL(18,2)   NOT NULL,
-    Currency        NVARCHAR(3)     NOT NULL DEFAULT 'VND',
-    MinOrderQty     INT             NULL,                  -- Số lượng đặt tối thiểu
-    LeadTimeDays    INT             NULL,                  -- Thời gian giao hàng (ngày)
-    EffectiveFrom   DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-    EffectiveTo     DATE            NULL,
-    Notes           NVARCHAR(500)   NULL,
-    IsActive        BIT             NOT NULL DEFAULT 1,
-    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    UpdatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    CONSTRAINT FK_VPrice_Product FOREIGN KEY (ProductId) REFERENCES Products(ProductId),
-    CONSTRAINT FK_VPrice_Vendor FOREIGN KEY (VendorId) REFERENCES Vendors(VendorId)
-);
+-- (4.5 VendorPrices — ĐÃ BỎ từ v1.6. Giá mua nhập trực tiếp trên SOItems.)
 
 -- 4.6 Bảng Giá bán theo khách hàng / nhóm KH
 CREATE TABLE CustomerPrices (
@@ -435,9 +373,10 @@ CREATE TABLE QuotationItems (
     DiscountValue   DECIMAL(18,2)   NULL DEFAULT 0,
     DiscountAmount  DECIMAL(18,2)   NOT NULL DEFAULT 0,
     LineTotal       DECIMAL(18,2)   NOT NULL DEFAULT 0,    -- = Qty * UnitPrice - DiscountAmount
+    SourceUrl       NVARCHAR(500)   NULL,                  -- Link nguồn mua (Shopee, Lazada, website...)
+    SourceName      NVARCHAR(200)   NULL,                  -- Tên nguồn: "Shopee - Shop ABC"
     SortOrder       INT             NOT NULL DEFAULT 0,
     Notes           NVARCHAR(500)   NULL,
-    CONSTRAINT FK_QuotItem_Quotation FOREIGN KEY (QuotationId) REFERENCES Quotations(QuotationId),
     CONSTRAINT FK_QuotItem_Product FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
 );
 
@@ -489,8 +428,8 @@ CREATE TABLE SalesOrders (
     CustomerPoNo    NVARCHAR(50)    NULL,                  -- Mã PO mà KH gửi
     CustomerPoFile  NVARCHAR(500)   NULL,                  -- URL file PO upload
 
-    -- ── Thông tin mua hàng (thay thế PO nội bộ) ──
-    VendorId        INT             NULL,                  -- NCC mua hàng
+    -- ── Thông tin mua hàng (nguồn mua trên từng dòng SOItems) ──
+    PurchaseSource  NVARCHAR(500)   NULL,                  -- Ghi chú chung về nguồn mua (VD: "Shopee + Lazada")
     ExpectedReceiveDate DATE        NULL,                  -- Dự kiến hàng về kho
     BuyingNotes     NVARCHAR(MAX)   NULL,                  -- Ghi chú quá trình mua
     BuyingAt        DATETIME2       NULL,                  -- Thời điểm bắt đầu mua
@@ -546,7 +485,6 @@ CREATE TABLE SalesOrders (
     CONSTRAINT FK_SO_RFQ FOREIGN KEY (RfqId) REFERENCES RFQs(RfqId),
     CONSTRAINT FK_SO_Customer FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId),
     CONSTRAINT FK_SO_Contact FOREIGN KEY (ContactId) REFERENCES CustomerContacts(ContactId),
-    CONSTRAINT FK_SO_Vendor FOREIGN KEY (VendorId) REFERENCES Vendors(VendorId),
     CONSTRAINT FK_SO_SalesPerson FOREIGN KEY (SalesPersonId) REFERENCES Users(UserId),
     CONSTRAINT FK_SO_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
 );
@@ -561,7 +499,9 @@ CREATE TABLE SalesOrderItems (
     Quantity        DECIMAL(18,3)   NOT NULL,
     DeliveredQty    DECIMAL(18,3)   NOT NULL DEFAULT 0,    -- Số lượng đã giao
     UnitPrice       DECIMAL(18,2)   NOT NULL,              -- Giá bán cho KH
-    PurchasePrice   DECIMAL(18,2)   NULL,                  -- Giá mua từ NCC (giá vốn)
+    PurchasePrice   DECIMAL(18,2)   NULL,                  -- Giá mua thực tế
+    SourceUrl       NVARCHAR(500)   NULL,                  -- Link mua (Shopee, Lazada, website...)
+    SourceName      NVARCHAR(200)   NULL,                  -- Tên nguồn: "Shopee - Shop ABC"
     DiscountType    NVARCHAR(10)    NULL,
     DiscountValue   DECIMAL(18,2)   NULL DEFAULT 0,
     DiscountAmount  DECIMAL(18,2)   NOT NULL DEFAULT 0,
@@ -574,33 +514,7 @@ CREATE TABLE SalesOrderItems (
 );
 
 
--- ============================================================================
--- MODULE 6: HÓA ĐƠN NHÀ CUNG CẤP (không còn PO — gắn trực tiếp vào SO)
--- ============================================================================
-
--- 6.1 Bảng Hóa đơn nhà cung cấp (gắn với SO thay vì PO)
-CREATE TABLE VendorInvoices (
-    VendorInvoiceId INT IDENTITY(1,1) PRIMARY KEY,
-    InvoiceNo       NVARCHAR(50)    NOT NULL,              -- Số hóa đơn NCC
-    SalesOrderId    INT             NOT NULL,              -- Gắn trực tiếp vào SO
-    VendorId        INT             NOT NULL,
-    InvoiceDate     DATE            NOT NULL,
-    DueDate         DATE            NOT NULL,
-    TotalAmount     DECIMAL(18,2)   NOT NULL,
-    PaidAmount      DECIMAL(18,2)   NOT NULL DEFAULT 0,
-    Currency        NVARCHAR(3)     NOT NULL DEFAULT 'VND',
-    -- UNPAID → PARTIALLY_PAID → PAID
-    Status          NVARCHAR(20)    NOT NULL DEFAULT 'UNPAID'
-                    CHECK (Status IN ('UNPAID','PARTIALLY_PAID','PAID','CANCELLED')),
-    Notes           NVARCHAR(500)   NULL,
-    AttachmentUrl   NVARCHAR(500)   NULL,                  -- Scan hóa đơn
-    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    UpdatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    CreatedBy       INT             NOT NULL,
-    CONSTRAINT FK_VInv_SO FOREIGN KEY (SalesOrderId) REFERENCES SalesOrders(SalesOrderId),
-    CONSTRAINT FK_VInv_Vendor FOREIGN KEY (VendorId) REFERENCES Vendors(VendorId),
-    CONSTRAINT FK_VInv_User FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
-);
+-- (MODULE 6: VENDOR INVOICES — ĐÃ BỎ từ v1.6. Chi phí mua ghi trực tiếp trên SOItems.)
 
 
 -- ============================================================================
@@ -769,28 +683,7 @@ CREATE TABLE CustomerPayments (
     CONSTRAINT FK_CPay_User FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
 );
 
--- 8.2 Bảng Thanh toán cho NCC (Accounts Payable - Phải trả)
-CREATE TABLE VendorPayments (
-    PaymentId       INT IDENTITY(1,1) PRIMARY KEY,
-    PaymentNo       NVARCHAR(20)    NOT NULL UNIQUE,       -- TT-NCC-202604-001
-    VendorId        INT             NOT NULL,
-    VendorInvoiceId INT             NULL,
-    SalesOrderId    INT             NULL,                  -- Gắn với SO (thay vì PO)
-    PaymentDate     DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-    Amount          DECIMAL(18,2)   NOT NULL,
-    PaymentMethod   NVARCHAR(50)    NOT NULL,
-    BankReference   NVARCHAR(100)   NULL,
-    Notes           NVARCHAR(500)   NULL,
-    AttachmentUrl   NVARCHAR(500)   NULL,
-    Status          NVARCHAR(20)    NOT NULL DEFAULT 'CONFIRMED'
-                    CHECK (Status IN ('CONFIRMED','CANCELLED')),
-    CreatedAt       DATETIME2       NOT NULL DEFAULT SYSDATETIME(),
-    CreatedBy       INT             NOT NULL,
-    CONSTRAINT FK_VPay_Vendor FOREIGN KEY (VendorId) REFERENCES Vendors(VendorId),
-    CONSTRAINT FK_VPay_VInv FOREIGN KEY (VendorInvoiceId) REFERENCES VendorInvoices(VendorInvoiceId),
-    CONSTRAINT FK_VPay_SO FOREIGN KEY (SalesOrderId) REFERENCES SalesOrders(SalesOrderId),
-    CONSTRAINT FK_VPay_User FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
-);
+-- (8.2 VendorPayments — ĐÃ BỎ từ v1.6. Không còn NCC, chi phí mua ghi trên SOItems + tạm ứng.)
 
 
 -- ============================================================================
@@ -972,16 +865,13 @@ CREATE INDEX IX_Customers_GroupId ON Customers(CustomerGroupId);
 CREATE INDEX IX_Customers_SalesPersonId ON Customers(SalesPersonId);
 CREATE INDEX IX_CustomerContacts_CustomerId ON CustomerContacts(CustomerId);
 
--- Vendors
-CREATE INDEX IX_Vendors_Code ON Vendors(VendorCode);
-CREATE INDEX IX_Vendors_Name ON Vendors(VendorName);
+-- (Vendor indexes — ĐÃ BỎ từ v1.6)
 
 -- Products
 CREATE INDEX IX_Products_Code ON Products(ProductCode);
 CREATE INDEX IX_Products_Name ON Products(ProductName);
 CREATE INDEX IX_Products_Barcode ON Products(Barcode);
 CREATE INDEX IX_Products_CategoryId ON Products(CategoryId);
-CREATE INDEX IX_VendorPrices_Product ON VendorPrices(ProductId, VendorId);
 CREATE INDEX IX_CustomerPrices_Product ON CustomerPrices(ProductId);
 
 -- RFQs
@@ -999,18 +889,15 @@ CREATE INDEX IX_Quotations_SalesPersonId ON Quotations(SalesPersonId);
 CREATE INDEX IX_Quotations_Date ON Quotations(QuotationDate DESC);
 CREATE INDEX IX_QuotItems_QuotId ON QuotationItems(QuotationId);
 
--- Sales Orders (gộp cả mua hàng)
+-- Sales Orders
 CREATE INDEX IX_SO_No ON SalesOrders(SalesOrderNo);
 CREATE INDEX IX_SO_CustomerId ON SalesOrders(CustomerId);
-CREATE INDEX IX_SO_VendorId ON SalesOrders(VendorId);
 CREATE INDEX IX_SO_Status ON SalesOrders(Status);
 CREATE INDEX IX_SO_SalesPersonId ON SalesOrders(SalesPersonId);
 CREATE INDEX IX_SO_OrderDate ON SalesOrders(OrderDate DESC);
 CREATE INDEX IX_SOItems_SOId ON SalesOrderItems(SalesOrderId);
 
--- Vendor Invoices (gắn SO)
-CREATE INDEX IX_VInvoices_SOId ON VendorInvoices(SalesOrderId);
-CREATE INDEX IX_VInvoices_VendorId ON VendorInvoices(VendorId, Status);
+-- (VendorInvoices, VendorPayments indexes — ĐÃ BỎ từ v1.6)
 
 -- Inventory
 CREATE INDEX IX_Inventory_ProductId ON Inventory(ProductId);
@@ -1022,10 +909,8 @@ CREATE INDEX IX_StockTrans_WarehouseId ON StockTransactions(WarehouseId);
 CREATE INDEX IX_StockTransItems_TransId ON StockTransactionItems(TransactionId);
 CREATE INDEX IX_StockTransItems_LocationId ON StockTransactionItems(LocationId);
 
--- Payments & Invoices
+-- Payments
 CREATE INDEX IX_CPayments_CustomerId ON CustomerPayments(CustomerId);
-CREATE INDEX IX_VPayments_VendorId ON VendorPayments(VendorId);
-CREATE INDEX IX_VPayments_SOId ON VendorPayments(SalesOrderId);
 
 -- Audit & Notifications
 CREATE INDEX IX_AuditLog_Table ON AuditLogs(TableName, RecordId);
@@ -1150,29 +1035,29 @@ LEFT JOIN (
 WHERE c.IsActive = 1;
 GO
 
--- View: Tổng hợp công nợ phải trả (AP) theo NCC
-CREATE OR ALTER VIEW vw_AccountsPayable AS
+-- (vw_AccountsPayable — ĐÃ BỎ từ v1.6. Không còn NCC → không còn AP.)
+
+-- View: Chi phí mua hàng theo đơn (thay thế AP — theo dõi lãi/lỗ trên từng SO)
+CREATE OR ALTER VIEW vw_PurchaseCostByOrder AS
 SELECT
-    v.VendorId,
-    v.VendorCode,
-    v.VendorName,
-    ISNULL(vi.TotalInvoiced, 0)     AS TotalPurchases,
-    ISNULL(vp.TotalPaid, 0)         AS TotalPaid,
-    ISNULL(vi.TotalInvoiced, 0) - ISNULL(vp.TotalPaid, 0) AS OutstandingAmount
-FROM Vendors v
-LEFT JOIN (
-    SELECT VendorId, SUM(TotalAmount) AS TotalInvoiced
-    FROM VendorInvoices
-    WHERE Status NOT IN ('CANCELLED')
-    GROUP BY VendorId
-) vi ON v.VendorId = vi.VendorId
-LEFT JOIN (
-    SELECT VendorId, SUM(Amount) AS TotalPaid
-    FROM VendorPayments
-    WHERE Status = 'CONFIRMED'
-    GROUP BY VendorId
-) vp ON v.VendorId = vp.VendorId
-WHERE v.IsActive = 1;
+    so.SalesOrderId,
+    so.SalesOrderNo,
+    so.Status,
+    c.CustomerName,
+    so.TotalAmount                                      AS Revenue,
+    ISNULL(so.PurchaseCost, 0)                          AS PurchaseCost,
+    so.TotalAmount - ISNULL(so.PurchaseCost, 0)         AS Profit,
+    CASE
+        WHEN so.TotalAmount = 0 THEN 0
+        ELSE (so.TotalAmount - ISNULL(so.PurchaseCost, 0)) * 100.0 / so.TotalAmount
+    END                                                 AS ProfitMarginPct,
+    so.SalesPersonId,
+    u.FullName                                          AS SalesPersonName,
+    so.OrderDate
+FROM SalesOrders so
+INNER JOIN Customers c ON so.CustomerId = c.CustomerId
+INNER JOIN Users u ON so.SalesPersonId = u.UserId
+WHERE so.Status NOT IN ('CANCELLED');
 GO
 
 -- View: Tồn kho cảnh báo thấp
@@ -1276,49 +1161,51 @@ GO
 -- ============================================================================
 /*
     ╔══════════════════════════════════════════════════════════════╗
-    ║                    TỔNG QUAN THIẾT KẾ v1.3                   ║
+    ║                    TỔNG QUAN THIẾT KẾ v1.6                   ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
-    ║  Tổng số bảng:  42 bảng (-2 so với v1.2: bỏ PO + POItems)  ║
+    ║  Tổng số bảng:  37 bảng                                     ║
     ║  Tổng số views:  6 views                                     ║
     ║                                                              ║
     ║  PHÂN NHÓM:                                                  ║
     ║  ─────────────────────────────────────────────────────────    ║
     ║  RBAC & Auth:     7 bảng                                     ║
     ║  Khách hàng:      4 bảng                                     ║
-    ║  Nhà cung cấp:    2 bảng                                     ║
-    ║  Sản phẩm:        6 bảng                                     ║
-    ║  Đơn hàng:        7 bảng (RFQ, Quot, QuotItems, QuotEmail,  ║
-    ║                    SO, SOItems, VendorInvoice)               ║
+    ║  Sản phẩm:        4 bảng (bỏ VendorPrices)                  ║
+    ║  Đơn hàng:        6 bảng (RFQ, Quot, QuotItems, QuotEmail,  ║
+    ║                    SO, SOItems) — bỏ VendorInvoices          ║
     ║  Kho:             7 bảng                                     ║
-    ║  Công nợ:         3 bảng (CustPayment, VendPayment, AdvReq) ║
+    ║  Công nợ:         2 bảng (CustPayment, AdvanceRequest)      ║
     ║  PDF Template:    3 bảng                                     ║
-    ║  Hệ thống:        3 bảng (AuditLog, Notification, Attach)   ║
+    ║  Hệ thống:        4 bảng (AuditLog, Notification,           ║
+    ║                    Attachments, TaskComments)                ║
     ║                                                              ║
     ╠══════════════════════════════════════════════════════════════╣
-    ║               THAY ĐỔI v1.3 (so với v1.2)                   ║
+    ║  BẢNG ĐÃ BỎ QUA CÁC PHIÊN BẢN                              ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
-    ║  [!] XÓA PurchaseOrders + PurchaseOrderItems                 ║
-    ║      Lý do: Mô hình trung gian mua thẳng từ PO khách hàng  ║
-    ║      Không cần tạo PO nội bộ → giảm nhập liệu              ║
-    ║                                                              ║
-    ║  [~] SalesOrder — gộp luồng mua hàng:                       ║
-    ║      Thêm: VendorId, ExpectedReceiveDate, BuyingAt,         ║
-    ║            ReceivedAt, PurchaseCost, IsDropship               ║
-    ║      Status: DRAFT → WAIT → BUYING → RECEIVED               ║
-    ║              → DELIVERING → DELIVERED → COMPLETED            ║
-    ║      Computed: ProfitAmount = TotalAmount - PurchaseCost     ║
-    ║                                                              ║
-    ║  [~] SalesOrderItems — thêm PurchasePrice, LineCost          ║
-    ║                                                              ║
-    ║  [~] VendorInvoices — FK đổi từ PurchaseOrderId → SOId      ║
-    ║  [~] VendorPayments — FK đổi từ PurchaseOrderId → SOId      ║
-    ║  [~] StockTransactions — bỏ PurchaseOrderId, giữ SOId       ║
-    ║  [~] PdfTemplates — bỏ PURCHASE_ORDER khỏi TemplateType     ║
+    ║  v1.3: PurchaseOrders, PurchaseOrderItems (gộp vào SO)      ║
+    ║  v1.6: Vendors, VendorContacts (mua online, không NCC)      ║
+    ║  v1.6: VendorPrices (giá mua trên SOItems)                  ║
+    ║  v1.6: VendorInvoices (chi phí trên SOItems)                ║
+    ║  v1.6: VendorPayments (tạm ứng thay thế)                   ║
     ║                                                              ║
     ╠══════════════════════════════════════════════════════════════╣
-    ║             LUỒNG QUY TRÌNH (ĐƠN GIẢN HÓA)                  ║
+    ║  MÔ HÌNH MUA HÀNG (v1.6)                                    ║
+    ╠══════════════════════════════════════════════════════════════╣
+    ║                                                              ║
+    ║  Không có NCC cố định — mua online từ nhiều nguồn.          ║
+    ║  Mỗi dòng SOItems / QuotItems có:                           ║
+    ║    SourceUrl  = link mua (Shopee, Lazada, website)           ║
+    ║    SourceName = tên nguồn ("Shopee - Shop ABC")             ║
+    ║    PurchasePrice = giá mua thực tế (chỉ trên SOItems)       ║
+    ║  SalesOrders có:                                             ║
+    ║    PurchaseSource = ghi chú chung nguồn mua                 ║
+    ║    PurchaseCost   = tổng chi phí mua                        ║
+    ║    ProfitAmount   = computed (TotalAmount - PurchaseCost)    ║
+    ║                                                              ║
+    ╠══════════════════════════════════════════════════════════════╣
+    ║             LUỒNG QUY TRÌNH                                  ║
     ╠══════════════════════════════════════════════════════════════╣
     ║                                                              ║
     ║  KH gửi yêu cầu                                             ║
@@ -1326,7 +1213,7 @@ GO
     ║      → Quotation (DRAFT → SENT → APPROVED)                  ║
     ║        → SO (DRAFT)         NV nhập mã PO KH, tạm ứng      ║
     ║          → SO (WAIT)        Chờ phê duyệt tạm ứng          ║
-    ║            → SO (BUYING)    Mua hàng từ NCC                 ║
+    ║            → SO (BUYING)    Mua hàng, nhập SourceUrl/Price  ║
     ║              → SO (RECEIVED)  Hàng về kho                   ║
     ║                → StockTx IN (DRAFT → CONFIRMED)             ║
     ║                  → SO (DELIVERING)  Giao vận chuyển         ║

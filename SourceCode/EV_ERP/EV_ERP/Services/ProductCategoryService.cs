@@ -75,17 +75,16 @@ namespace EV_ERP.Services
             var repo = _uow.Repository<ProductCategory>();
 
             var duplicate = await repo.AnyAsync(c =>
-                c.CategoryName.ToLower() == model.CategoryName.Trim().ToLower() &&
-                c.ParentCategoryId == model.ParentCategoryId &&
+                c.CategoryCode == model.CategoryCode &&
                 c.IsActive);
             if (duplicate)
-                return (false, "Tên danh mục đã tồn tại trong cùng cấp");
+                return (false, "Mã danh mục đã tồn tại");
 
             var code = await GenerateCategoryCodeAsync();
 
             var category = new ProductCategory
             {
-                CategoryCode = code,
+                CategoryCode = string.IsNullOrEmpty(model.CategoryCode) ? code : model.CategoryCode,
                 CategoryName = model.CategoryName.Trim(),
                 ParentCategoryId = model.ParentCategoryId,
                 Description = model.Description?.Trim(),

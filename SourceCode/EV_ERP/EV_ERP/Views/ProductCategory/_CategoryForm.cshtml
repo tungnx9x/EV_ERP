@@ -8,6 +8,13 @@
         <span asp-validation-for="CategoryName" class="text-danger small"></span>
     </div>
 
+    <!-- Category Code -->
+    <div class="col-12">
+        <label asp-for="CategoryCode" class="form-label fw-semibold small"></label>
+        <input asp-for="CategoryCode" class="form-control" placeholder="VD: Decor & Artwork Lightings = DEC-LGT" />
+        <span asp-validation-for="CategoryCode" class="text-danger small"></span>
+    </div>
+
     <!-- Parent Category -->
     <div class="col-12">
         <label asp-for="ParentCategoryId" class="form-label fw-semibold small"></label>

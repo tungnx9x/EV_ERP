@@ -91,15 +91,21 @@
                         </div>
                         <div class="col-md-4">
                             <label asp-for="City" class="form-label fw-semibold small"></label>
-                            <input asp-for="City" class="form-control" />
+                            <select id="selCity" name="City" class="form-select">
+                                <option value="">-- Chọn tỉnh/thành phố --</option>
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label asp-for="District" class="form-label fw-semibold small"></label>
-                            <input asp-for="District" class="form-control" />
+                            <select id="selDistrict" name="District" class="form-select" disabled>
+                                <option value="">-- Chọn quận/huyện --</option>
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label asp-for="Ward" class="form-label fw-semibold small"></label>
-                            <input asp-for="Ward" class="form-control" />
+                            <select id="selWard" name="Ward" class="form-select" disabled>
+                                <option value="">-- Chọn phường/xã --</option>
+                            </select>
                         </div>
                     </div>
 
@@ -165,4 +171,79 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        let _cities = [], _districts = [], _wardsCache = {};
+
+        async function initRegion(initCity, initDistrict, initWard) {
+            [_cities, _districts] = await Promise.all([
+                fetch('/region/cities.json').then(r => r.json()),
+                fetch('/region/districts.json').then(r => r.json())
+            ]);
+
+            const selCity = document.getElementById('selCity');
+            [..._cities]
+                .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+                .forEach(c => selCity.add(new Option(c.name_with_type, c.name)));
+
+            selCity.addEventListener('change', function () {
+                const city = _cities.find(c => c.name === this.value);
+                fillDistricts(city ? city.code : null, null, null);
+            });
+            document.getElementById('selDistrict').addEventListener('change', async function () {
+                const dist = _districts.find(d => d.name === this.value);
+                await fillWards(dist ? dist.code : null, null);
+            });
+
+            if (initCity) {
+                const city = _cities.find(c => c.name === initCity || c.name_with_type === initCity);
+                if (city) {
+                    selCity.value = city.name;
+                    await fillDistricts(city.code, initDistrict, initWard);
+                }
+            }
+        }
+
+        async function fillDistricts(cityCode, initDistrict, initWard) {
+            const sel = document.getElementById('selDistrict');
+            const selWard = document.getElementById('selWard');
+            sel.innerHTML = '<option value="">-- Chọn quận/huyện --</option>';
+            selWard.innerHTML = '<option value="">-- Chọn phường/xã --</option>';
+            selWard.disabled = true;
+            if (!cityCode) { sel.disabled = true; return; }
+            sel.disabled = false;
+            const items = _districts.filter(d => d.parent_code === cityCode)
+                .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+            items.forEach(d => sel.add(new Option(d.name_with_type, d.name)));
+            if (initDistrict) {
+                const dist = items.find(d => d.name === initDistrict || d.name_with_type === initDistrict);
+                if (dist) { sel.value = dist.name; await fillWards(dist.code, initWard); }
+            }
+        }
+
+        async function fillWards(distCode, initWard) {
+            const sel = document.getElementById('selWard');
+            sel.innerHTML = '<option value="">-- Chọn phường/xã --</option>';
+            if (!distCode) { sel.disabled = true; return; }
+            if (!_wardsCache[distCode]) {
+                const all = await fetch('/region/wards.json').then(r => r.json());
+                all.forEach(w => {
+                    (_wardsCache[w.parent_code] = _wardsCache[w.parent_code] || []).push(w);
+                });
+            }
+            sel.disabled = false;
+            const items = (_wardsCache[distCode] || []).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+            items.forEach(w => sel.add(new Option(w.name_with_type, w.name)));
+            if (initWard) {
+                const ward = items.find(w => w.name === initWard || w.name_with_type === initWard);
+                if (ward) sel.value = ward.name;
+            }
+        }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => initRegion(
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.City ?? "")),
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.District ?? "")),
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Ward ?? ""))
+        ));
+    </script>
 }

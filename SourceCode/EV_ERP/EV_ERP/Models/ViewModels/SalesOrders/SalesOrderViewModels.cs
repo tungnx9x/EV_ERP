@@ -22,7 +22,7 @@ public class SalesOrderRowViewModel
     public string SalesOrderNo { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
     public string CustomerCode { get; set; } = string.Empty;
-    public string? VendorName { get; set; }
+    public string? PurchaseSource { get; set; }
     public string SalesPersonName { get; set; } = string.Empty;
     public DateTime OrderDate { get; set; }
     public string Status { get; set; } = string.Empty;
@@ -114,10 +114,8 @@ public class SalesOrderDetailViewModel
     public string? CustomerPoNo { get; set; }
     public string? CustomerPoFile { get; set; }
 
-    // Purchasing (thay thế PO nội bộ)
-    public int? VendorId { get; set; }
-    public string? VendorName { get; set; }
-    public string? VendorCode { get; set; }
+    // Purchasing (mua online từ nhiều nguồn)
+    public string? PurchaseSource { get; set; }
     public DateTime? ExpectedReceiveDate { get; set; }
     public string? BuyingNotes { get; set; }
     public DateTime? BuyingAt { get; set; }
@@ -170,9 +168,6 @@ public class SalesOrderDetailViewModel
 
     // Items
     public List<SalesOrderItemDetailViewModel> Items { get; set; } = [];
-
-    // Vendor dropdown (for BUYING step)
-    public List<VendorOptionVM> Vendors { get; set; } = [];
 }
 
 public class SalesOrderItemDetailViewModel
@@ -192,6 +187,8 @@ public class SalesOrderItemDetailViewModel
     // Mua
     public decimal? PurchasePrice { get; set; }
     public decimal? LineCost { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? SourceName { get; set; }
     public string? Notes { get; set; }
 }
 
@@ -206,7 +203,7 @@ public class SalesOrderDraftModel
 
 public class SalesOrderBuyingModel
 {
-    public int VendorId { get; set; }
+    public string? PurchaseSource { get; set; }
     public DateTime? ExpectedReceiveDate { get; set; }
     public string? BuyingNotes { get; set; }
     public List<SalesOrderItemPurchaseModel> Items { get; set; } = [];
@@ -216,6 +213,8 @@ public class SalesOrderItemPurchaseModel
 {
     public int SOItemId { get; set; }
     public decimal PurchasePrice { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? SourceName { get; set; }
 }
 
 public class SalesOrderCompleteModel
@@ -241,9 +240,3 @@ public class SalesPersonOptionVM
     public string FullName { get; set; } = string.Empty;
 }
 
-public class VendorOptionVM
-{
-    public int VendorId { get; set; }
-    public string VendorCode { get; set; } = string.Empty;
-    public string VendorName { get; set; } = string.Empty;
-}

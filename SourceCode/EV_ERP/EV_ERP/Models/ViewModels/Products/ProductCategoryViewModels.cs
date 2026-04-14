@@ -31,6 +31,7 @@ namespace EV_ERP.Models.ViewModels.Products
     public class ProductCategoryFormViewModel
     {
         public int? CategoryId { get; set; }
+        [Display(Name = "Mã danh mục")]
         public string CategoryCode { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Tên danh mục là bắt buộc")]

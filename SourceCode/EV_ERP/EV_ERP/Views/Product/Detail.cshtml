@@ -169,13 +169,6 @@
                         </button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-vendor-prices">
-                            <i class="bi bi-truck me-1"></i>
-                            Giá NCC
-                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.VendorPrices.Count</span>
-                        </button>
-                    </li>
-                    <li class="nav-item">
                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-customer-prices">
                             <i class="bi bi-building me-1"></i>
                             Giá KH
@@ -228,56 +221,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Tab: Vendor Prices -->
-                <div class="tab-pane fade p-3" id="tab-vendor-prices">
-                    @if (!Model.VendorPrices.Any())
-                    {
-                        <div class="text-center py-4 text-muted">
-                            <i class="bi bi-truck" style="font-size:2rem;opacity:.3;"></i>
-                            <p class="small mt-2 mb-0">Chưa có giá mua từ NCC nào</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0" style="font-size:0.84rem;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Nhà cung cấp</th>
-                                        <th class="text-end">Giá mua</th>
-                                        <th class="d-none d-md-table-cell text-center">SL tối thiểu</th>
-                                        <th class="d-none d-md-table-cell text-center">Thời gian giao</th>
-                                        <th class="d-none d-lg-table-cell">Hiệu lực</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var vp in Model.VendorPrices)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <div class="fw-semibold">@vp.VendorName</div>
-                                                <div class="text-muted small">@vp.VendorCode</div>
-                                            </td>
-                                            <td class="text-end fw-semibold">@vp.PurchasePrice.ToString("N0") ₫</td>
-                                            <td class="d-none d-md-table-cell text-center">@(vp.MinOrderQty?.ToString() ?? "—")</td>
-                                            <td class="d-none d-md-table-cell text-center">
-                                                @(vp.LeadTimeDays.HasValue ? $"{vp.LeadTimeDays} ngày" : "—")
-                                            </td>
-                                            <td class="d-none d-lg-table-cell small text-muted">
-                                                @vp.EffectiveFrom.ToString("dd/MM/yyyy")
-                                                @if (vp.EffectiveTo.HasValue)
-                                                {
-                                                    @: → @vp.EffectiveTo.Value.ToString("dd/MM/yyyy")
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
                 </div>
 
                 <!-- Tab: Customer Prices -->

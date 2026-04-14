@@ -258,8 +258,6 @@ namespace EV_ERP.Services
                 .Include(p => p.Category)
                 .Include(p => p.Unit)
                 .Include(p => p.Images)
-                .Include(p => p.VendorPrices.Where(vp => vp.IsActive))
-                    .ThenInclude(vp => vp.Vendor)
                 .Include(p => p.CustomerPrices.Where(cp => cp.IsActive))
                     .ThenInclude(cp => cp.Customer)
                 .Include(p => p.CustomerPrices.Where(cp => cp.IsActive))
@@ -298,22 +296,6 @@ namespace EV_ERP.Services
                         DisplayOrder = i.DisplayOrder,
                         IsPrimary = i.IsPrimary,
                         CreatedAt = i.CreatedAt
-                    }).ToList(),
-                VendorPrices = product.VendorPrices
-                    .OrderBy(vp => vp.PurchasePrice)
-                    .Select(vp => new VendorPriceViewModel
-                    {
-                        VendorPriceId = vp.VendorPriceId,
-                        VendorName = vp.Vendor.VendorName,
-                        VendorCode = vp.Vendor.VendorCode,
-                        PurchasePrice = vp.PurchasePrice,
-                        Currency = vp.Currency,
-                        MinOrderQty = vp.MinOrderQty,
-                        LeadTimeDays = vp.LeadTimeDays,
-                        EffectiveFrom = vp.EffectiveFrom,
-                        EffectiveTo = vp.EffectiveTo,
-                        Notes = vp.Notes,
-                        IsActive = vp.IsActive
                     }).ToList(),
                 CustomerPrices = product.CustomerPrices
                     .OrderBy(cp => cp.SalePrice)

@@ -232,6 +232,7 @@
                                 <th class="text-center">VAT</th>
                                 <th class="text-end">Sau VAT</th>
                                 <th>NCC</th>
+                                <th>Link</th>
                                 <th class="text-end">Gia nhap</th>
                                 <th>Tien te</th>
                                 <th class="text-end">Shipping</th>
@@ -263,6 +264,18 @@
                                     <td class="text-center">@item.VatRate%</td>
                                     <td class="text-end fw-bold text-primary">@item.AmountInclVat.ToString("N0")</td>
                                     <td class="small">@(item.Supplier ?? "—")</td>
+                                    <td class="small">
+                                        @if (!string.IsNullOrEmpty(item.SourceUrl))
+                                        {
+                                            <a href="@item.SourceUrl" target="_blank" class="text-truncate d-inline-block" style="max-width:150px;" title="@item.SourceUrl">
+                                                <i class="bi bi-link-45deg"></i> Link
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
                                     <td class="text-end">@item.ImportPrice.ToString("N0")</td>
                                     <td class="text-center">@item.Currency</td>
                                     <td class="text-end">@item.Shipping.ToString("N0")</td>

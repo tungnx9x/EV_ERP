@@ -3,7 +3,6 @@ using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Templates;
-using EV_ERP.Models.Entities.Vendors;
 
 namespace EV_ERP.Models.Entities.Sales;
 
@@ -95,6 +94,8 @@ public class QuotationItem
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? SourceName { get; set; }
     public int SortOrder { get; set; }
     public string? Notes { get; set; }
 
@@ -139,8 +140,8 @@ public class SalesOrder : AuditableEntity
     public string? CustomerPoNo { get; set; }
     public string? CustomerPoFile { get; set; }
 
-    // ── Thông tin mua hàng (thay thế PO nội bộ) ──
-    public int? VendorId { get; set; }
+    // ── Thông tin mua hàng (mua online từ nhiều nguồn) ──
+    public string? PurchaseSource { get; set; }
     public DateTime? ExpectedReceiveDate { get; set; }
     public string? BuyingNotes { get; set; }
     public DateTime? BuyingAt { get; set; }
@@ -192,7 +193,6 @@ public class SalesOrder : AuditableEntity
     public virtual Quotation? Quotation { get; set; }
     public virtual Customer Customer { get; set; } = null!;
     public virtual CustomerContact? Contact { get; set; }
-    public virtual Vendor? Vendor { get; set; }
     public virtual User SalesPerson { get; set; } = null!;
     public virtual ICollection<SalesOrderItem> Items { get; set; } = [];
 }
@@ -209,6 +209,8 @@ public class SalesOrderItem
     public decimal DeliveredQty { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal? PurchasePrice { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? SourceName { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }

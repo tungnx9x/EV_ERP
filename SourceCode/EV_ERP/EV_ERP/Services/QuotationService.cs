@@ -171,6 +171,8 @@ public class QuotationService : IQuotationService
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
                 LineTotal = i.LineTotal,
+                Supplier = i.SourceName,
+                SourceUrl = i.SourceUrl,
                 SortOrder = i.SortOrder,
                 Notes = i.Notes
             }).ToList(),
@@ -231,6 +233,8 @@ public class QuotationService : IQuotationService
                 DiscountValue = item.DiscountValue,
                 DiscountAmount = discountAmt,
                 LineTotal = lineTotal,
+                SourceUrl = item.SourceUrl?.Trim(),
+                SourceName = item.Supplier?.Trim(),
                 SortOrder = sortOrder++,
                 Notes = item.Notes?.Trim()
             });
@@ -320,6 +324,8 @@ public class QuotationService : IQuotationService
                 DiscountValue = item.DiscountValue,
                 DiscountAmount = discountAmt,
                 LineTotal = lineTotal,
+                SourceUrl = item.SourceUrl?.Trim(),
+                SourceName = item.Supplier?.Trim(),
                 SortOrder = sortOrder++,
                 Notes = item.Notes?.Trim()
             });
@@ -422,6 +428,8 @@ public class QuotationService : IQuotationService
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
                 LineTotal = i.LineTotal,
+                Supplier = i.SourceName,
+                SourceUrl = i.SourceUrl,
                 Notes = i.Notes
             }).ToList()
         };
@@ -557,6 +565,8 @@ public class QuotationService : IQuotationService
                 DiscountValue = item.DiscountValue,
                 DiscountAmount = item.DiscountAmount,
                 LineTotal = item.LineTotal,
+                SourceUrl = item.SourceUrl,
+                SourceName = item.SourceName,
                 SortOrder = item.SortOrder,
                 Notes = item.Notes
             });
@@ -637,6 +647,8 @@ public class QuotationService : IQuotationService
                 AmountExclVat = i.LineTotal,
                 VatRate = q.TaxRate,
                 AmountInclVat = Math.Round(i.LineTotal * (1 + q.TaxRate / 100m), 0),
+                Supplier = i.SourceName,
+                SourceUrl = i.SourceUrl,
                 Notes = i.Notes
             }).ToList()
         };

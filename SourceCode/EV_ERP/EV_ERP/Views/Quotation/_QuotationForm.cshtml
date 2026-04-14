@@ -229,6 +229,7 @@
                 VatRate: 8,
                 AmountInclVat: 0,
                 Supplier: '',
+                SourceUrl: '',
                 ImportPrice: 0,
                 Currency: 'VND',
                 Shipping: 0,
@@ -390,9 +391,12 @@
                     'value="' + item.VatRate + '" min="0" max="100" step="0.5" onchange="updateVat(' + idx + ', this.value)" /></td>' +
                     // Amount Incl VAT
                     '<td class="text-end fw-bold text-primary">' + formatNumber(item.AmountInclVat) + '</td>' +
-                    // Supplier
+                    // Supplier (SourceName)
                     '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Supplier || '') + '" ' +
-                    'onchange="updateField(' + idx + ', \'Supplier\', this.value)" placeholder="NCC / URL..." /></td>' +
+                    'onchange="updateField(' + idx + ', \'Supplier\', this.value)" placeholder="Shopee..." /></td>' +
+                    // SourceUrl
+                    '<td><input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
+                    'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." /></td>' +
                     // Import Price
                     '<td><input type="number" class="form-control form-control-sm" ' +
                     'value="' + item.ImportPrice + '" min="0" step="any" onchange="updateImportPrice(' + idx + ', this.value)" /></td>' +

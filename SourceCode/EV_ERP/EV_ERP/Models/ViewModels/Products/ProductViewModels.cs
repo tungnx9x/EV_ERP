@@ -138,7 +138,6 @@ namespace EV_ERP.Models.ViewModels.Products
 
         public bool HasBarcode => !string.IsNullOrEmpty(Barcode);
         public List<ProductImageViewModel> Images { get; set; } = [];
-        public List<VendorPriceViewModel> VendorPrices { get; set; } = [];
         public List<CustomerPriceViewModel> CustomerPrices { get; set; } = [];
     }
 
@@ -150,22 +149,6 @@ namespace EV_ERP.Models.ViewModels.Products
         public int DisplayOrder { get; set; }
         public bool IsPrimary { get; set; }
         public DateTime CreatedAt { get; set; }
-    }
-
-    // ── Vendor Prices ────────────────────────────────────
-    public class VendorPriceViewModel
-    {
-        public int VendorPriceId { get; set; }
-        public string VendorName { get; set; } = string.Empty;
-        public string VendorCode { get; set; } = string.Empty;
-        public decimal PurchasePrice { get; set; }
-        public string Currency { get; set; } = "VND";
-        public int? MinOrderQty { get; set; }
-        public int? LeadTimeDays { get; set; }
-        public DateTime EffectiveFrom { get; set; }
-        public DateTime? EffectiveTo { get; set; }
-        public string? Notes { get; set; }
-        public bool IsActive { get; set; }
     }
 
     // ── Customer Prices ──────────────────────────────────

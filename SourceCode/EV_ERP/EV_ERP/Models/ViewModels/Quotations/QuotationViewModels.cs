@@ -139,6 +139,7 @@ public class QuotationItemFormModel
     public decimal AmountInclVat { get; set; }
 
     public string? Supplier { get; set; }
+    public string? SourceUrl { get; set; }
     public decimal ImportPrice { get; set; }
     public string Currency { get; set; } = "VND";
     public decimal Shipping { get; set; }
@@ -252,6 +253,7 @@ public class QuotationItemDetailViewModel
     public decimal VatRate { get; set; }
     public decimal AmountInclVat { get; set; }
     public string? Supplier { get; set; }
+    public string? SourceUrl { get; set; }
     public decimal ImportPrice { get; set; }
     public string Currency { get; set; } = "VND";
     public decimal Shipping { get; set; }

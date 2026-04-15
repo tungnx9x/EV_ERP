@@ -24,6 +24,22 @@
                     @await Html.PartialAsync("_ProductForm", Model)
 
                     <hr class="my-4" />
+
+                    <!-- Section: Hình ảnh sản phẩm -->
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+                        <i class="bi bi-images me-1"></i> Hình ảnh sản phẩm
+                    </h6>
+                    <div class="mb-3">
+                        <input type="file" name="GalleryFiles" id="create-gallery-input"
+                               class="form-control form-control-sm"
+                               accept="image/jpeg,image/png,image/webp,image/gif"
+                               multiple onchange="previewCreateGallery(this)" />
+                        <div class="form-text small">JPG, PNG, WebP — tối đa 5 MB mỗi ảnh. Ảnh đầu tiên mặc định là ảnh đại diện — nhấn vào ảnh khác để thay đổi.</div>
+                    </div>
+                    <input type="hidden" name="AvatarIndex" id="create-avatar-index" value="0" />
+                    <div id="create-gallery-preview" class="d-flex flex-wrap gap-2 mb-3"></div>
+
+                    <hr class="my-4" />
                     <div class="d-flex gap-2 justify-content-end">
                         <a href="/Product" class="btn btn-outline-secondary">Hủy</a>
                         <button type="submit" class="btn btn-primary">
@@ -39,3 +55,69 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }
+<style>
+    .create-gallery-thumb { cursor:pointer; transition: transform .1s; }
+    .create-gallery-thumb:hover { transform: scale(1.04); }
+</style>
+<script>
+    function previewCreateGallery(input) {
+        var container = document.getElementById('create-gallery-preview');
+        container.innerHTML = '';
+        document.getElementById('create-avatar-index').value = '0';
+        if (!input.files || input.files.length === 0) return;
+
+        Array.from(input.files).forEach(function (file, idx) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var wrap = document.createElement('div');
+                wrap.className = 'create-gallery-thumb position-relative';
+                wrap.dataset.idx = idx;
+                wrap.style.cssText = 'width:100px;height:100px;';
+                wrap.title = 'Nhấn để đặt làm ảnh đại diện';
+                wrap.onclick = function () { setCreateAvatar(idx); };
+
+                var img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:6px;border:2px solid ' + (idx === 0 ? '#2563eb' : '#e2e8f0') + ';';
+                img.alt = file.name;
+                img.dataset.idx = idx;
+                wrap.appendChild(img);
+
+                if (idx === 0) {
+                    var badge = document.createElement('span');
+                    badge.id = 'create-avatar-badge';
+                    badge.className = 'position-absolute top-0 start-0 badge bg-primary';
+                    badge.style.cssText = 'font-size:0.6rem;border-radius:6px 0 4px 0!important;pointer-events:none;';
+                    badge.textContent = 'Avatar';
+                    wrap.appendChild(badge);
+                }
+
+                container.appendChild(wrap);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function setCreateAvatar(idx) {
+        debugger;
+        document.getElementById('create-avatar-index').value = idx;
+
+        // Move badge and highlight
+        var oldBadge = document.getElementById('create-avatar-badge');
+        if (oldBadge) oldBadge.remove();
+
+        document.querySelectorAll('.create-gallery-thumb img').forEach(function (img, i) {
+            img.style.border = img.dataset.idx == idx ? '2px solid #2563eb' : '2px solid #e2e8f0';
+        });
+
+        var target = document.querySelector('.create-gallery-thumb[data-idx="' + idx + '"]');
+        if (target) {
+            var badge = document.createElement('span');
+            badge.id = 'create-avatar-badge';
+            badge.className = 'position-absolute top-0 start-0 badge bg-primary';
+            badge.style.cssText = 'font-size:0.6rem;border-radius:6px 0 4px 0!important;pointer-events:none;';
+            badge.textContent = 'Avatar';
+            target.appendChild(badge);
+        }
+    }
+</script>

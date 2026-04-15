@@ -95,12 +95,10 @@ namespace EV_ERP.Models.ViewModels.Products
         [Display(Name = "Kích hoạt")]
         public bool IsActive { get; set; } = true;
 
-        [Display(Name = "Ảnh sản phẩm")]
-        public IFormFile? ImageFile { get; set; }
-
-        // Populated in Edit mode — current saved image
-        public string? ExistingImageUrl { get; set; }
-        public bool RemoveImage { get; set; }
+        // Create mode: initial gallery uploads
+        public List<IFormFile>? GalleryFiles { get; set; }
+        // Index (0-based) of which uploaded file is the avatar; default 0
+        public int AvatarIndex { get; set; } = 0;
 
         // Populated in Edit mode — gallery images
         public List<ProductImageViewModel> Images { get; set; } = [];

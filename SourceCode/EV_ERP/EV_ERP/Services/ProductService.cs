@@ -107,7 +107,6 @@ namespace EV_ERP.Services
                 Weight = product.Weight,
                 WeightUnit = product.WeightUnit,
                 IsActive = product.IsActive,
-                ExistingImageUrl = product.ImageUrl,
                 Images = images,
                 Categories = categories,
                 Units = units
@@ -144,16 +143,32 @@ namespace EV_ERP.Services
             await repo.AddAsync(product);
             await _uow.SaveChangesAsync();
 
-            // Save image if provided
-            if (model.ImageFile != null)
+            // Save gallery images; the file at AvatarIndex becomes the avatar
+            if (model.GalleryFiles != null && model.GalleryFiles.Count > 0)
             {
-                var imageUrl = await SaveProductImageAsync(model.ImageFile, product.ProductId);
-                if (imageUrl != null)
+                var imgRepo = _uow.Repository<ProductImage>();
+                int avatarIdx = Math.Clamp(model.AvatarIndex, 0, model.GalleryFiles.Count - 1);
+                int order = 0;
+                foreach (var file in model.GalleryFiles)
                 {
-                    product.ImageUrl = imageUrl;
-                    repo.Update(product);
-                    await _uow.SaveChangesAsync();
+                    var url = await SaveProductImageAsync(file, product.ProductId);
+                    if (url == null) { order++; continue; }
+
+                    bool isPrimary = order == avatarIdx;
+                    await imgRepo.AddAsync(new ProductImage
+                    {
+                        ProductId = product.ProductId,
+                        ImageUrl = url,
+                        DisplayOrder = order++,
+                        IsPrimary = isPrimary,
+                        CreatedAt = DateTime.Now
+                    });
+
+                    if (isPrimary)
+                        product.ImageUrl = url;
                 }
+                repo.Update(product);
+                await _uow.SaveChangesAsync();
             }
 
             // Auto-generate barcode if not provided
@@ -206,18 +221,6 @@ namespace EV_ERP.Services
             product.IsActive = model.IsActive;
             product.UpdatedBy = updatedBy;
             product.UpdatedAt = DateTime.Now;
-
-            // Handle image upload / removal
-            if (model.ImageFile != null)
-            {
-                DeleteProductImage(product.ImageUrl);
-                product.ImageUrl = await SaveProductImageAsync(model.ImageFile, product.ProductId);
-            }
-            else if (model.RemoveImage)
-            {
-                DeleteProductImage(product.ImageUrl);
-                product.ImageUrl = null;
-            }
 
             repo.Update(product);
             await _uow.SaveChangesAsync();

@@ -42,9 +42,6 @@ namespace EV_ERP.Services
             var products = await query.OrderBy(p => p.ProductCode).ToListAsync();
             var categories = await GetCategoryOptionsAsync();
 
-            var noBarcodeCount = await _uow.Repository<Product>().CountAsync(
-                p => p.IsActive && string.IsNullOrEmpty(p.Barcode));
-
             return new ProductListViewModel
             {
                 Products = products.Select(p => new ProductRowViewModel
@@ -66,7 +63,6 @@ namespace EV_ERP.Services
                 FilterCategoryId = categoryId,
                 FilterStatus = status,
                 TotalCount = products.Count,
-                NoBarcodeCount = noBarcodeCount,
                 Categories = categories
             };
         }
@@ -414,16 +410,31 @@ namespace EV_ERP.Services
 
         private async Task<List<CategoryOptionViewModel>> GetCategoryOptionsAsync()
         {
-            return await _uow.Repository<ProductCategory>().Query()
+            var categories = await _uow.Repository<ProductCategory>().Query()
                 .Where(c => c.IsActive)
                 .OrderBy(c => c.DisplayOrder).ThenBy(c => c.CategoryName)
-                .Select(c => new CategoryOptionViewModel
-                {
-                    CategoryId = c.CategoryId,
-                    CategoryCode = c.CategoryCode,
-                    CategoryName = c.CategoryName
-                })
                 .ToListAsync();
+            var lookup = categories.ToLookup(c => c.ParentCategoryId);
+
+            var result = new List<CategoryOptionViewModel>();
+
+            void Flatten(int? parentId, int depth)
+            {
+                foreach (var c in lookup[parentId].OrderBy(c => c.DisplayOrder).ThenBy(c => c.CategoryName))
+                {
+                    var prefix = depth == 0 ? "" : new string('-', depth * 3) + "└ ";
+                    result.Add(new CategoryOptionViewModel
+                    {
+                        CategoryId = c.CategoryId,
+                        CategoryCode = c.CategoryCode,
+                        CategoryName = prefix + c.CategoryName
+                    });
+                    Flatten(c.CategoryId, depth + 1);
+                }
+            }
+
+            Flatten(null, 0);
+            return result;
         }
 
         private async Task<List<UnitOptionViewModel>> GetUnitOptionsAsync()

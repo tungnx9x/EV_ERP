@@ -257,7 +257,7 @@ namespace EV_ERP.Services
                 foreach (var c in lookup[parentId].OrderBy(c => c.DisplayOrder).ThenBy(c => c.CategoryName))
                 {
                     if (excludedIds.Contains(c.CategoryId)) continue;
-                    var prefix = depth == 0 ? "" : new string(' ', depth * 3) + "└ ";
+                    var prefix = depth == 0 ? "" : new string('-', depth * 3) + "└ ";
                     result.Add(new ParentCategoryOptionViewModel
                     {
                         CategoryId = c.CategoryId,

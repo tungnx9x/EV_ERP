@@ -11,7 +11,6 @@ namespace EV_ERP.Models.ViewModels.Products
         public int? FilterCategoryId { get; set; }
         public string? FilterStatus { get; set; }
         public int TotalCount { get; set; }
-        public int NoBarcodeCount { get; set; }
         public List<CategoryOptionViewModel> Categories { get; set; } = [];
     }
 

@@ -216,11 +216,11 @@ namespace EV_ERP.Services
                 await _uow.SaveChangesAsync();
             }
 
-            // Auto-generate barcode if not provided
+            // Auto-generate barcode (Code 128 using SKU or ProductCode)
             if (string.IsNullOrEmpty(product.Barcode))
             {
-                product.Barcode = GenerateEAN13(product.ProductId);
-                product.BarcodeType = "EAN13";
+                product.Barcode = GenerateCode128Value(product);
+                product.BarcodeType = "CODE128";
                 repo.Update(product);
                 await _uow.SaveChangesAsync();
             }
@@ -430,8 +430,11 @@ namespace EV_ERP.Services
             if (!string.IsNullOrEmpty(product.Barcode))
                 return (false, "Sản phẩm đã có barcode", null);
 
-            product.Barcode = GenerateEAN13(product.ProductId);
-            product.BarcodeType = "EAN13";
+            // Reload product with latest SKU (may have been generated)
+            product = (await repo.GetByIdAsync(productId))!;
+
+            product.Barcode = GenerateCode128Value(product);
+            product.BarcodeType = "CODE128";
             product.UpdatedBy = updatedBy;
             product.UpdatedAt = DateTime.Now;
             repo.Update(product);
@@ -462,8 +465,8 @@ namespace EV_ERP.Services
 
             foreach (var product in products)
             {
-                product.Barcode = GenerateEAN13(product.ProductId);
-                product.BarcodeType = "EAN13";
+                product.Barcode = GenerateCode128Value(product);
+                product.BarcodeType = "CODE128";
                 product.UpdatedBy = updatedBy;
                 product.UpdatedAt = DateTime.Now;
                 repo.Update(product);
@@ -479,23 +482,12 @@ namespace EV_ERP.Services
         // ── Private Helpers ──────────────────────────────
 
         /// <summary>
-        /// Generate EAN-13 barcode: prefix 200 (internal use) + 9-digit padded ProductId + check digit
+        /// Generate Code 128 barcode value using SKU (preferred) or ProductCode as fallback.
         /// </summary>
-        private static string GenerateEAN13(int productId)
+        private static string GenerateCode128Value(Product product)
         {
-            // 200 = GS1 prefix for internal/store use
-            var body = $"200{productId:D9}";
-
-            // Calculate EAN-13 check digit
-            int sum = 0;
-            for (int i = 0; i < 12; i++)
-            {
-                int digit = body[i] - '0';
-                sum += (i % 2 == 0) ? digit : digit * 3;
-            }
-            int checkDigit = (10 - (sum % 10)) % 10;
-
-            return body + checkDigit;
+            // Use SKU if available (e.g. TP-VN-5K-WH-0001), otherwise fall back to ProductCode
+            return !string.IsNullOrEmpty(product.SKU) ? product.SKU : product.ProductCode;
         }
 
         private async Task<string> GenerateProductCodeAsync()

@@ -348,34 +348,17 @@
     <!-- JsBarcode CDN for rendering barcodes -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script>
-        // Render barcode on page load
+        // Render barcode on page load (always Code 128)
         document.addEventListener('DOMContentLoaded', function () {
             var barcodeValue = '@(Model.Barcode ?? "")';
-            var barcodeType = '@(Model.BarcodeType ?? "")';
             if (barcodeValue) {
-                try {
-                    var format = 'CODE128';
-                    if (barcodeType === 'EAN13') format = 'EAN13';
-                    else if (barcodeType === 'EAN8') format = 'EAN8';
-                    else if (barcodeType === 'CODE128') format = 'CODE128';
-
-                    JsBarcode('#barcode-svg', barcodeValue, {
-                        format: format,
-                        width: 2,
-                        height: 60,
-                        displayValue: false,
-                        margin: 5
-                    });
-                } catch (e) {
-                    // Fallback to CODE128 if format-specific rendering fails
-                    JsBarcode('#barcode-svg', barcodeValue, {
-                        format: 'CODE128',
-                        width: 2,
-                        height: 60,
-                        displayValue: false,
-                        margin: 5
-                    });
-                }
+                JsBarcode('#barcode-svg', barcodeValue, {
+                    format: 'CODE128',
+                    width: 2,
+                    height: 60,
+                    displayValue: false,
+                    margin: 5
+                });
             }
         });
 
@@ -387,7 +370,7 @@
         }
 
         function generateBarcode(id) {
-            if (!confirm('Tạo mã barcode EAN-13 cho sản phẩm này?')) return;
+            if (!confirm('Tạo mã barcode Code 128 cho sản phẩm này?')) return;
 
             var form = new FormData();
             form.append('__RequestVerificationToken', getAntiForgeryToken());

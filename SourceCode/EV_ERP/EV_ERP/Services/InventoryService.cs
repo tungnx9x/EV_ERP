@@ -178,7 +178,7 @@ namespace EV_ERP.Services
             var trimmed = barcode.Trim();
             var product = await _uow.Repository<Product>().Query()
                 .Include(p => p.Unit)
-                .Where(p => p.IsActive && (p.Barcode == trimmed || p.ProductCode == trimmed))
+                .Where(p => p.IsActive && (p.Barcode == trimmed || p.ProductCode == trimmed || p.SKU == trimmed))
                 .FirstOrDefaultAsync();
 
             if (product == null) return null;

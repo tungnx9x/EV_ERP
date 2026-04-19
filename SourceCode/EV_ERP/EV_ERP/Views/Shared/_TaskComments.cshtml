@@ -1,5 +1,5 @@
 @*
-    Shared partial: Task Comments Panel
+    Shared partial: Task Comments Panel (Facebook-style)
     Usage: @await Html.PartialAsync("_TaskComments", new ViewDataDictionary(ViewData) {
         { "EntityType", "SALES_ORDER" }, { "EntityId", Model.SalesOrderId }
     })
@@ -11,91 +11,174 @@
     var currentUser = Context.Session.GetObject<EV_ERP.Helpers.CurrentUser>(EV_ERP.Helpers.SessionKeys.CurrentUser);
     var currentUserId = currentUser?.UserId ?? 0;
     var currentUserName = currentUser?.FullName ?? "";
+    var currentInitial = !string.IsNullOrEmpty(currentUserName) ? currentUserName[0].ToString().ToUpper() : "?";
 }
 
 <div class="card border-0 shadow-sm mt-3" id="comments">
-    <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
+    <div class="card-header bg-white border-bottom py-2">
         <h6 class="mb-0 fw-semibold small text-uppercase">
-            <i class="bi bi-chat-dots me-1"></i> Trao đổi
+            <i class="bi bi-chat-dots me-1"></i> Trao đổi
             <span class="badge bg-secondary rounded-pill ms-1" id="commentCount">0</span>
         </h6>
-        <button class="btn btn-sm btn-outline-primary" onclick="toggleCommentForm()" id="btnToggleComment">
-            <i class="bi bi-plus-lg me-1"></i> Thêm
-        </button>
     </div>
     <div class="card-body p-0">
-        <!-- New comment form (hidden by default) -->
-        <div id="commentFormWrapper" style="display:none;" class="border-bottom p-3 bg-light">
-            <div class="position-relative">
-                <textarea id="commentContent" class="form-control form-control-sm" rows="3"
-                          placeholder="Nhập nội dung trao đổi... Dùng @@ để mention người dùng"></textarea>
-                <!-- Mention dropdown -->
-                <div id="mentionDropdown" class="dropdown-menu shadow-sm" style="display:none; position:absolute; z-index:1060; max-height:200px; overflow-y:auto; width:260px;"></div>
-            </div>
-            <input type="hidden" id="mentionedUserIds" value="[]" />
-            <input type="hidden" id="replyToCommentId" value="" />
-            <div class="d-flex align-items-center justify-content-between mt-2">
-                <div class="d-flex align-items-center gap-2">
-                    <span id="replyIndicator" class="small text-primary" style="display:none;">
-                        <i class="bi bi-reply me-1"></i> Trả lời <strong id="replyToName"></strong>
-                        <button class="btn btn-sm btn-link p-0 ms-1 text-muted" onclick="cancelReply()">
-                            <i class="bi bi-x"></i>
-                        </button>
-                    </span>
-                </div>
-                <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleCommentForm()">Hủy</button>
-                    <button class="btn btn-sm btn-primary" onclick="submitComment()" id="btnSubmitComment">
-                        <i class="bi bi-send me-1"></i> Gửi
-                    </button>
-                </div>
+        <!-- Comment list -->
+        <div id="commentList" class="px-3 pt-3 pb-1">
+            <div class="text-center text-muted py-4" style="font-size:0.82rem;" id="noCommentsMsg">
+                <i class="bi bi-chat-left-text d-block mb-1" style="font-size:1.5rem; opacity:0.4;"></i>
+                Chưa có trao đổi nào
             </div>
         </div>
 
-        <!-- Comment list -->
-        <div id="commentList" class="p-3">
-            <div class="text-center text-muted py-4" style="font-size:0.82rem;" id="noCommentsMsg">
-                <i class="bi bi-chat-left-text d-block mb-1" style="font-size:1.5rem; opacity:0.4;"></i>
-                Chưa có trao đổi nào
+        <!-- Write comment (always visible at bottom) -->
+        <div class="border-top px-3 py-2 bg-light">
+            <div id="replyIndicator" class="small text-primary mb-1" style="display:none;">
+                <i class="bi bi-reply me-1"></i> Trả lời <strong id="replyToName"></strong>
+                <button class="btn btn-sm btn-link p-0 ms-1 text-muted" onclick="cancelReply()">
+                    <i class="bi bi-x-circle"></i>
+                </button>
             </div>
+            <div class="d-flex gap-2 align-items-start">
+                <div class="fb-avatar" title="@currentUserName">@currentInitial</div>
+                <div class="flex-grow-1 position-relative">
+                    <textarea id="commentContent" class="form-control form-control-sm fb-comment-input" rows="1"
+                              placeholder="Viết bình luận... Dùng @@@@ để mention"
+                              oninput="autoResizeTextarea(this)"></textarea>
+                    <!-- Mention dropdown -->
+                    <div id="mentionDropdown" class="dropdown-menu shadow-sm" style="display:none; position:absolute; z-index:1060; max-height:200px; overflow-y:auto; width:260px; bottom:100%; left:0;"></div>
+                </div>
+                <button class="btn btn-sm btn-primary rounded-circle d-flex align-items-center justify-content-center"
+                        style="width:32px; height:32px; flex-shrink:0;" onclick="submitComment()" id="btnSubmitComment" title="Gửi (Ctrl+Enter)">
+                    <i class="bi bi-send-fill" style="font-size:0.8rem;"></i>
+                </button>
+            </div>
+            <input type="hidden" id="mentionedUserIds" value="[]" />
+            <input type="hidden" id="replyToCommentId" value="" />
         </div>
     </div>
 </div>
 
 <style>
-    .comment-item { position: relative; }
-    .comment-item + .comment-item { margin-top: 0.75rem; }
-    .comment-bubble {
-        background: #f8fafc;
-        border-radius: 0 12px 12px 12px;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.84rem;
-        border: 1px solid #e2e8f0;
-    }
-    .comment-bubble.is-mine {
-        background: #eff6ff;
-        border-color: #bfdbfe;
-        border-radius: 12px 0 12px 12px;
-    }
-    .comment-avatar {
-        width: 32px; height: 32px; border-radius: 50%;
+    .fb-avatar {
+        width: 36px; height: 36px; border-radius: 50%;
         background: #2563eb; color: #fff;
-        font-weight: 600; font-size: 0.75rem;
+        font-weight: 600; font-size: 0.8rem;
         display: flex; align-items: center; justify-content: center;
         flex-shrink: 0;
     }
-    .comment-avatar.small-avatar { width: 26px; height: 26px; font-size: 0.65rem; }
-    .reply-item { margin-left: 2.5rem; margin-top: 0.5rem; }
-    .comment-actions { opacity: 0; transition: opacity 0.15s; }
-    .comment-item:hover .comment-actions { opacity: 1; }
+    .fb-avatar-sm {
+        width: 28px; height: 28px; border-radius: 50%;
+        background: #64748b; color: #fff;
+        font-weight: 600; font-size: 0.65rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .fb-comment {
+        position: relative;
+    }
+    .fb-comment + .fb-comment {
+        margin-top: 0.75rem;
+    }
+    .fb-comment-body {
+        background: #f0f2f5;
+        border-radius: 18px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.84rem;
+        display: inline-block;
+        max-width: 100%;
+        word-break: break-word;
+    }
+    .fb-comment-body .fb-author {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #050505;
+        display: block;
+        margin-bottom: 1px;
+    }
+    .fb-comment-body .fb-text {
+        color: #1c1e21;
+        white-space: pre-wrap;
+    }
+    .fb-comment-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-left: 0.75rem;
+        margin-top: 2px;
+        font-size: 0.72rem;
+    }
+    .fb-comment-meta .fb-time {
+        color: #65676b;
+    }
+    .fb-comment-meta .fb-action {
+        color: #65676b;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+        font-size: 0.72rem;
+    }
+    .fb-comment-meta .fb-action:hover {
+        text-decoration: underline;
+        color: #050505;
+    }
+    .fb-replies {
+        margin-left: 2.75rem;
+        margin-top: 0.5rem;
+    }
+    .fb-replies .fb-comment + .fb-comment {
+        margin-top: 0.5rem;
+    }
+    .fb-comment-input {
+        border-radius: 20px;
+        resize: none;
+        overflow: hidden;
+        min-height: 36px;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.84rem;
+        background: #f0f2f5;
+        border: 1px solid #f0f2f5;
+    }
+    .fb-comment-input:focus {
+        background: #fff;
+        border-color: #86b7fe;
+    }
     .mention-tag {
         color: #2563eb; font-weight: 600;
-        background: #eff6ff; border-radius: 3px;
+        background: #e7f0ff; border-radius: 3px;
         padding: 0 2px;
     }
     .mention-option { cursor: pointer; padding: 0.4rem 0.75rem; font-size: 0.84rem; }
     .mention-option:hover { background: #f1f5f9; }
-    .comment-edited { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
+    .fb-comment-edited { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
+    /* 3-dot menu */
+    .fb-more-btn {
+        opacity: 0; transition: opacity 0.15s;
+        border: none; background: none; color: #65676b;
+        padding: 0 4px; font-size: 0.85rem; cursor: pointer;
+        border-radius: 50%;
+    }
+    .fb-more-btn:hover { background: #e4e6eb; }
+    .fb-comment:hover > .d-flex > .fb-more-wrap > .fb-more-btn,
+    .fb-comment:hover > .d-flex > div > .d-flex > .fb-more-wrap > .fb-more-btn {
+        opacity: 1;
+    }
+    .fb-more-menu {
+        position: absolute; right: 0; top: 100%;
+        background: #fff; border: 1px solid #e4e6eb; border-radius: 8px;
+        box-shadow: 0 2px 12px rgba(0,0,0,.15);
+        z-index: 1050; min-width: 140px;
+        display: none;
+    }
+    .fb-more-menu.show { display: block; }
+    .fb-more-menu button {
+        display: block; width: 100%; text-align: left;
+        border: none; background: none; padding: 0.4rem 0.75rem;
+        font-size: 0.82rem; color: #1c1e21;
+    }
+    .fb-more-menu button:hover { background: #f0f2f5; }
+    .fb-more-menu button i { margin-right: 6px; color: #65676b; }
 </style>
 
 <script>
@@ -103,9 +186,15 @@
     var ENTITY_TYPE = '@entityType';
     var ENTITY_ID = parseInt('@entityId');
     var CURRENT_USER_ID = parseInt('@currentUserId');
-    var CURRENT_USER_NAME = '@currentUserName';
+    var CURRENT_USER_NAME = '@Html.Raw(currentUserName.Replace("'", "\\'"))';
     var mentionedUsers = [];
     var allComments = [];
+
+    // ── Auto resize textarea ──
+    window.autoResizeTextarea = function(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    };
 
     // ── Load comments ──
     function loadComments() {
@@ -126,7 +215,7 @@
 
         if (!comments || comments.length === 0) {
             noMsg.style.display = '';
-            // Keep noMsg only
+            // Remove everything except noMsg
             var children = list.children;
             for (var i = children.length - 1; i >= 0; i--) {
                 if (children[i].id !== 'noCommentsMsg') list.removeChild(children[i]);
@@ -139,80 +228,61 @@
         comments.forEach(function(c) {
             html += renderComment(c, false);
         });
-        // Replace all except noMsg
-        var temp = document.createElement('div');
-        temp.innerHTML = html;
-        // Clear and re-add
         list.innerHTML = '';
         list.appendChild(noMsg);
         noMsg.style.display = 'none';
         list.insertAdjacentHTML('beforeend', html);
-
-        // Scroll to bottom
-        list.scrollTop = list.scrollHeight;
     }
 
     function renderComment(c, isReply) {
         var isMine = c.CreatedBy === CURRENT_USER_ID;
         var initial = c.CreatedByName ? c.CreatedByName.charAt(0).toUpperCase() : '?';
-        var avatarClass = isReply ? 'comment-avatar small-avatar' : 'comment-avatar';
-        var wrapperClass = isReply ? 'reply-item comment-item' : 'comment-item';
-        var bubbleClass = 'comment-bubble' + (isMine ? ' is-mine' : '');
+        var avatarClass = isReply ? 'fb-avatar-sm' : 'fb-avatar';
 
         var contentHtml = escapeHtml(c.Content).replace(/@@(\S+)/g, '<span class="mention-tag">@@$1</span>');
+        var editedHtml = c.IsEdited ? ' <span class="fb-comment-edited">(đã sửa)</span>' : '';
 
-        var actionsHtml = '';
+        var html = '<div class="fb-comment" data-comment-id="' + c.CommentId + '">';
+        html += '<div class="d-flex gap-2 align-items-start">';
+        html += '<div class="' + avatarClass + '">' + initial + '</div>';
+        html += '<div style="flex:1; min-width:0;">';
+
+        // Bubble + 3-dot menu on same row
+        html += '<div class="d-flex align-items-start gap-1">';
+        html += '<div class="fb-comment-body">';
+        html += '<span class="fb-author">' + escapeHtml(c.CreatedByName) + '</span>';
+        html += '<span class="fb-text">' + contentHtml + editedHtml + '</span>';
+        html += '</div>';
+
+        // 3-dot menu (only for own comments)
         if (isMine) {
-            actionsHtml = '<span class="comment-actions">' +
-                '<button class="btn btn-sm btn-link text-muted p-0 me-2" onclick="editComment(' + c.CommentId + ')" title="Sửa"><i class="bi bi-pencil" style="font-size:0.7rem;"></i></button>' +
-                '<button class="btn btn-sm btn-link text-muted p-0" onclick="deleteComment(' + c.CommentId + ')" title="Xóa"><i class="bi bi-trash" style="font-size:0.7rem;"></i></button>' +
-                '</span>';
+            html += '<div class="fb-more-wrap position-relative" style="align-self:center;">';
+            html += '<button class="fb-more-btn" onclick="toggleMoreMenu(this, event)" title="Tùy chọn"><i class="bi bi-three-dots"></i></button>';
+            html += '<div class="fb-more-menu">';
+            html += '<button onclick="editComment(' + c.CommentId + ', this)"><i class="bi bi-pencil"></i>Chỉnh sửa</button>';
+            html += '<button onclick="deleteComment(' + c.CommentId + ')"><i class="bi bi-trash"></i>Xóa</button>';
+            html += '</div>';
+            html += '</div>';
         }
+        html += '</div>';
 
-        var editedHtml = c.IsEdited ? ' <span class="comment-edited">(đã sửa)</span>' : '';
-
-        var html = '<div class="' + wrapperClass + '" data-comment-id="' + c.CommentId + '">';
-
-        if (isMine) {
-            // Right-aligned for current user
-            html += '<div class="d-flex gap-2 justify-content-end">';
-            html += '<div class="text-end" style="max-width:80%;">';
-            html += '<div class="d-flex align-items-center justify-content-end gap-1 mb-1">';
-            html += actionsHtml;
-            html += '<span class="fw-semibold" style="font-size:0.78rem; color:#1e293b;">' + escapeHtml(c.CreatedByName) + '</span>';
-            html += '</div>';
-            html += '<div class="' + bubbleClass + '">' + contentHtml + editedHtml + '</div>';
-            html += '<div class="d-flex align-items-center justify-content-end gap-2 mt-1">';
-            html += '<span class="text-muted" style="font-size:0.68rem;">' + escapeHtml(c.TimeAgo) + '</span>';
-            if (!isReply) {
-                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Trả lời</button>';
-            }
-            html += '</div></div>';
-            html += '<div class="' + avatarClass + '">' + initial + '</div>';
-            html += '</div>';
-        } else {
-            // Left-aligned for others
-            html += '<div class="d-flex gap-2">';
-            html += '<div class="' + avatarClass + '">' + initial + '</div>';
-            html += '<div style="max-width:80%;">';
-            html += '<div class="d-flex align-items-center gap-1 mb-1">';
-            html += '<span class="fw-semibold" style="font-size:0.78rem; color:#1e293b;">' + escapeHtml(c.CreatedByName) + '</span>';
-            html += actionsHtml;
-            html += '</div>';
-            html += '<div class="' + bubbleClass + '">' + contentHtml + editedHtml + '</div>';
-            html += '<div class="d-flex align-items-center gap-2 mt-1">';
-            html += '<span class="text-muted" style="font-size:0.68rem;">' + escapeHtml(c.TimeAgo) + '</span>';
-            if (!isReply) {
-                html += '<button class="btn btn-sm btn-link text-muted p-0" style="font-size:0.72rem;" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')"><i class="bi bi-reply me-1"></i>Trả lời</button>';
-            }
-            html += '</div></div></div>';
+        // Meta: time + reply
+        html += '<div class="fb-comment-meta">';
+        html += '<span class="fb-time">' + escapeHtml(c.TimeAgo) + '</span>';
+        if (!isReply) {
+            html += '<button class="fb-action" onclick="replyTo(' + c.CommentId + ', \'' + escapeHtml(c.CreatedByName).replace(/'/g, "\\'") + '\')">Trả lời</button>';
         }
+        html += '</div>';
 
-        // Render replies
+        html += '</div></div>';
+
+        // Replies
         if (c.Replies && c.Replies.length > 0) {
+            html += '<div class="fb-replies">';
             c.Replies.forEach(function(r) {
                 html += renderComment(r, true);
             });
+            html += '</div>';
         }
 
         html += '</div>';
@@ -226,16 +296,23 @@
         return div.innerHTML;
     }
 
-    // ── Form toggle ──
-    window.toggleCommentForm = function() {
-        var wrapper = document.getElementById('commentFormWrapper');
-        wrapper.style.display = wrapper.style.display === 'none' ? '' : 'none';
-        if (wrapper.style.display !== 'none') {
-            document.getElementById('commentContent').focus();
-        } else {
-            cancelReply();
-        }
+    // ── 3-dot menu ──
+    window.toggleMoreMenu = function(btn, e) {
+        e.stopPropagation();
+        var menu = btn.nextElementSibling;
+        // Close all other menus
+        document.querySelectorAll('.fb-more-menu.show').forEach(function(m) {
+            if (m !== menu) m.classList.remove('show');
+        });
+        menu.classList.toggle('show');
     };
+
+    // Close menus on outside click
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.fb-more-menu.show').forEach(function(m) {
+            m.classList.remove('show');
+        });
+    });
 
     // ── Submit ──
     window.submitComment = function() {
@@ -244,7 +321,6 @@
 
         var btn = document.getElementById('btnSubmitComment');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang gửi...';
 
         var body = {
             EntityType: ENTITY_TYPE,
@@ -264,20 +340,20 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gửi';
             if (data.success) {
-                document.getElementById('commentContent').value = '';
+                var ta = document.getElementById('commentContent');
+                ta.value = '';
+                ta.style.height = 'auto';
                 mentionedUsers = [];
                 document.getElementById('mentionedUserIds').value = '[]';
                 cancelReply();
                 loadComments();
             } else {
-                alert(data.message || 'Lỗi');
+                alert(data.message || 'Lỗi');
             }
         })
         .catch(function() {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i> Gửi';
         });
     };
 
@@ -286,8 +362,6 @@
         document.getElementById('replyToCommentId').value = commentId;
         document.getElementById('replyIndicator').style.display = '';
         document.getElementById('replyToName').textContent = authorName;
-        var wrapper = document.getElementById('commentFormWrapper');
-        wrapper.style.display = '';
         document.getElementById('commentContent').focus();
     };
 
@@ -297,34 +371,65 @@
         document.getElementById('replyToName').textContent = '';
     };
 
-    // ── Edit ──
-    window.editComment = function(commentId) {
-        var el = document.querySelector('[data-comment-id="' + commentId + '"] .comment-bubble');
-        if (!el) return;
-        var oldText = el.textContent.replace('(đã sửa)', '').trim();
-        var newText = prompt('Sửa bình luận:', oldText);
-        if (newText === null || newText.trim() === '' || newText.trim() === oldText) return;
+    // ── Edit (inline) ──
+    window.editComment = function(commentId, btnEl) {
+        // Close menu
+        document.querySelectorAll('.fb-more-menu.show').forEach(function(m) { m.classList.remove('show'); });
+
+        var commentEl = document.querySelector('[data-comment-id="' + commentId + '"]');
+        if (!commentEl) return;
+        var bodyEl = commentEl.querySelector('.fb-comment-body');
+        var textEl = bodyEl.querySelector('.fb-text');
+        var oldText = textEl.textContent.replace('(đã sửa)', '').trim();
+
+        // Replace bubble content with inline edit
+        var origHtml = bodyEl.innerHTML;
+        bodyEl.innerHTML = '<textarea class="form-control form-control-sm fb-comment-input" rows="2" style="min-width:200px;">' + escapeHtml(oldText) + '</textarea>' +
+            '<div class="d-flex gap-1 mt-1">' +
+            '<button class="btn btn-sm btn-primary" style="font-size:0.75rem; padding:0.15rem 0.5rem;" onclick="saveEdit(' + commentId + ', this)">Lưu</button>' +
+            '<button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:0.15rem 0.5rem;" onclick="cancelEdit(this, ' + commentId + ')">Hủy</button>' +
+            '</div>';
+        bodyEl.style.background = '#fff';
+        bodyEl.style.border = '1px solid #86b7fe';
+        bodyEl.querySelector('textarea').focus();
+
+        // Store original for cancel
+        bodyEl.dataset.origHtml = origHtml;
+    };
+
+    window.saveEdit = function(commentId, btn) {
+        var bodyEl = btn.closest('.fb-comment-body');
+        var newText = bodyEl.querySelector('textarea').value.trim();
+        if (!newText) return;
 
         fetch('/TaskComment/Edit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ CommentId: commentId, Content: newText.trim() })
+            body: JSON.stringify({ CommentId: commentId, Content: newText })
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.success) loadComments();
-            else alert(data.message || 'Lỗi');
+            else alert(data.message || 'Lỗi');
         });
+    };
+
+    window.cancelEdit = function(btn, commentId) {
+        var bodyEl = btn.closest('.fb-comment-body');
+        bodyEl.innerHTML = bodyEl.dataset.origHtml;
+        bodyEl.style.background = '';
+        bodyEl.style.border = '';
     };
 
     // ── Delete ──
     window.deleteComment = function(commentId) {
-        if (!confirm('Xoa binh luan nay?')) return;
+        document.querySelectorAll('.fb-more-menu.show').forEach(function(m) { m.classList.remove('show'); });
+        if (!confirm('Xóa bình luận này?')) return;
         fetch('/TaskComment/Delete/' + commentId, { method: 'POST' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) loadComments();
-                else alert(data.message || 'Lỗi');
+                else alert(data.message || 'Lỗi');
             });
     };
 
@@ -336,7 +441,6 @@
     textarea.addEventListener('input', function() {
         var val = this.value;
         var pos = this.selectionStart;
-        // Find @@ before cursor
         var textBefore = val.substring(0, pos);
         var atMatch = textBefore.match(/@@(\S*)$/);
 
@@ -407,7 +511,7 @@
                             ' data-user-name="' + escapeHtml(u.FullName) + '"' +
                             ' onclick="selectMentionFromClick(this)"' +
                             (idx === 0 ? ' style="background:#e2e8f0;"' : '') + '>' +
-                            '<div class="comment-avatar small-avatar">' + initial + '</div>' +
+                            '<div class="fb-avatar-sm">' + initial + '</div>' +
                             '<div><div class="fw-semibold" style="font-size:0.8rem;">' + escapeHtml(u.FullName) + '</div>' +
                             '<div class="text-muted" style="font-size:0.7rem;">' + escapeHtml(u.UserCode) + '</div></div></div>';
                     }).join('');
@@ -429,14 +533,12 @@
         var pos = textarea.selectionStart;
         var textBefore = val.substring(0, pos);
         var textAfter = val.substring(pos);
-        // Replace @@query with @@FullName
         var newBefore = textBefore.replace(/@@\S*$/, '@@' + fullName + ' ');
         textarea.value = newBefore + textAfter;
         textarea.selectionStart = textarea.selectionEnd = newBefore.length;
         textarea.focus();
         mentionDropdown.style.display = 'none';
 
-        // Track mentioned user
         if (!mentionedUsers.find(function(u) { return u.UserId === userId; })) {
             mentionedUsers.push({ UserId: userId, FullName: fullName });
         }
@@ -445,7 +547,7 @@
 
     // Close mention dropdown on outside click
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('#commentFormWrapper')) {
+        if (!e.target.closest('.position-relative')) {
             mentionDropdown.style.display = 'none';
         }
     });
@@ -462,7 +564,6 @@
     // ── Init ──
     loadComments();
 
-    // Scroll to #comments if URL has hash
     if (window.location.hash === '#comments') {
         setTimeout(function() {
             document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' });

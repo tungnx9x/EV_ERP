@@ -29,12 +29,17 @@ namespace EV_ERP.Data
         public DbSet<CustomerContact> CustomerContacts => Set<CustomerContact>();
         public DbSet<CustomerNote> CustomerNotes => Set<CustomerNote>();
 
-        // ── Sản phẩm (5 bảng) ────────────────────────────
+        // ── Sản phẩm (10 bảng) ───────────────────────────
         public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
         public DbSet<Unit> Units => Set<Unit>();
         public DbSet<Product> Products => Set<Product>();
         public DbSet<ProductImage> ProductImages => Set<ProductImage>();
         public DbSet<CustomerPrice> CustomerPrices => Set<CustomerPrice>();
+        public DbSet<ProductAttribute> ProductAttributes => Set<ProductAttribute>();
+        public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
+        public DbSet<ProductAttributeMap> ProductAttributeMaps => Set<ProductAttributeMap>();
+        public DbSet<SkuConfig> SkuConfigs => Set<SkuConfig>();
+        public DbSet<SkuSequence> SkuSequences => Set<SkuSequence>();
 
         // ── Bán hàng (7 bảng) ────────────────────────────
         public DbSet<RFQ> RFQs => Set<RFQ>();
@@ -202,9 +207,12 @@ namespace EV_ERP.Data
                 e.HasKey(x => x.ProductId);
                 e.HasIndex(x => x.ProductCode).IsUnique();
                 e.HasIndex(x => x.Barcode);
+                e.HasIndex(x => x.SKU).IsUnique().HasFilter("[SKU] IS NOT NULL");
                 e.Property(x => x.ProductCode).HasMaxLength(30);
                 e.Property(x => x.ProductName).HasMaxLength(300);
                 e.Property(x => x.Barcode).HasMaxLength(50);
+                e.Property(x => x.SKU).HasMaxLength(50);
+                e.Property(x => x.SourceUrl).HasMaxLength(500);
                 e.Property(x => x.DefaultSalePrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.DefaultPurchasePrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.Weight).HasColumnType("decimal(10,3)");
@@ -227,6 +235,58 @@ namespace EV_ERP.Data
                 e.HasOne(x => x.Product).WithMany(p => p.CustomerPrices).HasForeignKey(x => x.ProductId);
                 e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.CustomerGroup).WithMany().HasForeignKey(x => x.CustomerGroupId).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // ─────────────────────────────────────────────
+            // PRODUCT ATTRIBUTES & SKU
+            // ─────────────────────────────────────────────
+            mb.Entity<ProductAttribute>(e =>
+            {
+                e.HasKey(x => x.AttributeId);
+                e.HasIndex(x => x.AttrCode).IsUnique();
+                e.HasIndex(x => new { x.AttrCode, x.IsActive });
+                e.Property(x => x.AttrCode).HasMaxLength(20);
+                e.Property(x => x.AttributeName).HasMaxLength(100);
+                e.Property(x => x.DataType).HasMaxLength(10).HasDefaultValue("LIST");
+            });
+
+            mb.Entity<ProductAttributeValue>(e =>
+            {
+                e.HasKey(x => x.ValueId);
+                e.HasIndex(x => new { x.AttributeId, x.SkuCode }).IsUnique();
+                e.HasIndex(x => new { x.AttributeId, x.IsActive });
+                e.Property(x => x.SkuCode).HasMaxLength(10);
+                e.Property(x => x.ValueName).HasMaxLength(100);
+                e.HasOne(x => x.Attribute).WithMany(a => a.Values).HasForeignKey(x => x.AttributeId);
+            });
+
+            mb.Entity<ProductAttributeMap>(e =>
+            {
+                e.ToTable("ProductAttributeMap");
+                e.HasKey(x => x.MapId);
+                e.HasIndex(x => new { x.ProductId, x.AttributeId }).IsUnique();
+                e.HasIndex(x => x.ProductId);
+                e.HasIndex(x => new { x.AttributeId, x.ValueId });
+                e.HasOne(x => x.Product).WithMany(p => p.AttributeMaps).HasForeignKey(x => x.ProductId);
+                e.HasOne(x => x.Attribute).WithMany().HasForeignKey(x => x.AttributeId);
+                e.HasOne(x => x.Value).WithMany().HasForeignKey(x => x.ValueId);
+            });
+
+            mb.Entity<SkuConfig>(e =>
+            {
+                e.HasKey(x => x.SkuConfigId);
+                e.HasIndex(x => new { x.CategoryId, x.AttributeId }).IsUnique();
+                e.HasIndex(x => new { x.CategoryId, x.IsActive });
+                e.HasOne(x => x.Category).WithMany(c => c.SkuConfigs).HasForeignKey(x => x.CategoryId);
+                e.HasOne(x => x.Attribute).WithMany(a => a.SkuConfigs).HasForeignKey(x => x.AttributeId);
+                e.HasOne(x => x.DefaultValue).WithMany().HasForeignKey(x => x.DefaultValueId).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            mb.Entity<SkuSequence>(e =>
+            {
+                e.HasKey(x => x.SequenceId);
+                e.HasIndex(x => x.SkuPrefix).IsUnique();
+                e.Property(x => x.SkuPrefix).HasMaxLength(100);
             });
 
             // ─────────────────────────────────────────────

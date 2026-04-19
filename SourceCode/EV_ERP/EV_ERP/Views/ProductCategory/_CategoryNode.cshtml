@@ -47,11 +47,18 @@
             @(Model.IsActive ? "Hoạt động" : "Vô hiệu")
         </span>
     </td>
+    
     <td class="text-end">
-        <a href="/ProductCategory/Edit/@Model.CategoryId"
-           class="btn btn-xs btn-light border" title="Chỉnh sửa">
-            <i class="bi bi-pencil"></i>
-        </a>
+        <div class="d-flex gap-1">
+            <a href="/ProductAttribute/SkuConfig/@Model.CategoryId"
+                   class="btn btn-xs btn-light border me-1" title="Cấu hình SKU">
+                <i class="bi bi-gear"></i>
+            </a>
+            <a href="/ProductCategory/Edit/@Model.CategoryId"
+                   class="btn btn-xs btn-light border" title="Chỉnh sửa">
+                <i class="bi bi-pencil"></i>
+            </a>
+        </div>
     </td>
 </tr>
 

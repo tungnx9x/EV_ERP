@@ -115,7 +115,13 @@
                                            class="fw-semibold text-decoration-none text-dark link-hover">
                                             @p.ProductName
                                         </a>
-                                        <div class="text-muted small">@p.ProductCode</div>
+                                        <div class="text-muted small">
+                                            @p.ProductCode
+                                            @if (!string.IsNullOrEmpty(p.SKU))
+                                            {
+                                                <span class="ms-1 font-monospace text-primary-emphasis">@p.SKU</span>
+                                            }
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="d-none d-md-table-cell">

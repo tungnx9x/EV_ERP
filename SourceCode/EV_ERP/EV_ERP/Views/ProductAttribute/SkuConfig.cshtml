@@ -1,0 +1,206 @@
+@model EV_ERP.Models.ViewModels.Products.SkuConfigFormViewModel
+@{
+    ViewData["Title"] = $"Cấu hình SKU: {Model.CategoryName}";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/ProductCategory" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h5 class="mb-0 fw-semibold">
+                            <i class="bi bi-gear me-2 text-primary"></i>Cấu hình SKU
+                        </h5>
+                        <div class="text-muted small">
+                            Danh mục: <strong>@Model.CategoryName</strong>
+                            @if (!string.IsNullOrEmpty(Model.SkuPrefix))
+                            {
+                                <span class="ms-1 font-monospace badge bg-primary-subtle text-primary-emphasis">Prefix: @Model.SkuPrefix</span>
+                            }
+                            else
+                            {
+                                <span class="ms-1 text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Chưa có SKU Prefix</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-4">
+
+                <!-- Add attribute -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Thêm thuộc tính vào SKU</label>
+                    <div class="d-flex gap-2">
+                        <select id="add-attr-select" class="form-select form-select-sm" style="max-width:300px;">
+                            <option value="">-- Chọn thuộc tính --</option>
+                            @foreach (var attr in Model.AvailableAttributes)
+                            {
+                                <option value="@attr.AttributeId"
+                                        data-code="@attr.AttrCode"
+                                        data-name="@attr.AttributeName">
+                                    @attr.AttributeName (@attr.AttrCode)
+                                </option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="addConfig()">
+                            <i class="bi bi-plus-lg me-1"></i> Thêm
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Config table -->
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0" style="font-size:0.84rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th>Mã</th>
+                                <th>Tên thuộc tính</th>
+                                <th class="text-center" style="width:80px;">Vị trí SKU</th>
+                                <th class="text-center" style="width:80px;">Bắt buộc</th>
+                                <th class="text-center" style="width:80px;">Kích hoạt</th>
+                                <th style="width:60px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="config-tbody">
+                            @if (!Model.Configs.Any())
+                            {
+                                <tr id="no-config-row">
+                                    <td colspan="7" class="text-center py-3 text-muted small">
+                                        Chưa cấu hình thuộc tính nào cho danh mục này
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr class="my-4" />
+
+                <!-- SKU Preview -->
+                <div class="mb-3">
+                    <span class="text-muted small">SKU sẽ có dạng: </span>
+                    <span class="font-monospace fw-bold text-primary" id="sku-format-preview">
+                        @(Model.SkuPrefix ?? "??")
+                    </span>
+                    <span class="text-muted small">-0001</span>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="/ProductCategory" class="btn btn-outline-secondary">Hủy</a>
+                    <button class="btn btn-primary" onclick="saveConfig()">
+                        <i class="bi bi-check-lg me-1"></i> Lưu cấu hình
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var categoryId = @Model.CategoryId;
+    var configs = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Configs));
+    var nextPosition = configs.length + 1;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderConfigs();
+    });
+
+    function renderConfigs() {
+        var tbody = document.getElementById('config-tbody');
+        tbody.innerHTML = '';
+        if (configs.length === 0) {
+            tbody.innerHTML = '<tr id="no-config-row"><td colspan="7" class="text-center py-3 text-muted small">Chưa cấu hình thuộc tính nào</td></tr>';
+            return;
+        }
+
+        configs.sort(function (a, b) { return a.SkuPosition - b.SkuPosition; });
+
+        configs.forEach(function (cfg, idx) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
+                '<td><span class="font-monospace fw-semibold">' + cfg.AttrCode + '</span></td>' +
+                '<td>' + cfg.AttributeName + '</td>' +
+                '<td class="text-center"><input type="number" min="1" value="' + cfg.SkuPosition + '" class="form-control form-control-sm text-center" style="width:60px;margin:auto;" onchange="updatePosition(' + idx + ', this.value)" /></td>' +
+                '<td class="text-center"><input type="checkbox" class="form-check-input" ' + (cfg.IsRequired ? 'checked' : '') + ' onchange="updateRequired(' + idx + ', this.checked)" /></td>' +
+                '<td class="text-center"><input type="checkbox" class="form-check-input" ' + (cfg.IsActive ? 'checked' : '') + ' onchange="updateActive(' + idx + ', this.checked)" /></td>' +
+                '<td class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="removeConfig(' + idx + ')"><i class="bi bi-trash"></i></button></td>';
+            tbody.appendChild(tr);
+        });
+
+        updatePreview();
+    }
+
+    function addConfig() {
+        var sel = document.getElementById('add-attr-select');
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) return;
+
+        var attrId = parseInt(opt.value);
+        // Check if already added
+        if (configs.some(function (c) { return c.AttributeId === attrId; })) {
+            alert('Thuộc tính này đã được thêm');
+            return;
+        }
+
+        configs.push({
+            SkuConfigId: 0,
+            CategoryId: categoryId,
+            AttributeId: attrId,
+            AttrCode: opt.dataset.code,
+            AttributeName: opt.dataset.name,
+            SkuPosition: nextPosition++,
+            IsRequired: true,
+            DefaultValueId: null,
+            IsActive: true
+        });
+
+        sel.selectedIndex = 0;
+        renderConfigs();
+    }
+
+    function removeConfig(idx) {
+        configs.splice(idx, 1);
+        renderConfigs();
+    }
+
+    function updatePosition(idx, val) { configs[idx].SkuPosition = parseInt(val) || 0; updatePreview(); }
+    function updateRequired(idx, checked) { configs[idx].IsRequired = checked; }
+    function updateActive(idx, checked) { configs[idx].IsActive = checked; }
+
+    function updatePreview() {
+        var prefix = '@(Model.SkuPrefix ?? "??")';
+        var parts = configs
+            .filter(function (c) { return c.IsActive; })
+            .sort(function (a, b) { return a.SkuPosition - b.SkuPosition; })
+            .map(function (c) { return '{' + c.AttrCode + '}'; });
+
+        var previewEl = document.getElementById('sku-format-preview');
+        previewEl.textContent = prefix + (parts.length > 0 ? '-' + parts.join('-') : '');
+    }
+
+    function saveConfig() {
+        fetch('/ProductAttribute/SaveSkuConfig', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                categoryId: categoryId,
+                configs: configs
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.Success) {
+                alert('Đã lưu cấu hình SKU thành công!');
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.Message);
+            }
+        });
+    }
+</script>

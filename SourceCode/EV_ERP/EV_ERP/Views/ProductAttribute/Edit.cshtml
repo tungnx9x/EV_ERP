@@ -1,0 +1,205 @@
+@model EV_ERP.Models.ViewModels.Products.ProductAttributeFormViewModel
+@{
+    ViewData["Title"] = $"Chỉnh sửa: {Model.AttributeName}";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <!-- Attribute Form -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/ProductAttribute" class="btn btn-sm btn-light border">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="bi bi-pencil me-2 text-primary"></i>@Model.AttributeName
+                        <span class="font-monospace text-muted ms-1" style="font-size:0.8rem;">(@Model.AttrCode)</span>
+                    </h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Edit" asp-controller="ProductAttribute" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="AttributeId" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    @await Html.PartialAsync("_AttributeForm", Model)
+
+                    <hr class="my-4" />
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="/ProductAttribute" class="btn btn-outline-secondary">Hủy</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Cập nhật
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Values Management -->
+        @if (Model.DataType == "LIST")
+        {
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h6 class="mb-0 fw-semibold">
+                            <i class="bi bi-list-ul me-1"></i> Giá trị thuộc tính
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" id="val-count">@Model.Values.Count</span>
+                        </h6>
+                        <button class="btn btn-sm btn-primary" onclick="showAddValueForm()">
+                            <i class="bi bi-plus-lg me-1"></i> Thêm giá trị
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Add Value Form (hidden by default) -->
+                    <div id="add-value-form" style="display:none;" class="p-3 border-bottom bg-light">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Mã SKU</label>
+                                <input id="new-sku-code" class="form-control form-control-sm text-uppercase font-monospace"
+                                       placeholder="VD: VN" maxlength="10" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Tên giá trị</label>
+                                <input id="new-value-name" class="form-control form-control-sm" placeholder="VD: Việt Nam" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Mô tả</label>
+                                <input id="new-value-desc" class="form-control form-control-sm" placeholder="Tùy chọn" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Thứ tự</label>
+                                <input id="new-value-order" type="number" min="0" class="form-control form-control-sm" value="0" />
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-success" onclick="addValue()">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="hideAddValueForm()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="add-value-error" class="text-danger small mt-1" style="display:none;"></div>
+                    </div>
+
+                    <!-- Values Table -->
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.84rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:80px;">Mã SKU</th>
+                                    <th>Tên giá trị</th>
+                                    <th class="d-none d-md-table-cell">Mô tả</th>
+                                    <th class="text-center" style="width:60px;">Thứ tự</th>
+                                    <th class="text-center" style="width:80px;">Trạng thái</th>
+                                    <th class="text-end" style="width:80px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="values-tbody">
+                                @if (!Model.Values.Any())
+                                {
+                                    <tr id="no-values-row">
+                                        <td colspan="6" class="text-center py-3 text-muted small">Chưa có giá trị nào</td>
+                                    </tr>
+                                }
+                                @foreach (var val in Model.Values)
+                                {
+                                    <tr id="val-row-@val.ValueId">
+                                        <td><span class="font-monospace fw-semibold">@val.SkuCode</span></td>
+                                        <td>@val.ValueName</td>
+                                        <td class="d-none d-md-table-cell text-muted small">@(val.Description ?? "—")</td>
+                                        <td class="text-center">@val.DisplayOrder</td>
+                                        <td class="text-center">
+                                            <span class="badge @(val.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis") rounded-pill"
+                                                  style="font-size:0.7rem;">
+                                                @(val.IsActive ? "On" : "Off")
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm @(val.IsActive ? "btn-outline-secondary" : "btn-outline-success")"
+                                                    onclick="toggleValue(@val.ValueId)" title="Đổi trạng thái" style="padding:0.1rem 0.3rem;">
+                                                <i class="bi @(val.IsActive ? "bi-toggle-on" : "bi-toggle-off")" style="font-size:0.75rem;"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<script>
+    var attrId = @Model.AttributeId;
+
+    function showAddValueForm() {
+        document.getElementById('add-value-form').style.display = '';
+        document.getElementById('new-sku-code').focus();
+    }
+
+    function hideAddValueForm() {
+        document.getElementById('add-value-form').style.display = 'none';
+        document.getElementById('add-value-error').style.display = 'none';
+    }
+
+    function addValue() {
+        var code = document.getElementById('new-sku-code').value.trim();
+        var name = document.getElementById('new-value-name').value.trim();
+        var desc = document.getElementById('new-value-desc').value.trim();
+        var order = parseInt(document.getElementById('new-value-order').value) || 0;
+
+        if (!code || !name) {
+            document.getElementById('add-value-error').textContent = 'Mã SKU và Tên giá trị là bắt buộc';
+            document.getElementById('add-value-error').style.display = '';
+            return;
+        }
+
+        fetch('/ProductAttribute/AddValue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                attributeId: attrId,
+                skuCode: code,
+                valueName: name,
+                description: desc || null,
+                displayOrder: order,
+                isActive: true
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.Success) {
+                document.getElementById('add-value-error').textContent = data.Message;
+                document.getElementById('add-value-error').style.display = '';
+                return;
+            }
+            location.reload();
+        });
+    }
+
+    function toggleValue(valueId) {
+        fetch('/ProductAttribute/ToggleValueActive/' + valueId, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': getAntiForgeryToken() }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message);
+        });
+    }
+
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+</script>

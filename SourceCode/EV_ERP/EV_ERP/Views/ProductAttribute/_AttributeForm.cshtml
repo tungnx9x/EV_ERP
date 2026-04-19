@@ -1,0 +1,66 @@
+@model EV_ERP.Models.ViewModels.Products.ProductAttributeFormViewModel
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <label asp-for="AttrCode" class="form-label fw-semibold small"></label>
+        @if (Model.IsEditMode)
+        {
+            <input asp-for="AttrCode" class="form-control text-uppercase font-monospace"
+                   placeholder="VD: ORIGIN, COLOR" readonly />
+        }
+        else
+        {
+            <input asp-for="AttrCode" class="form-control text-uppercase font-monospace"
+                   placeholder="VD: ORIGIN, COLOR" />
+        }
+        <span asp-validation-for="AttrCode" class="text-danger small"></span>
+    </div>
+    <div class="col-md-8">
+        <label asp-for="AttributeName" class="form-label fw-semibold small"></label>
+        <input asp-for="AttributeName" class="form-control" placeholder="VD: Xuất xứ, Màu sắc..." autofocus />
+        <span asp-validation-for="AttributeName" class="text-danger small"></span>
+    </div>
+
+    <div class="col-12">
+        <label asp-for="Description" class="form-label fw-semibold small"></label>
+        <textarea asp-for="Description" class="form-control" rows="2" placeholder="Mô tả thuộc tính..."></textarea>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="DataType" class="form-label fw-semibold small"></label>
+        <select asp-for="DataType" class="form-select">
+            <option value="LIST">LIST (chọn từ danh sách)</option>
+            <option value="TEXT">TEXT (nhập tự do)</option>
+        </select>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="SkuPosition" class="form-label fw-semibold small"></label>
+        <input asp-for="SkuPosition" type="number" min="0" class="form-control" />
+        <div class="form-text small">Thứ tự trong mã SKU (1, 2, 3...)</div>
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="DisplayOrder" class="form-label fw-semibold small"></label>
+        <input asp-for="DisplayOrder" type="number" min="0" class="form-control" />
+    </div>
+
+    <div class="col-md-4">
+        <div class="form-check form-switch mt-4">
+            <input asp-for="IncludeInSku" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IncludeInSku" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-check form-switch mt-4">
+            <input asp-for="IsRequired" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IsRequired" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="form-check form-switch mt-4">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+</div>

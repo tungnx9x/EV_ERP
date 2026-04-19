@@ -62,6 +62,7 @@ namespace EV_ERP.Services
                 CategoryName = category.CategoryName,
                 ParentCategoryId = category.ParentCategoryId,
                 Description = category.Description,
+                SkuPrefix = category.SkuPrefix,
                 DisplayOrder = category.DisplayOrder,
                 IsActive = category.IsActive,
                 ParentOptions = parentOptions
@@ -88,6 +89,7 @@ namespace EV_ERP.Services
                 CategoryName = model.CategoryName.Trim(),
                 ParentCategoryId = model.ParentCategoryId,
                 Description = model.Description?.Trim(),
+                SkuPrefix = model.SkuPrefix?.Trim().ToUpper(),
                 DisplayOrder = model.DisplayOrder,
                 IsActive = model.IsActive,
                 CreatedAt = DateTime.Now,
@@ -135,6 +137,7 @@ namespace EV_ERP.Services
             category.CategoryName = model.CategoryName.Trim();
             category.ParentCategoryId = model.ParentCategoryId;
             category.Description = model.Description?.Trim();
+            category.SkuPrefix = model.SkuPrefix?.Trim().ToUpper();
             category.DisplayOrder = model.DisplayOrder;
             category.IsActive = model.IsActive;
             category.UpdatedAt = DateTime.Now;

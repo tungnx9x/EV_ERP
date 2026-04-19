@@ -14,7 +14,14 @@
         <div>
             <h5 class="mb-0 fw-bold">@Model.ProductName</h5>
             <div class="text-muted small">
-                @Model.ProductCode
+                @if (!string.IsNullOrEmpty(Model.SKU))
+                {
+                    @Model.SKU
+                }
+                else
+                {
+                    @Model.ProductCode
+                }
                 @if (!string.IsNullOrEmpty(Model.CategoryName))
                 {
                     <span class="ms-2 badge bg-info-subtle text-info-emphasis rounded-pill">@Model.CategoryName</span>
@@ -124,6 +131,13 @@
                             <div class="fw-semibold">@Model.Weight @Model.WeightUnit</div>
                         </div>
                     }
+                    @if (!string.IsNullOrEmpty(Model.SourceUrl))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted">Link nguồn mua</div>
+                            <div><a href="@Model.SourceUrl" target="_blank" class="small text-truncate d-inline-block" style="max-width:200px;">@Model.SourceUrl</a></div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -168,6 +182,16 @@
                             <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" id="img-count-badge">@Model.Images.Count</span>
                         </button>
                     </li>
+                    @if (Model.Attributes.Any())
+                    {
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-attributes">
+                                <i class="bi bi-tags me-1"></i>
+                                Thuộc tính
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Attributes.Count</span>
+                            </button>
+                        </li>
+                    }
                     <li class="nav-item">
                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-customer-prices">
                             <i class="bi bi-building me-1"></i>
@@ -217,6 +241,36 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Tab: Attributes -->
+                @if (Model.Attributes.Any())
+                {
+                    <div class="tab-pane fade p-3" id="tab-attributes">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" style="font-size:0.84rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Thuộc tính</th>
+                                        <th>Mã</th>
+                                        <th>Giá trị</th>
+                                        <th>Mã SKU</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var attr in Model.Attributes)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@attr.AttributeName</td>
+                                            <td><span class="font-monospace text-muted small">@attr.AttrCode</span></td>
+                                            <td>@attr.DisplayValue</td>
+                                            <td><span class="font-monospace badge bg-light text-dark">@(attr.SkuCode ?? "—")</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
 
                 <!-- Tab: Customer Prices -->
                 <div class="tab-pane fade p-3" id="tab-customer-prices">

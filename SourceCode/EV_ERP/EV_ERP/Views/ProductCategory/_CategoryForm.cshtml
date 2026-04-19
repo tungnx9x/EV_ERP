@@ -8,11 +8,17 @@
         <span asp-validation-for="CategoryName" class="text-danger small"></span>
     </div>
 
-    <!-- Category Code -->
-    <div class="col-12">
+    <!-- Category Code + SKU Prefix -->
+    <div class="col-md-8">
         <label asp-for="CategoryCode" class="form-label fw-semibold small"></label>
         <input asp-for="CategoryCode" class="form-control" placeholder="VD: Decor & Artwork Lightings = DEC-LGT" />
         <span asp-validation-for="CategoryCode" class="text-danger small"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="SkuPrefix" class="form-label fw-semibold small"></label>
+        <input asp-for="SkuPrefix" class="form-control text-uppercase font-monospace"
+               placeholder="VD: TP, NL, VT" maxlength="10" />
+        <div class="form-text small">Mã viết tắt dùng trong SKU</div>
     </div>
 
     <!-- Parent Category -->

@@ -1,0 +1,125 @@
+@model EV_ERP.Models.ViewModels.Products.ProductAttributeListViewModel
+@{
+    ViewData["Title"] = "Thuộc tính sản phẩm";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold">
+        <i class="bi bi-tags me-2"></i>Thuộc tính sản phẩm
+        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size:0.7rem;">@Model.TotalCount</span>
+    </h5>
+    <a href="/ProductAttribute/Create" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Thêm thuộc tính
+    </a>
+</div>
+
+<!-- Search -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <input name="keyword" value="@Model.SearchKeyword" class="form-control form-control-sm"
+                       placeholder="Tìm theo tên hoặc mã..." />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-search me-1"></i> Tìm
+                </button>
+                @if (!string.IsNullOrEmpty(Model.SearchKeyword))
+                {
+                    <a href="/ProductAttribute" class="btn btn-sm btn-outline-secondary ms-1">Xóa lọc</a>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;">
+            <thead class="table-light">
+                <tr>
+                    <th>Mã</th>
+                    <th>Tên thuộc tính</th>
+                    <th class="text-center">Kiểu</th>
+                    <th class="text-center">Trong SKU</th>
+                    <th class="text-center">Vị trí SKU</th>
+                    <th class="text-center">Số giá trị</th>
+                    <th class="text-center">Trạng thái</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Attributes.Any())
+                {
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            <i class="bi bi-tags" style="font-size:2rem;opacity:.3;"></i>
+                            <p class="small mt-2 mb-0">Chưa có thuộc tính nào</p>
+                        </td>
+                    </tr>
+                }
+                @foreach (var attr in Model.Attributes)
+                {
+                    <tr id="attr-row-@attr.AttributeId">
+                        <td><span class="font-monospace fw-semibold">@attr.AttrCode</span></td>
+                        <td>
+                            <a href="/ProductAttribute/Edit/@attr.AttributeId" class="text-decoration-none fw-semibold">
+                                @attr.AttributeName
+                            </a>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge @(attr.DataType == "LIST" ? "bg-primary-subtle text-primary-emphasis" : "bg-warning-subtle text-warning-emphasis")">
+                                @attr.DataType
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            @if (attr.IncludeInSku)
+                            {
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-dash-circle text-muted"></i>
+                            }
+                        </td>
+                        <td class="text-center">@(attr.IncludeInSku ? attr.SkuPosition.ToString() : "—")</td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis">@attr.ValueCount</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge @(attr.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis") rounded-pill">
+                                @(attr.IsActive ? "Hoạt động" : "Vô hiệu")
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="/ProductAttribute/Edit/@attr.AttributeId" class="btn btn-sm btn-outline-primary me-1" title="Chỉnh sửa">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button class="btn btn-sm @(attr.IsActive ? "btn-outline-secondary" : "btn-outline-success")"
+                                    onclick="toggleAttrActive(@attr.AttributeId)" title="@(attr.IsActive ? "Vô hiệu hóa" : "Kích hoạt")">
+                                <i class="bi @(attr.IsActive ? "bi-toggle-on" : "bi-toggle-off")"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function toggleAttrActive(id) {
+        if (!confirm('Đổi trạng thái thuộc tính này?')) return;
+        fetch('/ProductAttribute/ToggleActive/' + id, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': getAntiForgeryToken() }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message);
+        });
+    }
+</script>

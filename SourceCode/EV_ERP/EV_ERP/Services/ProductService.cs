@@ -10,12 +10,15 @@ namespace EV_ERP.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly ILogger<ProductService> _logger;
+        private readonly IProductAttributeService _attrService;
         private readonly string _storageRoot;
 
-        public ProductService(IUnitOfWork uow, ILogger<ProductService> logger, IConfiguration config, IWebHostEnvironment env)
+        public ProductService(IUnitOfWork uow, ILogger<ProductService> logger,
+            IProductAttributeService attrService, IConfiguration config, IWebHostEnvironment env)
         {
             _uow = uow;
             _logger = logger;
+            _attrService = attrService;
             _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         }
 
@@ -33,6 +36,7 @@ namespace EV_ERP.Services
                 query = query.Where(p =>
                     p.ProductName.ToLower().Contains(kw) ||
                     p.ProductCode.ToLower().Contains(kw) ||
+                    (p.SKU != null && p.SKU.ToLower().Contains(kw)) ||
                     (p.Barcode != null && p.Barcode.Contains(kw)));
             }
 
@@ -48,6 +52,7 @@ namespace EV_ERP.Services
                 {
                     ProductId = p.ProductId,
                     ProductCode = p.ProductCode,
+                    SKU = p.SKU,
                     ProductName = p.ProductName,
                     CategoryName = p.Category == null ? null
                         : p.Category.ParentCategory != null
@@ -92,6 +97,10 @@ namespace EV_ERP.Services
                     CreatedAt = i.CreatedAt
                 }).ToListAsync();
 
+            var skuAttributes = product.CategoryId.HasValue
+                ? await _attrService.GetAttributesByCategoryAsync(product.CategoryId.Value, product.ProductId)
+                : new List<SkuAttributeFormItem>();
+
             return new ProductFormViewModel
             {
                 ProductId = product.ProductId,
@@ -99,6 +108,7 @@ namespace EV_ERP.Services
                 Description = product.Description,
                 CategoryId = product.CategoryId,
                 UnitId = product.UnitId,
+                SKU = product.SKU,
                 Barcode = product.Barcode,
                 BarcodeType = product.BarcodeType,
                 DefaultSalePrice = product.DefaultSalePrice,
@@ -106,10 +116,12 @@ namespace EV_ERP.Services
                 MinStockLevel = product.MinStockLevel,
                 Weight = product.Weight,
                 WeightUnit = product.WeightUnit,
+                SourceUrl = product.SourceUrl,
                 IsActive = product.IsActive,
                 Images = images,
                 Categories = categories,
-                Units = units
+                Units = units,
+                SkuAttributes = skuAttributes
             };
         }
 
@@ -134,6 +146,7 @@ namespace EV_ERP.Services
                 MinStockLevel = model.MinStockLevel,
                 Weight = model.Weight,
                 WeightUnit = model.WeightUnit?.Trim(),
+                SourceUrl = model.SourceUrl?.Trim(),
                 IsActive = model.IsActive,
                 CreatedBy = createdBy,
                 CreatedAt = DateTime.Now,
@@ -142,6 +155,38 @@ namespace EV_ERP.Services
 
             await repo.AddAsync(product);
             await _uow.SaveChangesAsync();
+
+            // Save attribute maps
+            if (model.AttributeValues.Any())
+            {
+                var mapRepo = _uow.Repository<ProductAttributeMap>();
+                foreach (var (attrId, valueId) in model.AttributeValues)
+                {
+                    if (valueId.HasValue && valueId > 0)
+                    {
+                        await mapRepo.AddAsync(new ProductAttributeMap
+                        {
+                            ProductId = product.ProductId,
+                            AttributeId = attrId,
+                            ValueId = valueId
+                        });
+                    }
+                }
+                await _uow.SaveChangesAsync();
+
+                // Generate SKU if category has SKU config
+                if (model.CategoryId.HasValue)
+                {
+                    try
+                    {
+                        await _attrService.GenerateSkuAsync(product.ProductId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "SKU generation failed for ProductId={Id}", product.ProductId);
+                    }
+                }
+            }
 
             // Save gallery images; the file at AvatarIndex becomes the avatar
             if (model.GalleryFiles != null && model.GalleryFiles.Count > 0)
@@ -218,11 +263,54 @@ namespace EV_ERP.Services
             product.MinStockLevel = model.MinStockLevel;
             product.Weight = model.Weight;
             product.WeightUnit = model.WeightUnit?.Trim();
+            product.SourceUrl = model.SourceUrl?.Trim();
             product.IsActive = model.IsActive;
             product.UpdatedBy = updatedBy;
             product.UpdatedAt = DateTime.Now;
 
             repo.Update(product);
+
+            // Update attribute maps
+            if (model.AttributeValues.Any())
+            {
+                var mapRepo = _uow.Repository<ProductAttributeMap>();
+                var existingMaps = await mapRepo.Query()
+                    .Where(m => m.ProductId == product.ProductId)
+                    .ToListAsync();
+                mapRepo.RemoveRange(existingMaps);
+
+                foreach (var (attrId, valueId) in model.AttributeValues)
+                {
+                    if (valueId.HasValue && valueId > 0)
+                    {
+                        await mapRepo.AddAsync(new ProductAttributeMap
+                        {
+                            ProductId = product.ProductId,
+                            AttributeId = attrId,
+                            ValueId = valueId
+                        });
+                    }
+                }
+
+                // Re-generate SKU if attributes changed
+                if (model.CategoryId.HasValue)
+                {
+                    // Clear old SKU so it gets regenerated
+                    product.SKU = null;
+                    repo.Update(product);
+                    await _uow.SaveChangesAsync();
+
+                    try
+                    {
+                        await _attrService.GenerateSkuAsync(product.ProductId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "SKU re-generation failed for ProductId={Id}", product.ProductId);
+                    }
+                }
+            }
+
             await _uow.SaveChangesAsync();
 
             _logger.LogInformation("Product updated: ProductId={Id} by UserId={UserId}",
@@ -257,6 +345,10 @@ namespace EV_ERP.Services
                 .Include(p => p.Category)
                 .Include(p => p.Unit)
                 .Include(p => p.Images)
+                .Include(p => p.AttributeMaps)
+                    .ThenInclude(m => m.Attribute)
+                .Include(p => p.AttributeMaps)
+                    .ThenInclude(m => m.Value)
                 .Include(p => p.CustomerPrices.Where(cp => cp.IsActive))
                     .ThenInclude(cp => cp.Customer)
                 .Include(p => p.CustomerPrices.Where(cp => cp.IsActive))
@@ -269,6 +361,7 @@ namespace EV_ERP.Services
             {
                 ProductId = product.ProductId,
                 ProductCode = product.ProductCode,
+                SKU = product.SKU,
                 ProductName = product.ProductName,
                 Description = product.Description,
                 CategoryName = product.Category?.CategoryName,
@@ -283,6 +376,7 @@ namespace EV_ERP.Services
                 MinStockLevel = product.MinStockLevel,
                 Weight = product.Weight,
                 WeightUnit = product.WeightUnit,
+                SourceUrl = product.SourceUrl,
                 IsActive = product.IsActive,
                 CreatedAt = product.CreatedAt,
                 UpdatedAt = product.UpdatedAt,
@@ -295,6 +389,16 @@ namespace EV_ERP.Services
                         DisplayOrder = i.DisplayOrder,
                         IsPrimary = i.IsPrimary,
                         CreatedAt = i.CreatedAt
+                    }).ToList(),
+                Attributes = product.AttributeMaps
+                    .OrderBy(m => m.Attribute.DisplayOrder)
+                    .Select(m => new ProductAttributeDisplayViewModel
+                    {
+                        AttrCode = m.Attribute.AttrCode,
+                        AttributeName = m.Attribute.AttributeName,
+                        ValueName = m.Value?.ValueName,
+                        SkuCode = m.Value?.SkuCode,
+                        TextValue = m.TextValue
                     }).ToList(),
                 CustomerPrices = product.CustomerPrices
                     .OrderBy(cp => cp.SalePrice)

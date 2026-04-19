@@ -96,11 +96,74 @@
     </div>
 </div>
 
+<!-- Section: SKU & Thuộc tính -->
+<h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+    <i class="bi bi-tags me-1"></i> Thuộc tính & SKU
+</h6>
+@if (Model.IsEditMode && !string.IsNullOrEmpty(Model.SKU))
+{
+    <div class="alert alert-info py-2 small mb-3">
+        <i class="bi bi-key me-1"></i> <strong>SKU:</strong>
+        <span class="font-monospace fw-semibold">@Model.SKU</span>
+        <span class="text-muted ms-2">(tự động tạo từ danh mục + thuộc tính)</span>
+    </div>
+}
+<div id="sku-attributes-container" class="row g-3 mb-3">
+    @if (Model.SkuAttributes.Any())
+    {
+        foreach (var attr in Model.SkuAttributes)
+        {
+            <div class="col-md-4">
+                <label class="form-label fw-semibold small">
+                    @attr.AttributeName
+                    @if (attr.IsRequired) { <span class="text-danger">*</span> }
+                    <span class="text-muted font-monospace" style="font-size:0.7rem;">(@attr.AttrCode)</span>
+                </label>
+                @if (attr.DataType == "LIST")
+                {
+                    <select name="AttributeValues[@attr.AttributeId]" class="form-select form-select-sm sku-attr-select">
+                        <option value="">-- Chọn --</option>
+                        @foreach (var val in attr.Values)
+                        {
+                            <option value="@val.ValueId"
+                                    data-skucode="@val.SkuCode"
+                                    selected="@(val.ValueId == attr.SelectedValueId)">
+                                @val.ValueName (@val.SkuCode)
+                            </option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <input type="text" name="AttributeValues[@attr.AttributeId]"
+                           value="@attr.TextValue"
+                           class="form-control form-control-sm"
+                           placeholder="Nhập giá trị..." />
+                }
+            </div>
+        }
+    }
+    else if (!Model.IsEditMode)
+    {
+        <div class="col-12 text-muted small" id="sku-attr-placeholder">
+            <i class="bi bi-info-circle me-1"></i> Chọn danh mục để hiển thị thuộc tính SKU
+        </div>
+    }
+</div>
+<div id="sku-preview" class="mb-4" style="display:none;">
+    <span class="text-muted small">SKU Preview: </span>
+    <span class="font-monospace fw-semibold text-primary" id="sku-preview-text"></span>
+</div>
+
 <!-- Section: Thông tin bổ sung -->
 <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
     <i class="bi bi-box me-1"></i> Thông tin bổ sung
 </h6>
 <div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label asp-for="SourceUrl" class="form-label fw-semibold small"></label>
+        <input asp-for="SourceUrl" class="form-control" placeholder="https://shopee.vn/..." />
+    </div>
     <div class="col-md-4">
         <label asp-for="Weight" class="form-label fw-semibold small"></label>
         <input asp-for="Weight" class="form-control" type="number" min="0" step="0.001"
@@ -121,4 +184,105 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Load SKU attributes when category changes
+    document.addEventListener('DOMContentLoaded', function () {
+        var catSelect = document.getElementById('CategoryId');
+        if (!catSelect) return;
+
+        catSelect.addEventListener('change', function () {
+            loadSkuAttributes(this.value);
+        });
+    });
+
+    function loadSkuAttributes(categoryId) {
+        var container = document.getElementById('sku-attributes-container');
+        var preview = document.getElementById('sku-preview');
+
+        if (!categoryId) {
+            container.innerHTML = '<div class="col-12 text-muted small" id="sku-attr-placeholder"><i class="bi bi-info-circle me-1"></i> Chọn danh mục để hiển thị thuộc tính SKU</div>';
+            preview.style.display = 'none';
+            return;
+        }
+
+        var productId = @(Model.ProductId.HasValue ? Model.ProductId.Value.ToString() : "null");
+        var url = '/ProductAttribute/GetAttributesByCategory?categoryId=' + categoryId;
+        if (productId) url += '&productId=' + productId;
+
+        fetch(url)
+            .then(function (r) { return r.json(); })
+            .then(function (result) {
+                if (!result.Success || !result.Data || result.Data.length === 0) {
+                    container.innerHTML = '<div class="col-12 text-muted small"><i class="bi bi-info-circle me-1"></i> Danh mục này chưa cấu hình thuộc tính SKU</div>';
+                    preview.style.display = 'none';
+                    return;
+                }
+
+                var html = '';
+                result.Data.forEach(function (attr) {
+                    html += '<div class="col-md-4">';
+                    html += '<label class="form-label fw-semibold small">' + attr.AttributeName;
+                    if (attr.IsRequired) html += ' <span class="text-danger">*</span>';
+                    html += ' <span class="text-muted font-monospace" style="font-size:0.7rem;">(' + attr.AttrCode + ')</span>';
+                    html += '</label>';
+
+                    if (attr.DataType === 'LIST') {
+                        html += '<select name="AttributeValues[' + attr.AttributeId + ']" class="form-select form-select-sm sku-attr-select" onchange="updateSkuPreview()">';
+                        html += '<option value="">-- Chọn --</option>';
+                        attr.Values.forEach(function (val) {
+                            var sel = val.ValueId === attr.SelectedValueId ? ' selected' : '';
+                            html += '<option value="' + val.ValueId + '" data-skucode="' + val.SkuCode + '"' + sel + '>' + val.ValueName + ' (' + val.SkuCode + ')</option>';
+                        });
+                        html += '</select>';
+                    } else {
+                        html += '<input type="text" name="AttributeValues[' + attr.AttributeId + ']" class="form-control form-control-sm" placeholder="Nhập giá trị..." value="' + (attr.TextValue || '') + '" />';
+                    }
+
+                    html += '</div>';
+                });
+
+                container.innerHTML = html;
+                updateSkuPreview();
+            });
+    }
+
+    function updateSkuPreview() {
+        var catSelect = document.getElementById('CategoryId');
+        var preview = document.getElementById('sku-preview');
+        var previewText = document.getElementById('sku-preview-text');
+        if (!catSelect || !preview || !previewText) return;
+
+        var selects = document.querySelectorAll('.sku-attr-select');
+        if (selects.length === 0) { preview.style.display = 'none'; return; }
+
+        var catText = catSelect.options[catSelect.selectedIndex]?.text || '';
+        // Try to extract code from "Name (CODE)" format - look for SkuPrefix from the selected option
+        var parts = [];
+
+        selects.forEach(function (sel) {
+            var opt = sel.options[sel.selectedIndex];
+            if (opt && opt.value) {
+                parts.push(opt.dataset.skucode || '??');
+            }
+        });
+
+        if (parts.length > 0) {
+            previewText.textContent = '??-' + parts.join('-') + '-0001';
+            preview.style.display = '';
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+
+    // Initialize preview on page load for edit mode
+    document.addEventListener('DOMContentLoaded', function () {
+        var selects = document.querySelectorAll('.sku-attr-select');
+        if (selects.length > 0) {
+            selects.forEach(function (sel) {
+                sel.addEventListener('change', updateSkuPreview);
+            });
+        }
+    });
+</script>
 

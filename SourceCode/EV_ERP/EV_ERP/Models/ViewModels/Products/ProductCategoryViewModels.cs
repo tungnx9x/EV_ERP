@@ -45,6 +45,10 @@ namespace EV_ERP.Models.ViewModels.Products
         [Display(Name = "Mô tả")]
         public string? Description { get; set; }
 
+        [MaxLength(10, ErrorMessage = "Mã SKU prefix tối đa 10 ký tự")]
+        [Display(Name = "SKU Prefix")]
+        public string? SkuPrefix { get; set; }
+
         [Range(0, 9999, ErrorMessage = "Thứ tự hiển thị từ 0–9999")]
         [Display(Name = "Thứ tự hiển thị")]
         public int DisplayOrder { get; set; }

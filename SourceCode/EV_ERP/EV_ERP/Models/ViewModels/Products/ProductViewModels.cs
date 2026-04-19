@@ -37,6 +37,9 @@ namespace EV_ERP.Models.ViewModels.Products
         public int CategoryId { get; set; }
         public string CategoryCode { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
+        public int? ParentCategoryId { get; set; }
+        public int Level { get; set; }
+        public bool HasChildren { get; set; }
     }
 
     public class UnitOptionViewModel

@@ -521,12 +521,14 @@ namespace EV_ERP.Services
             {
                 foreach (var c in lookup[parentId].OrderBy(c => c.DisplayOrder).ThenBy(c => c.CategoryName))
                 {
-                    var prefix = depth == 0 ? "" : new string('-', depth * 3) + "└ ";
                     result.Add(new CategoryOptionViewModel
                     {
                         CategoryId = c.CategoryId,
                         CategoryCode = c.CategoryCode,
-                        CategoryName = prefix + c.CategoryName
+                        CategoryName = c.CategoryName,
+                        ParentCategoryId = c.ParentCategoryId,
+                        Level = depth,
+                        HasChildren = lookup[c.CategoryId].Any()
                     });
                     Flatten(c.CategoryId, depth + 1);
                 }

@@ -77,7 +77,7 @@
                             @Model.BarcodeType
                         </span>
                     </div>
-                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="printBarcode()">
+                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="openPrintDialog()">
                         <i class="bi bi-printer me-1"></i> In barcode
                     </button>
                 }
@@ -94,6 +94,29 @@
                         </button>
                     }
                 }
+            </div>
+        </div>
+
+        <!-- Print Barcode Modal -->
+        <div class="modal fade" id="printBarcodeModal" tabindex="-1">
+            <div class="modal-dialog modal-sm modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h6 class="modal-title"><i class="bi bi-printer me-1"></i> In Barcode</h6>
+                        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label fw-semibold small">Số lượng tem in</label>
+                        <input type="number" id="printQty" class="form-control" value="1" min="1" max="500" />
+                        <div class="form-text small">Tối đa 500 tem mỗi lần in</div>
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button class="btn btn-sm btn-primary" onclick="printBarcode()">
+                            <i class="bi bi-printer me-1"></i> In
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -383,23 +406,49 @@
                 });
         }
 
+        function openPrintDialog() {
+            document.getElementById('printQty').value = 1;
+            new bootstrap.Modal(document.getElementById('printBarcodeModal')).show();
+        }
+
         function printBarcode() {
             var svgEl = document.getElementById('barcode-svg');
             if (!svgEl) return;
 
+            var qty = parseInt(document.getElementById('printQty').value) || 1;
+            qty = Math.max(1, Math.min(qty, 500));
+
+            bootstrap.Modal.getInstance(document.getElementById('printBarcodeModal')).hide();
+
             var productName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProductName));
             var productCode = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProductCode));
             var barcodeText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Barcode ?? ""));
+            var svgHtml = svgEl.outerHTML;
 
-            var printWin = window.open('', '_blank', 'width=400,height=300');
+            var labelHtml = '<div class="label">' +
+                '<div class="product-name">' + productName + '<\/div>' +
+                svgHtml +
+                '<div class="barcode-text">' + barcodeText + '<\/div>' +
+                '<\/div>';
+
+            var allLabels = '';
+            for (var i = 0; i < qty; i++) {
+                allLabels += labelHtml;
+            }
+
+            var printWin = window.open('', '_blank', 'width=800,height=600');
             var doc = printWin.document;
             doc.open();
-            doc.write('<html><head><title>Barcode - ' + productCode + '<\/title>');
-            doc.write('<style>body{text-align:center;font-family:monospace;padding:20px;} .product-name{font-size:12px;margin-bottom:5px;} .barcode-text{font-size:14px;letter-spacing:2px;margin-top:5px;}<\/style>');
-            doc.write('<\/head><body>');
-            doc.write('<div class="product-name">' + productName + '<\/div>');
-            doc.write(svgEl.outerHTML);
-            doc.write('<div class="barcode-text">' + barcodeText + '<\/div>');
+            doc.write('<html><head><title>Barcode - ' + productCode + ' x' + qty + '<\/title>');
+            doc.write('<style>');
+            doc.write('body { margin:0; padding:10px; font-family:monospace; }');
+            doc.write('.labels { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }');
+            doc.write('.label { text-align:center; border:1px dashed #ccc; padding:8px 12px; page-break-inside:avoid; }');
+            doc.write('.product-name { font-size:10px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }');
+            doc.write('.barcode-text { font-size:12px; letter-spacing:1px; margin-top:3px; }');
+            doc.write('@@media print { .label { border:none; } }');
+            doc.write('<\/style><\/head><body>');
+            doc.write('<div class="labels">' + allLabels + '<\/div>');
             doc.write('<\/body><\/html>');
             doc.close();
             printWin.focus();

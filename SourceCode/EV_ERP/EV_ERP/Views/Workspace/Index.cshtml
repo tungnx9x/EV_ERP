@@ -3,36 +3,43 @@
 @{
     ViewData["Title"] = "Workspace";
     var me = Context.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!;
-    var isViewingOther = Model.CanViewOthers && Model.ViewingUserId != me.UserId;
+    var isViewingOther = Model.CanViewOthers && !Model.IsManagerOverview && Model.ViewingUserId != me.UserId;
 }
 
 <div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h5 class="fw-bold mb-0">
-            Công việc cần làm
-            @if (isViewingOther)
+            @if (Model.IsManagerOverview)
             {
-                <span class="badge bg-info fw-normal ms-2" style="font-size:0.75rem;">
-                    <i class="bi bi-eye me-1"></i>@Model.ViewingUserName
-                </span>
+                <i class="bi bi-people me-2 text-primary"></i>@:Tổng quan
+            }
+            else
+            {
+                @:Công việc cần làm
+                @if (isViewingOther)
+                {
+                    <span class="badge bg-info fw-normal ms-2" style="font-size:0.75rem;">
+                        <i class="bi bi-eye me-1"></i>@Model.ViewingUserName
+                    </span>
+                }
             }
         </h5>
     </div>
     @if (Model.CanViewOthers)
     {
         <div class="d-flex align-items-center gap-2">
-            <label class="form-label small fw-semibold mb-0 text-muted text-nowrap">
-                <i class="bi bi-people me-1"></i>Xem của:
-            </label>
-            <select id="viewUserSelect" class="form-select form-select-sm" style="width:220px;"
-                    onchange="window.location.href='/Workspace?viewUserId='+this.value;">
-                @foreach (var u in Model.Users)
-                {
-                    <option value="@u.UserId" selected="@(u.UserId == Model.ViewingUserId)">
-                        @u.FullName (@u.UserCode)
-                    </option>
-                }
-            </select>
+            @if (!Model.IsManagerOverview)
+            {
+                <a href="/Workspace" class="btn btn-sm btn-outline-primary" title="Về tổng quan">
+                    <i class="bi bi-people me-1"></i> Tổng quan
+                </a>
+            }
+            else
+            {
+                <a href="/Workspace?viewUserId=@me.UserId" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-person me-1"></i> Workspace của tôi
+                </a>
+            }
         </div>
     }
 </div>
@@ -41,8 +48,11 @@
 <div class="workspace-flow">
     @foreach (var card in Model.Cards)
     {
+        var hasContent = Model.IsManagerOverview ? card.EmployeeSummaries.Count > 0 : card.Tasks.Count > 0;
+        var totalCount = Model.IsManagerOverview ? card.TotalTasks : card.Tasks.Count;
+
         <div class="workspace-step">
-            <div class="card border-0 shadow-sm workspace-card h-100 @(card.Tasks.Count > 0 ? "" : "opacity-50")">
+            <div class="card border-0 shadow-sm workspace-card h-100 @(hasContent ? "" : "opacity-50")">
                 <!-- Card header -->
                 <div class="card-header bg-white border-bottom py-2 px-3 d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center gap-2">
@@ -53,22 +63,65 @@
                             </div>
                         </div>
                     </div>
-                    <span class="badge bg-@(card.Tasks.Count > 0 ? card.BadgeColor : "light text-muted border") rounded-pill">
-                        @card.Tasks.Count
-                    </span>
+                    <div class="d-flex align-items-center gap-1">
+                        @if (Model.IsManagerOverview && card.TotalSlaViolations > 0)
+                        {
+                            <span class="badge bg-danger rounded-pill" style="font-size:0.65rem;" title="Vi phạm SLA">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>@card.TotalSlaViolations
+                            </span>
+                        }
+                        <span class="badge bg-@(totalCount > 0 ? card.BadgeColor : "light text-muted border") rounded-pill">
+                            @totalCount
+                        </span>
+                    </div>
                 </div>
 
-                <!-- Task list -->
+                <!-- Card body -->
                 <div class="card-body p-0">
-                    @if (card.Tasks.Count == 0)
+                    @if (!hasContent)
                     {
                         <div class="text-center text-muted py-4" style="font-size:0.8rem;">
                             <i class="bi bi-check-circle d-block mb-1" style="font-size:1.2rem;"></i>
                             Không có công việc
                         </div>
                     }
+                    else if (Model.IsManagerOverview)
+                    {
+                        @* ── Manager Overview: Employee list per card ── *@
+                        <div class="task-list" style="max-height:320px; overflow-y:auto;">
+                            @foreach (var emp in card.EmployeeSummaries)
+                            {
+                                var hasSla = emp.SlaViolationCount > 0;
+                                var empClass = hasSla ? "sla-danger" : "";
+                                <a href="/Workspace?viewUserId=@emp.UserId"
+                                   class="task-item d-block text-decoration-none @empClass"
+                                   title="Xem workspace của @emp.FullName">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center gap-2" style="min-width:0;">
+                                            <div class="emp-avatar">@emp.FullName[0]</div>
+                                            <span class="fw-semibold text-dark text-truncate" style="font-size:0.82rem;">
+                                                @emp.FullName
+                                            </span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">
+                                            @if (hasSla)
+                                            {
+                                                <span class="badge bg-danger text-white" style="font-size:0.65rem;" title="Vi phạm SLA">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>@emp.SlaViolationCount
+                                                </span>
+                                            }
+                                            <span class="badge bg-light text-muted border" style="font-size:0.68rem;">
+                                                @emp.TaskCount @(emp.TaskCount == 1 ? "task" : "tasks")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
                     else
                     {
+                        @* ── Individual Workspace: Task list ── *@
                         <div class="task-list" style="max-height:320px; overflow-y:auto;">
                             @foreach (var task in card.Tasks)
                             {
@@ -199,6 +252,16 @@
     .task-item:last-child { border-bottom: none; }
     .task-item:hover { background: #f8fafc; }
 
+    /* Employee avatar in manager overview */
+    .emp-avatar {
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        background: #2563eb; color: #fff;
+        font-weight: 600; font-size: 0.7rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+
     /* SLA highlighting */
     .task-item.sla-warning {
         background: #fefce8;
@@ -210,11 +273,6 @@
         border-left: 3px solid #ef4444;
     }
     .task-item.sla-danger:hover { background: #fee2e2; }
-
-    /* 2 rows of 5 */
-    .workspace-step:nth-child(n+6) {
-        /* second row */
-    }
 
     @@media (max-width: 1199.98px) {
         .workspace-flow {

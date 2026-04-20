@@ -37,23 +37,34 @@ public class WorkspaceController : Controller
         // Determine which user's tasks to show
         var userId = currentUser.UserId;
         var viewingUserName = currentUser.FullName;
+        var isManagerOverview = false;
 
-        if (canViewOthers && viewUserId.HasValue && viewUserId.Value != currentUser.UserId)
+        if (canViewOthers)
         {
-            var targetUser = await _uow.Repository<User>().Query()
-                .Where(u => u.UserId == viewUserId.Value && u.IsActive)
-                .Select(u => new { u.UserId, u.FullName })
-                .FirstOrDefaultAsync();
-            if (targetUser != null)
+            if (viewUserId.HasValue)
             {
-                userId = targetUser.UserId;
-                viewingUserName = targetUser.FullName;
+                // Viewing a specific user's workspace
+                var targetUser = await _uow.Repository<User>().Query()
+                    .Where(u => u.UserId == viewUserId.Value && u.IsActive)
+                    .Select(u => new { u.UserId, u.FullName })
+                    .FirstOrDefaultAsync();
+                if (targetUser != null)
+                {
+                    userId = targetUser.UserId;
+                    viewingUserName = targetUser.FullName;
+                }
+            }
+            else
+            {
+                // Default: team overview
+                isManagerOverview = true;
             }
         }
 
         var vm = new WorkspaceViewModel
         {
             CanViewOthers = canViewOthers,
+            IsManagerOverview = isManagerOverview,
             ViewingUserId = userId,
             ViewingUserName = viewingUserName
         };
@@ -72,6 +83,15 @@ public class WorkspaceController : Controller
                 })
                 .ToListAsync();
         }
+
+        // Manager overview: team summary per card
+        if (isManagerOverview)
+        {
+            await BuildManagerOverviewAsync(vm);
+            return View(vm);
+        }
+
+        // ── Individual user workspace ──
 
         // ── 1. RFQs assigned to current user, not yet having a Quotation ──
         var rfqTasks = await _uow.Repository<RFQ>().Query()
@@ -112,7 +132,7 @@ public class WorkspaceController : Controller
                 RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency,
+                //ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency,
                 EntityType = "QUOTATION",
                 EntityId = q.QuotationId
             })
@@ -138,7 +158,7 @@ public class WorkspaceController : Controller
                 RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                ExtraInfo = q.SentAt.HasValue ? "Gửi lúc " + q.SentAt.Value.ToString("dd/MM") : null
+                //ExtraInfo = q.SentAt.HasValue ? "Gửi lúc " + q.SentAt.Value.ToString("dd/MM") : null
             })
             .ToListAsync();
 
@@ -164,7 +184,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = q.SalesOrder != null ? q.SalesOrder.SalesOrderNo : null,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency
+                //ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency
             })
             .ToListAsync();
 
@@ -189,7 +209,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.TotalAmount.ToString("N0") + " " + s.Currency
+                //ExtraInfo = s.TotalAmount.ToString("N0") + " " + s.Currency
             })
             .ToListAsync();
 
@@ -214,7 +234,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.AdvanceAmount.HasValue ? s.AdvanceAmount.Value.ToString("N0") + " " + s.Currency : null
+                //ExtraInfo = s.AdvanceAmount.HasValue ? s.AdvanceAmount.Value.ToString("N0") + " " + s.Currency : null
             })
             .ToListAsync();
 
@@ -282,7 +302,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.ReceivedAt.HasValue ? "Nhận " + s.ReceivedAt.Value.ToString("dd/MM") : null
+                //ExtraInfo = s.ReceivedAt.HasValue ? "Nhận " + s.ReceivedAt.Value.ToString("dd/MM") : null
             })
             .ToListAsync();
 
@@ -309,7 +329,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.DeliveringAt.HasValue ? "Giao " + s.DeliveringAt.Value.ToString("dd/MM") : null
+                //ExtraInfo = s.DeliveringAt.HasValue ? "Giao " + s.DeliveringAt.Value.ToString("dd/MM") : null
             })
             .ToListAsync();
 
@@ -334,7 +354,7 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                ExtraInfo = s.TotalAmount.ToString("N0") + " " + s.Currency
+                //ExtraInfo = s.TotalAmount.ToString("N0") + " " + s.Currency
             })
             .ToListAsync();
 
@@ -351,6 +371,166 @@ public class WorkspaceController : Controller
         await ApplySlaSeverityAsync(vm);
 
         return View(vm);
+    }
+
+    // ═══════════════════════════════════════════════════
+    // MANAGER OVERVIEW: Team summary per step card
+    // ═══════════════════════════════════════════════════
+    private async Task BuildManagerOverviewAsync(WorkspaceViewModel vm)
+    {
+        // User name lookup
+        var userMap = vm.Users.ToDictionary(u => u.UserId, u => u.FullName);
+
+        // ── SLA: batch query all active violations ──
+        var now = DateTime.Now;
+        var slaViolations = await _uow.Repository<SlaTracking>().Query()
+            .Where(t => t.Status == "ACTIVE" || t.Status == "WARNING" || t.Status == "OVERDUE")
+            .Where(t => now >= t.WarningAt) // WARNING or DANGER only
+            .Select(t => new { t.EntityType, t.EntityId })
+            .ToListAsync();
+        var violationSet = slaViolations.Select(v => (v.EntityType, v.EntityId)).ToHashSet();
+
+        // ── Helper to build EmployeeSummaries from (userId, entityType, entityId) tuples ──
+        List<EmployeeCardSummary> BuildSummaries(List<(int UserId, string EntityType, int EntityId)> items)
+        {
+            return items
+                .GroupBy(x => x.UserId)
+                .Select(g => new EmployeeCardSummary
+                {
+                    UserId = g.Key,
+                    FullName = userMap.GetValueOrDefault(g.Key, "?"),
+                    TaskCount = g.Count(),
+                    SlaViolationCount = g.Count(x => violationSet.Contains((x.EntityType, x.EntityId)))
+                })
+                .OrderByDescending(e => e.SlaViolationCount)
+                .ThenByDescending(e => e.TaskCount)
+                .ToList();
+        }
+
+        // ── 1. RFQs INPROGRESS, no Quotation ──
+        var step1 = await _uow.Repository<RFQ>().Query()
+            .Include(r => r.Quotations)
+            .Where(r => r.AssignedTo != null && r.Status == "INPROGRESS" && !r.Quotations.Any())
+            .Select(r => new { UserId = r.AssignedTo!.Value, r.RfqId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 1, Title = "Yêu cầu báo giá", Icon = "bi-clipboard-check", BadgeColor = "info",
+            EmployeeSummaries = BuildSummaries(step1.Select(x => (x.UserId, "RFQ", x.RfqId)).ToList())
+        });
+
+        // ── 2. Quotations DRAFT ──
+        var step2 = await _uow.Repository<Quotation>().Query()
+            .Where(q => q.Status == "DRAFT")
+            .Select(q => new { UserId = q.SalesPersonId, q.QuotationId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 2, Title = "Báo giá chờ gửi", Icon = "bi-envelope", BadgeColor = "secondary",
+            EmployeeSummaries = BuildSummaries(step2.Select(x => (x.UserId, "QUOTATION", x.QuotationId)).ToList())
+        });
+
+        // ── 3. Quotations SENT ──
+        var step3 = await _uow.Repository<Quotation>().Query()
+            .Where(q => q.Status == "SENT")
+            .Select(q => new { UserId = q.SalesPersonId, q.QuotationId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 3, Title = "Báo giá chờ phản hồi", Icon = "bi-hourglass-split", BadgeColor = "warning",
+            EmployeeSummaries = BuildSummaries(step3.Select(x => (x.UserId, "QUOTATION", x.QuotationId)).ToList())
+        });
+
+        // ── 4. Quotations APPROVED ──
+        var step4 = await _uow.Repository<Quotation>().Query()
+            .Where(q => q.Status == "APPROVED")
+            .Select(q => new { UserId = q.SalesPersonId, q.QuotationId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 4, Title = "Báo giá đã duyệt", Icon = "bi-check-circle", BadgeColor = "success",
+            EmployeeSummaries = BuildSummaries(step4.Select(x => (x.UserId, "QUOTATION", x.QuotationId)).ToList())
+        });
+
+        // ── 5. SOs DRAFT ──
+        var step5 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.Status == "DRAFT" && s.CreatedBy != null)
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 5, Title = "Đơn hàng cần lập ĐNTU", Icon = "bi-file-earmark-excel", BadgeColor = "primary",
+            EmployeeSummaries = BuildSummaries(step5.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
+
+        // ── 6. SOs WAIT ──
+        var step6 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.Status == "WAIT" && s.CreatedBy != null)
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 6, Title = "Đơn hàng chờ tạm ứng", Icon = "bi-cash-stack", BadgeColor = "warning",
+            EmployeeSummaries = BuildSummaries(step6.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
+
+        // Pre-load stock transaction SO IDs
+        var soIdsWithInbound = await _uow.Repository<StockTransaction>().Query()
+            .Where(st => st.SalesOrderId != null && st.TransactionType == "INBOUND")
+            .Select(st => st.SalesOrderId!.Value).Distinct().ToListAsync();
+
+        var soIdsWithOutbound = await _uow.Repository<StockTransaction>().Query()
+            .Where(st => st.SalesOrderId != null && st.TransactionType == "OUTBOUND")
+            .Select(st => st.SalesOrderId!.Value).Distinct().ToListAsync();
+
+        // ── 7. SOs BUYING, no INBOUND yet ──
+        var step7 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.Status == "BUYING" && s.CreatedBy != null && !soIdsWithInbound.Contains(s.SalesOrderId))
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 7, Title = "Đơn hàng đang mua", Icon = "bi-cart3", BadgeColor = "info",
+            EmployeeSummaries = BuildSummaries(step7.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
+
+        // ── 8. SOs received (INBOUND, no OUTBOUND) ──
+        var step8 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.CreatedBy != null
+                     && soIdsWithInbound.Contains(s.SalesOrderId)
+                     && !soIdsWithOutbound.Contains(s.SalesOrderId)
+                     && s.Status != "COMPLETED" && s.Status != "CANCELLED")
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 8, Title = "Đơn hàng đã nhập kho", Icon = "bi-box-seam", BadgeColor = "primary",
+            EmployeeSummaries = BuildSummaries(step8.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
+
+        // ── 9. SOs delivering (OUTBOUND, not DELIVERED) ──
+        var step9 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.CreatedBy != null
+                     && soIdsWithOutbound.Contains(s.SalesOrderId)
+                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "CANCELLED")
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 9, Title = "Đơn hàng đã giao", Icon = "bi-truck", BadgeColor = "info",
+            EmployeeSummaries = BuildSummaries(step9.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
+
+        // ── 10. SOs DELIVERED (pending settlement) ──
+        var step10 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.Status == "DELIVERED" && s.CreatedBy != null)
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 10, Title = "Đơn hàng chờ quyết toán", Icon = "bi-calculator", BadgeColor = "success",
+            EmployeeSummaries = BuildSummaries(step10.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
     }
 
     /// <summary>

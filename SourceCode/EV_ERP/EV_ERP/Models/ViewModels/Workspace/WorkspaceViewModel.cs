@@ -6,6 +6,7 @@ public class WorkspaceViewModel
 
     // Manager view-as feature
     public bool CanViewOthers { get; set; }
+    public bool IsManagerOverview { get; set; }          // true = team overview mode
     public int ViewingUserId { get; set; }
     public string ViewingUserName { get; set; } = string.Empty;
     public List<UserOption> Users { get; set; } = [];
@@ -25,6 +26,19 @@ public class WorkspaceCard
     public string BadgeColor { get; set; } = "primary";
     public int StepNumber { get; set; }
     public List<WorkspaceTaskItem> Tasks { get; set; } = [];
+
+    // Manager overview: employee breakdown per card
+    public List<EmployeeCardSummary> EmployeeSummaries { get; set; } = [];
+    public int TotalTasks => EmployeeSummaries.Sum(e => e.TaskCount);
+    public int TotalSlaViolations => EmployeeSummaries.Sum(e => e.SlaViolationCount);
+}
+
+public class EmployeeCardSummary
+{
+    public int UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public int TaskCount { get; set; }
+    public int SlaViolationCount { get; set; }    // WARNING + DANGER
 }
 
 public class WorkspaceTaskItem

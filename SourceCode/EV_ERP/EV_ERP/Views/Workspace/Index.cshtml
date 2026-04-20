@@ -131,9 +131,9 @@
                                     "WARNING" => "sla-warning",
                                     _ => ""
                                 };
-                                <a href="@task.DetailUrl" class="task-item d-block text-decoration-none @slaClass">
+                                <div class="task-item @slaClass">
                                     <div class="d-flex align-items-start justify-content-between">
-                                        <div style="min-width:0;">
+                                        <a href="@task.DetailUrl" class="text-decoration-none flex-grow-1" style="min-width:0;">
                                             <div class="fw-semibold text-dark" style="font-size:0.8rem;">
                                                 @task.RfqNo
                                                 @if (task.SalesOrderNo != null)
@@ -144,8 +144,30 @@
                                             <div class="text-muted text-truncate" style="font-size:0.75rem;">
                                                 @task.CustomerName
                                             </div>
-                                        </div>
+                                        </a>
                                         <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">
+                                            @if (!string.IsNullOrEmpty(task.Notes))
+                                            {
+                                                <a href="javascript:;" class="btn-note has-note"
+                                                   data-entity-type="@task.EntityType"
+                                                   data-entity-id="@task.EntityId"
+                                                   data-notes="@Html.Raw(System.Web.HttpUtility.HtmlAttributeEncode(task.Notes))"
+                                                   data-bs-toggle="tooltip"
+                                                   data-bs-placement="top"
+                                                   data-bs-custom-class="note-tooltip"
+                                                   data-bs-title="@task.Notes">
+                                                    <i class="bi bi-sticky-fill"></i>
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a href="javascript:;" class="btn-note no-note"
+                                                   data-entity-type="@task.EntityType"
+                                                   data-entity-id="@task.EntityId"
+                                                   data-notes="">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </a>
+                                            }
                                             @if (task.SlaTimeRemaining != null)
                                             {
                                                 var slaBadge = task.SlaSeverity == "DANGER" ? "bg-danger text-white"
@@ -163,7 +185,7 @@
                                             }
                                         </div>
                                     </div>
-                                </a>
+                                </div>
                             }
                         </div>
                     }
@@ -180,6 +202,29 @@
             }
         </div>
     }
+</div>
+
+<!-- Quick Note Modal -->
+<div class="modal fade" id="noteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2 px-3">
+                <h6 class="modal-title mb-0"><i class="bi bi-sticky me-2"></i>Ghi chú nhanh</h6>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="noteEntityType" />
+                <input type="hidden" id="noteEntityId" />
+                <textarea id="noteContent" class="form-control" rows="4" placeholder="Nhập ghi chú..." style="font-size:0.85rem;"></textarea>
+            </div>
+            <div class="modal-footer py-2 px-3">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnSaveNote">
+                    <i class="bi bi-check-lg me-1"></i>Lưu
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -274,6 +319,45 @@
     }
     .task-item.sla-danger:hover { background: #fee2e2; }
 
+    /* Quick note button */
+    .btn-note {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px; height: 22px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        transition: all 0.15s;
+        text-decoration: none;
+    }
+    .btn-note.has-note {
+        color: #d97706;
+    }
+    .btn-note.has-note:hover {
+        color: #b45309;
+        background: #fef3c7;
+    }
+    .btn-note.no-note {
+        color: #94a3b8;
+        opacity: 0;
+    }
+    .task-item:hover .btn-note.no-note {
+        opacity: 1;
+    }
+    .btn-note.no-note:hover {
+        color: #2563eb;
+        background: #eff6ff;
+    }
+
+    /* Note tooltip: allow full content, wrap text */
+    .note-tooltip .tooltip-inner {
+        max-width: 300px;
+        white-space: pre-wrap;
+        text-align: left;
+        font-size: 0.8rem;
+        padding: 0.5rem 0.65rem;
+    }
+
     @@media (max-width: 1199.98px) {
         .workspace-flow {
             grid-template-columns: repeat(3, 1fr);
@@ -296,3 +380,77 @@
         }
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var noteModal = new bootstrap.Modal(document.getElementById('noteModal'));
+
+        // Open note modal on click
+        document.querySelectorAll('.btn-note').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                document.getElementById('noteEntityType').value = this.dataset.entityType;
+                document.getElementById('noteEntityId').value = this.dataset.entityId;
+                document.getElementById('noteContent').value = this.dataset.notes || '';
+                noteModal.show();
+            });
+        });
+
+        // Save note
+        document.getElementById('btnSaveNote').addEventListener('click', function () {
+            var btn = this;
+            btn.disabled = true;
+
+            var entityType = document.getElementById('noteEntityType').value;
+            var entityId = parseInt(document.getElementById('noteEntityId').value);
+            var notes = document.getElementById('noteContent').value.trim();
+
+            fetch('/Workspace/SaveNote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entityType: entityType, entityId: entityId, notes: notes || null })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                btn.disabled = false;
+                if (res.Success) {
+                    noteModal.hide();
+                    // Update the icon in-place
+                    var noteBtn = document.querySelector('.btn-note[data-entity-type="' + entityType + '"][data-entity-id="' + entityId + '"]');
+                    if (noteBtn) {
+                        noteBtn.dataset.notes = notes;
+                        // Dispose old tooltip if any
+                        var oldTip = bootstrap.Tooltip.getInstance(noteBtn);
+                        if (oldTip) oldTip.dispose();
+                        if (notes) {
+                            noteBtn.className = 'btn-note has-note';
+                            noteBtn.setAttribute('data-bs-title', notes);
+                            noteBtn.setAttribute('data-bs-toggle', 'tooltip');
+                            noteBtn.setAttribute('data-bs-placement', 'top');
+                            noteBtn.setAttribute('data-bs-custom-class', 'note-tooltip');
+                            noteBtn.querySelector('i').className = 'bi bi-sticky-fill';
+                            new bootstrap.Tooltip(noteBtn);
+                        } else {
+                            noteBtn.className = 'btn-note no-note';
+                            noteBtn.removeAttribute('data-bs-title');
+                            noteBtn.removeAttribute('data-bs-toggle');
+                            noteBtn.querySelector('i').className = 'bi bi-pencil-square';
+                        }
+                    }
+                } else {
+                    alert(res.Message || 'Có lỗi xảy ra');
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                alert('Có lỗi xảy ra');
+            });
+        });
+
+        // Initialize Bootstrap tooltips for note buttons
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            new bootstrap.Tooltip(el);
+        });
+    });
+</script>

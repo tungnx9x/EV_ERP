@@ -108,14 +108,15 @@ public class WorkspaceController : Controller
                 DetailUrl = $"/Rfq/Detail/{r.RfqId}",
                 ExtraInfo = r.Priority,
                 EntityType = "RFQ",
-                EntityId = r.RfqId
+                EntityId = r.RfqId,
+                Notes = r.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 1,
-            Title = "Yêu cầu báo giá",
+            Title = "Yêu cầu báo giá",
             Icon = "bi-clipboard-check",
             BadgeColor = "info",
             Tasks = rfqTasks
@@ -134,14 +135,15 @@ public class WorkspaceController : Controller
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
                 //ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency,
                 EntityType = "QUOTATION",
-                EntityId = q.QuotationId
+                EntityId = q.QuotationId,
+                Notes = q.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 2,
-            Title = "Báo giá chờ gửi",
+            Title = "Báo giá chờ gửi",
             Icon = "bi-envelope",
             BadgeColor = "secondary",
             Tasks = quotDraftTasks
@@ -158,14 +160,16 @@ public class WorkspaceController : Controller
                 RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                //ExtraInfo = q.SentAt.HasValue ? "Gửi lúc " + q.SentAt.Value.ToString("dd/MM") : null
+                EntityType = "QUOTATION",
+                EntityId = q.QuotationId,
+                Notes = q.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 3,
-            Title = "Báo giá chờ phản hồi",
+            Title = "Báo giá chờ phản hồi",
             Icon = "bi-hourglass-split",
             BadgeColor = "warning",
             Tasks = quotSentTasks
@@ -184,14 +188,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = q.SalesOrder != null ? q.SalesOrder.SalesOrderNo : null,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                //ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency
+                EntityType = "QUOTATION",
+                EntityId = q.QuotationId,
+                Notes = q.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 4,
-            Title = "Báo giá đã duyệt",
+            Title = "Báo giá đã duyệt",
             Icon = "bi-check-circle",
             BadgeColor = "success",
             Tasks = quotApprovedTasks
@@ -209,14 +215,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                //ExtraInfo = s.TotalAmount.ToString("N0") + " " + s.Currency
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 5,
-            Title = "Đơn hàng cần lập ĐNTU",
+            Title = "Đơn hàng cần lập ĐNTU",
             Icon = "bi-file-earmark-excel",
             BadgeColor = "primary",
             Tasks = soDraftTasks
@@ -234,14 +242,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                //ExtraInfo = s.AdvanceAmount.HasValue ? s.AdvanceAmount.Value.ToString("N0") + " " + s.Currency : null
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 6,
-            Title = "Đơn hàng chờ tạm ứng",
+            Title = "Đơn hàng chờ tạm ứng",
             Icon = "bi-cash-stack",
             BadgeColor = "warning",
             Tasks = soWaitTasks
@@ -274,14 +284,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                //ExtraInfo = s.PurchaseSource
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 7,
-            Title = "Đơn hàng đang mua",
+            Title = "Đơn hàng đang mua",
             Icon = "bi-cart3",
             BadgeColor = "info",
             Tasks = soBuyingTasks
@@ -302,14 +314,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                //ExtraInfo = s.ReceivedAt.HasValue ? "Nhận " + s.ReceivedAt.Value.ToString("dd/MM") : null
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 8,
-            Title = "Đơn hàng đã nhập kho",
+            Title = "Đơn hàng đã nhập kho",
             Icon = "bi-box-seam",
             BadgeColor = "primary",
             Tasks = soReceivedTasks
@@ -329,14 +343,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                //ExtraInfo = s.DeliveringAt.HasValue ? "Giao " + s.DeliveringAt.Value.ToString("dd/MM") : null
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 9,
-            Title = "Đơn hàng đã giao",
+            Title = "Đơn hàng đã giao",
             Icon = "bi-truck",
             BadgeColor = "info",
             Tasks = soDeliveringTasks
@@ -354,14 +370,16 @@ public class WorkspaceController : Controller
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                //ExtraInfo = s.TotalAmount.ToString("N0") + " " + s.Currency
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 10,
-            Title = "Đơn hàng chờ quyết toán",
+            Title = "Đơn hàng chờ quyết toán",
             Icon = "bi-calculator",
             BadgeColor = "success",
             Tasks = soDeliveredTasks
@@ -371,6 +389,59 @@ public class WorkspaceController : Controller
         await ApplySlaSeverityAsync(vm);
 
         return View(vm);
+    }
+
+    // ═══════════════════════════════════════════════════
+    // SAVE QUICK NOTE
+    // ═══════════════════════════════════════════════════
+    [HttpPost]
+    public async Task<IActionResult> SaveNote([FromBody] SaveNoteRequest request)
+    {
+        try
+        {
+            switch (request.EntityType)
+            {
+                case "RFQ":
+                    var rfq = await _uow.Repository<RFQ>().Query()
+                        .FirstOrDefaultAsync(r => r.RfqId == request.EntityId);
+                    if (rfq == null) return Json(ApiResult<object>.Fail("Không tìm thấy RFQ"));
+                    rfq.Notes = request.Notes;
+                    rfq.UpdatedAt = DateTime.Now;
+                    break;
+
+                case "QUOTATION":
+                    var quot = await _uow.Repository<Quotation>().Query()
+                        .FirstOrDefaultAsync(q => q.QuotationId == request.EntityId);
+                    if (quot == null) return Json(ApiResult<object>.Fail("Không tìm thấy Báo giá"));
+                    quot.Notes = request.Notes;
+                    break;
+
+                case "SALES_ORDER":
+                    var so = await _uow.Repository<SalesOrder>().Query()
+                        .FirstOrDefaultAsync(s => s.SalesOrderId == request.EntityId);
+                    if (so == null) return Json(ApiResult<object>.Fail("Không tìm thấy Đơn hàng"));
+                    so.Notes = request.Notes;
+                    so.UpdatedAt = DateTime.Now;
+                    break;
+
+                default:
+                    return Json(ApiResult<object>.Fail("Loại entity không hợp lệ"));
+            }
+
+            await _uow.SaveChangesAsync();
+            return Json(ApiResult<object>.Ok(new { }, "Đã lưu ghi chú"));
+        }
+        catch (Exception ex)
+        {
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    public class SaveNoteRequest
+    {
+        public string EntityType { get; set; } = string.Empty;
+        public int EntityId { get; set; }
+        public string? Notes { get; set; }
     }
 
     // ═══════════════════════════════════════════════════
@@ -539,20 +610,6 @@ public class WorkspaceController : Controller
     /// </summary>
     private async Task ApplySlaSeverityAsync(WorkspaceViewModel vm)
     {
-        // Map card step → entity info
-        var stepEntityMap = new Dictionary<int, (string EntityType, Func<WorkspaceTaskItem, int> GetId)>
-        {
-            [1] = ("RFQ", t => 0),        // RFQ step — EntityId already set
-            [2] = ("QUOTATION", t => 0),
-            [3] = ("QUOTATION", t => 0),
-            [5] = ("SALES_ORDER", t => 0),
-            [6] = ("SALES_ORDER", t => 0),
-            [7] = ("SALES_ORDER", t => 0),
-            [8] = ("SALES_ORDER", t => 0),
-            [9] = ("SALES_ORDER", t => 0),
-            [10] = ("SALES_ORDER", t => 0),
-        };
-
         // Collect all active SLA trackings for current user
         var now = DateTime.Now;
         var activeTrackings = await _uow.Repository<SlaTracking>().Query()
@@ -591,12 +648,7 @@ public class WorkspaceController : Controller
 
             foreach (var task in card.Tasks)
             {
-                // Extract EntityId from DetailUrl
-                var entityId = ExtractEntityId(task.DetailUrl);
-                task.EntityType = entityType;
-                task.EntityId = entityId;
-
-                if (severityMap.TryGetValue((entityType, entityId), out var sla))
+                if (severityMap.TryGetValue((task.EntityType!, task.EntityId), out var sla))
                 {
                     task.SlaSeverity = sla.Severity;
                     if (sla.RemainingMinutes > 0)

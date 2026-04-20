@@ -53,6 +53,9 @@ public class WorkspaceTaskItem
     public string? SlaSeverity { get; set; }          // NORMAL, WARNING, DANGER
     public string? SlaTimeRemaining { get; set; }     // VD: "2.5h", "Quá hạn 1.2h"
 
+    // Quick note
+    public string? Notes { get; set; }
+
     // Entity info for SLA lookup
     public string? EntityType { get; set; }
     public int EntityId { get; set; }

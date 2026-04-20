@@ -160,6 +160,14 @@
     <span class="text-muted small">SKU Preview: </span>
     <span class="font-monospace fw-semibold text-primary" id="sku-preview-text"></span>
 </div>
+<div id="duplicate-warning" class="alert alert-warning py-2 small mb-3 d-flex align-items-center gap-2" style="display:none !important;">
+    <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+    <div>
+        <strong>Cảnh báo trùng lặp:</strong> Đã tồn tại sản phẩm
+        <a href="#" id="duplicate-link" target="_blank" class="fw-semibold"></a>
+        với cùng danh mục và thuộc tính. Vui lòng kiểm tra trước khi tạo mới.
+    </div>
+</div>
 
 <!-- Section: Thông tin bổ sung -->
 <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
@@ -555,7 +563,15 @@
                 });
 
                 container.innerHTML = html;
+                // Bind change events for dynamically created selects
+                container.querySelectorAll('.sku-attr-select').forEach(function (sel) {
+                    sel.addEventListener('change', function () {
+                        updateSkuPreview();
+                        checkDuplicate();
+                    });
+                });
                 updateSkuPreview();
+                checkDuplicate();
             });
     }
 
@@ -567,6 +583,14 @@
         var selects = document.querySelectorAll('.sku-attr-select');
         if (selects.length === 0) { preview.style.display = 'none'; return; }
 
+        // Get category SkuPrefix from tsData
+        var categoryId = document.getElementById('CategoryId').value;
+        var prefix = '??';
+        if (categoryId) {
+            var cat = tsData.find(function (n) { return n.CategoryId === parseInt(categoryId); });
+            if (cat && cat.SkuPrefix) prefix = cat.SkuPrefix;
+        }
+
         var parts = [];
         selects.forEach(function (sel) {
             var opt = sel.options[sel.selectedIndex];
@@ -576,20 +600,79 @@
         });
 
         if (parts.length > 0) {
-            previewText.textContent = '??-' + parts.join('-') + '-0001';
+            previewText.textContent = prefix + '-' + parts.join('-') + '-0001';
             preview.style.display = '';
         } else {
             preview.style.display = 'none';
         }
     }
 
-    // Initialize preview on page load for edit mode
+    var _dupTimer = null;
+    function checkDuplicate() {
+        clearTimeout(_dupTimer);
+        _dupTimer = setTimeout(doCheckDuplicate, 300);
+    }
+
+    function doCheckDuplicate() {
+        var warning = document.getElementById('duplicate-warning');
+        var categoryId = document.getElementById('CategoryId').value;
+        if (!categoryId) { warning.style.display = 'none'; warning.style.cssText = 'display:none !important;'; return; }
+
+        var selects = document.querySelectorAll('.sku-attr-select');
+        var attrValues = {};
+        var hasAny = false;
+        selects.forEach(function (sel) {
+            var name = sel.name; // AttributeValues[123]
+            var match = name.match(/\[(\d+)\]/);
+            if (match && sel.value) {
+                attrValues[match[1]] = parseInt(sel.value);
+                hasAny = true;
+            }
+        });
+
+        if (!hasAny) { warning.style.display = 'none'; warning.style.cssText = 'display:none !important;'; return; }
+
+        var productId = @(Model.ProductId.HasValue ? Model.ProductId.Value.ToString() : "null");
+
+        fetch('/Product/CheckDuplicate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                categoryId: parseInt(categoryId),
+                attributeValues: attrValues,
+                excludeProductId: productId
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.Success && res.Data && res.Data.hasDuplicate) {
+                var link = document.getElementById('duplicate-link');
+                link.textContent = res.Data.productCode + ' - ' + res.Data.productName;
+                link.href = '/Product/Detail/' + res.Data.productId;
+                warning.style.cssText = '';
+                warning.style.display = '';
+            } else {
+                warning.style.display = 'none';
+                warning.style.cssText = 'display:none !important;';
+            }
+        })
+        .catch(function () {
+            warning.style.display = 'none';
+            warning.style.cssText = 'display:none !important;';
+        });
+    }
+
+    // Initialize preview and duplicate check on page load for edit mode
     document.addEventListener('DOMContentLoaded', function () {
         var selects = document.querySelectorAll('.sku-attr-select');
         if (selects.length > 0) {
             selects.forEach(function (sel) {
-                sel.addEventListener('change', updateSkuPreview);
+                sel.addEventListener('change', function () {
+                    updateSkuPreview();
+                    checkDuplicate();
+                });
             });
+            checkDuplicate();
         }
     });
 })();

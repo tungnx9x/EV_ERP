@@ -125,10 +125,80 @@ namespace EV_ERP.Services
             };
         }
 
+        // ── Duplicate Check ──────────────────────────────
+        public async Task<(bool HasDuplicate, string? ProductCode, string? ProductName, int? ProductId)>
+            CheckDuplicateAsync(int categoryId, Dictionary<int, int?> attributeValues, int? excludeProductId = null)
+        {
+            // Filter to only non-null attribute values
+            var selectedValues = attributeValues
+                .Where(kv => kv.Value.HasValue && kv.Value > 0)
+                .ToDictionary(kv => kv.Key, kv => kv.Value!.Value);
+
+            if (selectedValues.Count == 0)
+                return (false, null, null, null);
+
+            // Find active products in the same category
+            var candidateQuery = _uow.Repository<Product>().Query()
+                .Where(p => p.CategoryId == categoryId && p.IsActive);
+
+            if (excludeProductId.HasValue)
+                candidateQuery = candidateQuery.Where(p => p.ProductId != excludeProductId.Value);
+
+            var candidates = await candidateQuery
+                .Select(p => new { p.ProductId, p.ProductCode, p.ProductName })
+                .ToListAsync();
+
+            if (candidates.Count == 0)
+                return (false, null, null, null);
+
+            var candidateIds = candidates.Select(c => c.ProductId).ToList();
+
+            // Load attribute maps for all candidates in one query
+            var allMaps = await _uow.Repository<ProductAttributeMap>().Query()
+                .Where(m => candidateIds.Contains(m.ProductId) && m.ValueId != null)
+                .Select(m => new { m.ProductId, m.AttributeId, m.ValueId })
+                .ToListAsync();
+
+            // Group by product → set of (attrId, valueId)
+            var mapsByProduct = allMaps
+                .GroupBy(m => m.ProductId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.ToDictionary(m => m.AttributeId, m => m.ValueId!.Value));
+
+            // Compare: exact match means same set of attribute values
+            foreach (var candidate in candidates)
+            {
+                if (!mapsByProduct.TryGetValue(candidate.ProductId, out var existingMap))
+                    continue;
+
+                // Check if all selected values match and count is the same
+                if (existingMap.Count != selectedValues.Count)
+                    continue;
+
+                var isMatch = selectedValues.All(kv =>
+                    existingMap.TryGetValue(kv.Key, out var existingVal) && existingVal == kv.Value);
+
+                if (isMatch)
+                    return (true, candidate.ProductCode, candidate.ProductName, candidate.ProductId);
+            }
+
+            return (false, null, null, null);
+        }
+
         // ── Create ───────────────────────────────────────
         public async Task<(bool Success, string? ErrorMessage)> CreateAsync(
             ProductFormViewModel model, int createdBy)
         {
+            // Validate category has SKU config
+            if (model.CategoryId.HasValue)
+            {
+                var hasSkuConfig = await _uow.Repository<SkuConfig>().Query()
+                    .AnyAsync(sc => sc.CategoryId == model.CategoryId.Value && sc.IsActive);
+                if (!hasSkuConfig)
+                    return (false, "Danh mục này chưa được cấu hình SKU. Vui lòng cấu hình SKU cho danh mục trước khi tạo sản phẩm.");
+            }
+
             var repo = _uow.Repository<Product>();
             var code = await GenerateProductCodeAsync();
 
@@ -240,6 +310,15 @@ namespace EV_ERP.Services
             var product = await repo.GetByIdAsync(model.ProductId.Value);
             if (product == null)
                 return (false, "Không tìm thấy sản phẩm");
+
+            // Validate category has SKU config
+            if (model.CategoryId.HasValue)
+            {
+                var hasSkuConfig = await _uow.Repository<SkuConfig>().Query()
+                    .AnyAsync(sc => sc.CategoryId == model.CategoryId.Value && sc.IsActive);
+                if (!hasSkuConfig)
+                    return (false, "Danh mục này chưa được cấu hình SKU. Vui lòng cấu hình SKU cho danh mục trước khi cập nhật sản phẩm.");
+            }
 
             // Check barcode uniqueness if provided
             if (!string.IsNullOrWhiteSpace(model.Barcode))
@@ -528,7 +607,8 @@ namespace EV_ERP.Services
                         CategoryName = c.CategoryName,
                         ParentCategoryId = c.ParentCategoryId,
                         Level = depth,
-                        HasChildren = lookup[c.CategoryId].Any()
+                        HasChildren = lookup[c.CategoryId].Any(),
+                        SkuPrefix = c.SkuPrefix
                     });
                     Flatten(c.CategoryId, depth + 1);
                 }

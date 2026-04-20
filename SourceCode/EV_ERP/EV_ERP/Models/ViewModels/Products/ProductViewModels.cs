@@ -40,6 +40,7 @@ namespace EV_ERP.Models.ViewModels.Products
         public int? ParentCategoryId { get; set; }
         public int Level { get; set; }
         public bool HasChildren { get; set; }
+        public string? SkuPrefix { get; set; }
     }
 
     public class UnitOptionViewModel

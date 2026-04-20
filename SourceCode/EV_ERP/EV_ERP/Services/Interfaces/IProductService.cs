@@ -12,6 +12,10 @@ namespace EV_ERP.Services.Interfaces
         Task<(bool Success, string? ErrorMessage)> ToggleActiveAsync(int productId, int updatedBy);
         Task<ProductDetailViewModel?> GetDetailAsync(int productId);
 
+        // Duplicate check
+        Task<(bool HasDuplicate, string? ProductCode, string? ProductName, int? ProductId)>
+            CheckDuplicateAsync(int categoryId, Dictionary<int, int?> attributeValues, int? excludeProductId = null);
+
         // Barcode
         Task<(bool Success, string? ErrorMessage, GenerateBarcodeResult? Result)> GenerateBarcodeAsync(
             int productId, int updatedBy);

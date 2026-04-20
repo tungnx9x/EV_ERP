@@ -131,6 +131,42 @@ namespace EV_ERP.Controllers
             return View(vm);
         }
 
+        // ── Check Duplicate (Ajax) ───────────────────────
+        [HttpPost]
+        public async Task<IActionResult> CheckDuplicate([FromBody] CheckDuplicateRequest request)
+        {
+            try
+            {
+                if (!request.CategoryId.HasValue || request.AttributeValues == null || request.AttributeValues.Count == 0)
+                    return Json(ApiResult<object>.Ok(new { hasDuplicate = false }));
+
+                var (hasDuplicate, productCode, productName, productId) =
+                    await _productService.CheckDuplicateAsync(
+                        request.CategoryId.Value,
+                        request.AttributeValues,
+                        request.ExcludeProductId);
+
+                return Json(ApiResult<object>.Ok(new
+                {
+                    hasDuplicate,
+                    productCode,
+                    productName,
+                    productId
+                }));
+            }
+            catch (Exception)
+            {
+                return Json(ApiResult<object>.Ok(new { hasDuplicate = false }));
+            }
+        }
+
+        public class CheckDuplicateRequest
+        {
+            public int? CategoryId { get; set; }
+            public Dictionary<int, int?> AttributeValues { get; set; } = new();
+            public int? ExcludeProductId { get; set; }
+        }
+
         // ── Toggle Active (Ajax) ─────────────────────────
         [HttpPost]
         public async Task<IActionResult> ToggleActive(int id)

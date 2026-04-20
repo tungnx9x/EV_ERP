@@ -43,9 +43,6 @@
                     <th>Mã</th>
                     <th>Tên thuộc tính</th>
                     <th class="text-center">Kiểu</th>
-                    <th class="text-center">Trong SKU</th>
-                    <th class="text-center">Vị trí SKU</th>
-                    <th class="text-center">Số giá trị</th>
                     <th class="text-center">Trạng thái</th>
                     <th class="text-end"></th>
                 </tr>
@@ -70,26 +67,12 @@
                             </a>
                         </td>
                         <td class="text-center">
-                            <span class="badge @(attr.DataType == "LIST" ? "bg-primary-subtle text-primary-emphasis" : "bg-warning-subtle text-warning-emphasis")">
+                            <span class="@(attr.DataType == "LIST" ? "bg-primary-subtle text-primary-emphasis" : "bg-warning-subtle text-warning-emphasis")">
                                 @attr.DataType
                             </span>
                         </td>
                         <td class="text-center">
-                            @if (attr.IncludeInSku)
-                            {
-                                <i class="bi bi-check-circle-fill text-success"></i>
-                            }
-                            else
-                            {
-                                <i class="bi bi-dash-circle text-muted"></i>
-                            }
-                        </td>
-                        <td class="text-center">@(attr.IncludeInSku ? attr.SkuPosition.ToString() : "—")</td>
-                        <td class="text-center">
-                            <span class="badge bg-secondary-subtle text-secondary-emphasis">@attr.ValueCount</span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge @(attr.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis") rounded-pill">
+                            <span class="@(attr.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis") rounded-pill">
                                 @(attr.IsActive ? "Hoạt động" : "Vô hiệu")
                             </span>
                         </td>

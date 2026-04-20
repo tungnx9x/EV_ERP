@@ -113,7 +113,7 @@
                                         <td class="d-none d-md-table-cell text-muted small">@(val.Description ?? "—")</td>
                                         <td class="text-center">@val.DisplayOrder</td>
                                         <td class="text-center">
-                                            <span class="badge @(val.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis") rounded-pill"
+                                            <span class="@(val.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis") rounded-pill"
                                                   style="font-size:0.7rem;">
                                                 @(val.IsActive ? "On" : "Off")
                                             </span>

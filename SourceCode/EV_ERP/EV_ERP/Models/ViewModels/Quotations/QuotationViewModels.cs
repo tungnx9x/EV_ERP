@@ -79,7 +79,7 @@ public class QuotationFormViewModel
 
     [Required(ErrorMessage = "Hạn xử lý nội bộ là bắt buộc")]
     [Display(Name = "Hạn xử lý nội bộ")]
-    public DateTime Deadline { get; set; } = DateTime.Today.AddDays(3);
+    public DateTime? Deadline { get; set; }
 
     [Display(Name = "Nhân viên phụ trách")]
     public int SalesPersonId { get; set; }

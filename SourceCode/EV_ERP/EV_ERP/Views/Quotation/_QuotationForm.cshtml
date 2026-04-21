@@ -53,8 +53,8 @@
                     </div>
                     <div class="col-lg-3">
                         <label class="form-label small fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
-                        <input type="date" id="frm_deadline" class="form-control form-control-sm"
-                               value="@Model.Deadline.ToString("yyyy-MM-dd")" />
+                        <input type="datetime-local" id="frm_deadline" class="form-control form-control-sm"
+                               value="@(Model.Deadline?.ToString("yyyy-MM-ddTHH:mm"))" />
                     </div>
                 </div>
 
@@ -577,6 +577,8 @@
         // ══════════════════════════════════════════════
         function submitForm() {
             var customerId = parseInt(document.getElementById('frm_customerId').value);
+            var deadlineVal = document.getElementById('frm_deadline')?.value;
+            if (!deadlineVal) { alert('Vui lòng chọn hạn xử lý nội bộ'); return; }
             if (!customerId) { alert('Vui lòng chọn khách hàng'); return; }
             if (items.length === 0) { alert('Vui lòng thêm ít nhất 1 sản phẩm'); return; }
 
@@ -590,7 +592,7 @@
                 CustomerId: customerId,
                 QuotationDate: new Date().toISOString().split('T')[0],
                 ExpiryDate: null,
-                Deadline: document.getElementById('frm_deadline')?.value || new Date(Date.now() + 3*86400000).toISOString().split('T')[0],
+                Deadline: document.getElementById('frm_deadline')?.value || null,
                 SalesPersonId: parseInt(document.getElementById('frm_salesPersonId').value) || 0,
                 PaymentTerms: null,
                 TaxRate: 8,

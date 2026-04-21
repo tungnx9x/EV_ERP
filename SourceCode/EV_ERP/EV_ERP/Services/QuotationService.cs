@@ -192,6 +192,9 @@ public class QuotationService : IQuotationService
         if (model.Items.Count == 0)
             return (false, "Báo giá phải có ít nhất 1 sản phẩm", null);
 
+        if (!model.Deadline.HasValue)
+            return (false, "Hạn xử lý nội bộ là bắt buộc", null);
+
         var code = await GenerateQuotationNoAsync();
 
         var quotation = new Quotation
@@ -202,7 +205,7 @@ public class QuotationService : IQuotationService
             ContactId = model.ContactId,
             QuotationDate = model.QuotationDate,
             ExpiryDate = model.ExpiryDate,
-            Deadline = model.Deadline,
+            Deadline = model.Deadline.Value,
             Status = "DRAFT",
             SalesPersonId = model.SalesPersonId > 0 ? model.SalesPersonId : createdBy,
             PaymentTerms = model.PaymentTerms?.Trim(),
@@ -287,13 +290,15 @@ public class QuotationService : IQuotationService
 
         if (quotation.Status != "DRAFT")
             return (false, "Chỉ có thể sửa báo giá ở trạng thái Nháp");
+        if (!model.Deadline.HasValue)
+            return (false, "Hạn xử lý nội bộ là bắt buộc");
 
         // Update header
         quotation.CustomerId = model.CustomerId;
         quotation.ContactId = model.ContactId;
         quotation.QuotationDate = model.QuotationDate;
         quotation.ExpiryDate = model.ExpiryDate;
-        quotation.Deadline = model.Deadline;
+        quotation.Deadline = model.Deadline.Value;
         quotation.SalesPersonId = model.SalesPersonId;
         quotation.PaymentTerms = model.PaymentTerms?.Trim();
         quotation.TaxRate = model.TaxRate;

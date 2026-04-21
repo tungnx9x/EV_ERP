@@ -81,7 +81,7 @@ public class RfqFormViewModel
     public DateTime RequestDate { get; set; } = DateTime.Today;
 
     [Required(ErrorMessage = "Hạn xử lý là bắt buộc")]
-    public DateTime Deadline { get; set; } = DateTime.Today.AddDays(7);
+    public DateTime? Deadline { get; set; }
 
     public string? Description { get; set; }
 

@@ -60,8 +60,8 @@
                     <!-- Hạn xử lý -->
                     <div class="col-md-3">
                         <label class="form-label small fw-semibold">Hạn xử lý <span class="text-danger">*</span></label>
-                        <input type="date" id="frm_deadline" class="form-control form-control-sm"
-                               value="@Model.Deadline.ToString("yyyy-MM-dd")" />
+                        <input type="datetime-local" id="frm_deadline" class="form-control form-control-sm"
+                               value="@(Model.Deadline?.ToString("yyyy-MM-ddTHH:mm"))" />
                     </div>
 
                     <!-- Phân công -->
@@ -154,6 +154,12 @@
         var customerId = parseInt(document.getElementById('frm_customerId').value);
         if (!customerId) {
             alert('Vui lòng chọn khách hàng');
+            return;
+        }
+
+        var deadlineVal = document.getElementById('frm_deadline').value;
+        if (!deadlineVal) {
+            alert('Vui lòng chọn hạn xử lý');
             return;
         }
 

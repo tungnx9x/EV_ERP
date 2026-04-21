@@ -88,7 +88,7 @@
                     <div class="col-6">
                         <div class="text-muted">Hạn xử lý</div>
                         <div class="fw-semibold @(Model.Deadline < DateTime.Now && Model.Status == "INPROGRESS" ? "text-danger" : "")">
-                            @Model.Deadline.ToString("dd/MM/yyyy")
+                            @Model.Deadline.ToString("dd/MM/yyyy HH:mm")
                         </div>
                     </div>
                     <div class="col-6">

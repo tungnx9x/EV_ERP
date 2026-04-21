@@ -156,6 +156,9 @@ public class RfqService : IRfqService
     {
         try
         {
+            if (!model.Deadline.HasValue)
+                return (false, "Hạn xử lý là bắt buộc", null);
+
             var rfqNo = await GenerateRfqNoAsync();
 
             var rfq = new RFQ
@@ -164,7 +167,7 @@ public class RfqService : IRfqService
                 CustomerId = model.CustomerId,
                 ContactId = model.ContactId,
                 RequestDate = model.RequestDate,
-                Deadline = model.Deadline,
+                Deadline = model.Deadline.Value,
                 Description = model.Description,
                 Priority = model.Priority,
                 AssignedTo = model.AssignedTo,
@@ -204,11 +207,12 @@ public class RfqService : IRfqService
 
             if (rfq == null) return (false, "Không tìm thấy RFQ");
             if (rfq.Status != "INPROGRESS") return (false, "Chỉ có thể sửa RFQ đang xử lý");
+            if (!model.Deadline.HasValue) return (false, "Hạn xử lý là bắt buộc");
 
             rfq.CustomerId = model.CustomerId;
             rfq.ContactId = model.ContactId;
             rfq.RequestDate = model.RequestDate;
-            rfq.Deadline = model.Deadline;
+            rfq.Deadline = model.Deadline.Value;
             rfq.Description = model.Description;
             rfq.Priority = model.Priority;
             rfq.AssignedTo = model.AssignedTo;

@@ -62,6 +62,7 @@ public class User : BaseEntity, ISoftDeletable
 {
     public int UserId { get; set; }
     public string UserCode { get; set; } = string.Empty;         // NV-0001
+    public string UserName { get; set; } = string.Empty;         // "hoangnv", "linhtt"
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;

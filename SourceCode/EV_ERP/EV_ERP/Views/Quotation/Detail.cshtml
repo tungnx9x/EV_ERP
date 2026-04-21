@@ -129,6 +129,12 @@
                         </div>
                     </div>
                     <div class="col-6">
+                        <div class="text-muted">Hạn xử lý</div>
+                        <div class="fw-semibold @(Model.Deadline < DateTime.Now && Model.Status is "DRAFT" or "SENT" ? "text-danger" : "")">
+                            @Model.Deadline.ToString("dd/MM/yyyy")
+                        </div>
+                    </div>
+                    <div class="col-6">
                         <div class="text-muted">Phụ trách</div>
                         <div class="fw-semibold">@Model.SalesPersonName</div>
                     </div>

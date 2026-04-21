@@ -41,6 +41,8 @@ public class SalesOrderRowViewModel
         "DELIVERING" => "info",
         "DELIVERED" => "success",
         "COMPLETED" => "success",
+        "RETURNED" => "warning",
+        "REPORTED" => "primary",
         "CANCELLED" => "danger",
         _ => "secondary"
     };
@@ -53,6 +55,8 @@ public class SalesOrderRowViewModel
         "DELIVERING" => "Đang giao",
         "DELIVERED" => "Đã giao",
         "COMPLETED" => "Hoàn tất",
+        "RETURNED" => "Trả hàng",
+        "REPORTED" => "Đã báo cáo KQKD",
         "CANCELLED" => "Đã hủy",
         _ => Status
     };
@@ -94,6 +98,8 @@ public class SalesOrderDetailViewModel
         "DELIVERING" => "info",
         "DELIVERED" => "success",
         "COMPLETED" => "success",
+        "RETURNED" => "warning",
+        "REPORTED" => "primary",
         "CANCELLED" => "danger",
         _ => "secondary"
     };
@@ -106,6 +112,8 @@ public class SalesOrderDetailViewModel
         "DELIVERING" => "Đang giao",
         "DELIVERED" => "Đã giao",
         "COMPLETED" => "Hoàn tất",
+        "RETURNED" => "Trả hàng",
+        "REPORTED" => "Đã báo cáo KQKD",
         "CANCELLED" => "Đã hủy",
         _ => Status
     };
@@ -161,8 +169,11 @@ public class SalesOrderDetailViewModel
     public DateTime? DeliveringAt { get; set; }
     public DateTime? DeliveredAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public DateTime? ReportedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancelReason { get; set; }
+    public DateTime? ReturnedAt { get; set; }
+    public string? ReturnReason { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
@@ -221,6 +232,11 @@ public class SalesOrderCompleteModel
 {
     public decimal? ActualCost { get; set; }
     public string? SettlementNotes { get; set; }
+}
+
+public class SalesOrderReturnModel
+{
+    public string? ReturnReason { get; set; }
 }
 
 // ══════════════════════════════════════════════════════

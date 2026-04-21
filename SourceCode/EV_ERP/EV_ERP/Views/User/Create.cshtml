@@ -22,11 +22,20 @@
                     <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
 
                     <div class="row g-3">
-                        <div class="col-12">
+                        <div class="col-md-6">
+                            <label asp-for="UserName" class="form-label fw-semibold small"></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-at"></i></span>
+                                <input asp-for="UserName" class="form-control" placeholder="hoangnv" autofocus />
+                            </div>
+                            <span asp-validation-for="UserName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
                             <label asp-for="FullName" class="form-label fw-semibold small"></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                <input asp-for="FullName" class="form-control" placeholder="Nguyễn Văn A" autofocus />
+                                <input asp-for="FullName" class="form-control" placeholder="Nguyễn Văn A" />
                             </div>
                             <span asp-validation-for="FullName" class="text-danger small"></span>
                         </div>

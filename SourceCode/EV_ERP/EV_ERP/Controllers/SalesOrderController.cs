@@ -164,7 +164,26 @@ public class SalesOrderController : Controller
         }
     }
 
-    // ── Status: DELIVERED → COMPLETED ────────────────
+    // ── Status: DELIVERED → RETURNED ────────────────
+    [HttpPost]
+    public async Task<IActionResult> Return(int id, [FromBody] SalesOrderReturnModel model)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn kh��ng có quyền"));
+
+            var (success, error) = await _salesOrderService.ReturnAsync(id, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận trả hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Return failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    // ── Status: DELIVERED|RETURNED → COMPLETED ────────────────
     [HttpPost]
     public async Task<IActionResult> Complete(int id, [FromBody] SalesOrderCompleteModel model)
     {
@@ -179,6 +198,25 @@ public class SalesOrderController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Complete failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    // ── Status: COMPLETED → REPORTED ────────────────
+    [HttpPost]
+    public async Task<IActionResult> Report(int id)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            var (success, error) = await _salesOrderService.ReportAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã nộp báo cáo KQKD" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Report failed for SO #{Id}", id);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }

@@ -306,7 +306,7 @@ public class WorkspaceController : Controller
             .Where(s => s.CreatedBy == userId
                      && soIdsWithInbound.Contains(s.SalesOrderId)
                      && !soIdsWithOutbound.Contains(s.SalesOrderId)
-                     && s.Status != "COMPLETED" && s.Status != "CANCELLED")
+                     && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
             .OrderByDescending(s => s.ReceivedAt)
             .Select(s => new WorkspaceTaskItem
             {
@@ -335,7 +335,7 @@ public class WorkspaceController : Controller
             .Include(s => s.Rfq)
             .Where(s => s.CreatedBy == userId
                      && soIdsWithOutbound.Contains(s.SalesOrderId)
-                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "CANCELLED")
+                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
             .OrderByDescending(s => s.DeliveringAt)
             .Select(s => new WorkspaceTaskItem
             {
@@ -383,6 +383,33 @@ public class WorkspaceController : Controller
             Icon = "bi-calculator",
             BadgeColor = "success",
             Tasks = soDeliveredTasks
+        });
+
+        // ── 11. SOs COMPLETED (pending KQKD report) ──
+        var soCompletedTasks = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Customer)
+            .Include(s => s.Rfq)
+            .Where(s => s.CreatedBy == userId && s.Status == "COMPLETED")
+            .OrderByDescending(s => s.CompletedAt)
+            .Select(s => new WorkspaceTaskItem
+            {
+                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
+                SalesOrderNo = s.SalesOrderNo,
+                CustomerName = s.Customer.CustomerName,
+                DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
+            })
+            .ToListAsync();
+
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 11,
+            Title = "Chờ báo cáo KQKD",
+            Icon = "bi-file-earmark-bar-graph",
+            BadgeColor = "primary",
+            Tasks = soCompletedTasks
         });
 
         // ── SLA: Batch query severity for all workspace tasks ──
@@ -570,7 +597,7 @@ public class WorkspaceController : Controller
             .Where(s => s.CreatedBy != null
                      && soIdsWithInbound.Contains(s.SalesOrderId)
                      && !soIdsWithOutbound.Contains(s.SalesOrderId)
-                     && s.Status != "COMPLETED" && s.Status != "CANCELLED")
+                     && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
@@ -583,7 +610,7 @@ public class WorkspaceController : Controller
         var step9 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.CreatedBy != null
                      && soIdsWithOutbound.Contains(s.SalesOrderId)
-                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "CANCELLED")
+                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
@@ -601,6 +628,17 @@ public class WorkspaceController : Controller
         {
             StepNumber = 10, Title = "Đơn hàng chờ quyết toán", Icon = "bi-calculator", BadgeColor = "success",
             EmployeeSummaries = BuildSummaries(step10.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+        });
+
+        // ── 11. SOs COMPLETED (pending KQKD report) ──
+        var step11 = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.Status == "COMPLETED" && s.CreatedBy != null)
+            .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
+            .ToListAsync();
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 11, Title = "Chờ báo cáo KQKD", Icon = "bi-file-earmark-bar-graph", BadgeColor = "primary",
+            EmployeeSummaries = BuildSummaries(step11.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
     }
 
@@ -640,7 +678,7 @@ public class WorkspaceController : Controller
             {
                 1 => "RFQ",
                 2 or 3 or 4 => "QUOTATION",
-                >= 5 and <= 10 => "SALES_ORDER",
+                >= 5 and <= 11 => "SALES_ORDER",
                 _ => null
             };
 

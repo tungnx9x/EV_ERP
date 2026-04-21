@@ -77,6 +77,7 @@ public class QuotationService : IQuotationService
                 SalesPersonName = q.SalesPerson.FullName,
                 QuotationDate = q.QuotationDate,
                 ExpiryDate = q.ExpiryDate,
+                Deadline = q.Deadline,
                 Status = q.Status,
                 TotalAmount = q.TotalAmount,
                 Currency = q.Currency,
@@ -149,6 +150,7 @@ public class QuotationService : IQuotationService
             ContactId = q.ContactId,
             QuotationDate = q.QuotationDate,
             ExpiryDate = q.ExpiryDate,
+            Deadline = q.Deadline,
             SalesPersonId = q.SalesPersonId,
             PaymentTerms = q.PaymentTerms,
             TaxRate = q.TaxRate,
@@ -200,6 +202,7 @@ public class QuotationService : IQuotationService
             ContactId = model.ContactId,
             QuotationDate = model.QuotationDate,
             ExpiryDate = model.ExpiryDate,
+            Deadline = model.Deadline,
             Status = "DRAFT",
             SalesPersonId = model.SalesPersonId > 0 ? model.SalesPersonId : createdBy,
             PaymentTerms = model.PaymentTerms?.Trim(),
@@ -290,6 +293,7 @@ public class QuotationService : IQuotationService
         quotation.ContactId = model.ContactId;
         quotation.QuotationDate = model.QuotationDate;
         quotation.ExpiryDate = model.ExpiryDate;
+        quotation.Deadline = model.Deadline;
         quotation.SalesPersonId = model.SalesPersonId;
         quotation.PaymentTerms = model.PaymentTerms?.Trim();
         quotation.TaxRate = model.TaxRate;
@@ -388,6 +392,7 @@ public class QuotationService : IQuotationService
             ContactPhone = q.Contact?.Phone,
             QuotationDate = q.QuotationDate,
             ExpiryDate = q.ExpiryDate,
+            Deadline = q.Deadline,
             SentAt = q.SentAt,
             ApprovedAt = q.ApprovedAt,
             RejectedAt = q.RejectedAt,
@@ -533,6 +538,7 @@ public class QuotationService : IQuotationService
             ContactId = original.ContactId,
             QuotationDate = DateTime.Today,
             ExpiryDate = original.ExpiryDate,
+            Deadline = DateTime.Today.AddDays(3),
             Status = "DRAFT",
             SalesPersonId = original.SalesPersonId,
             PaymentTerms = original.PaymentTerms,

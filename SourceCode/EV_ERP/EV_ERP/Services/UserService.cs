@@ -59,6 +59,7 @@ namespace EV_ERP.Services
                 {
                     UserId = u.UserId,
                     UserCode = u.UserCode,
+                    UserName = u.UserName,
                     FullName = u.FullName,
                     Email = u.Email,
                     Phone = u.Phone,
@@ -101,6 +102,7 @@ namespace EV_ERP.Services
             return new UserFormViewModel
             {
                 UserId = user.UserId,
+                UserName = user.UserName,
                 FullName = user.FullName,
                 Email = user.Email,
                 Phone = user.Phone,
@@ -125,9 +127,16 @@ namespace EV_ERP.Services
 
             var userCode = await GenerateUserCodeAsync();
 
+            // Check unique UserName
+            var userNameExists = await userRepo.AnyAsync(
+                u => u.UserName.ToLower() == model.UserName.Trim().ToLower());
+            if (userNameExists)
+                return (false, "Tên ngắn (UserName) này đã được sử dụng");
+
             var user = new User
             {
                 UserCode = userCode,
+                UserName = model.UserName.Trim(),
                 FullName = model.FullName.Trim(),
                 Email = model.Email.Trim().ToLower(),
                 Phone = model.Phone?.Trim(),
@@ -164,6 +173,13 @@ namespace EV_ERP.Services
             if (emailConflict)
                 return (false, "Email này đã được sử dụng bởi tài khoản khác");
 
+            // Check unique UserName
+            var userNameConflict = await userRepo.AnyAsync(
+                u => u.UserName.ToLower() == model.UserName.Trim().ToLower() && u.UserId != model.UserId);
+            if (userNameConflict)
+                return (false, "Tên ngắn (UserName) này đã được sử dụng bởi tài khoản khác");
+
+            user.UserName = model.UserName.Trim();
             user.FullName = model.FullName.Trim();
             user.Email = model.Email.Trim().ToLower();
             user.Phone = model.Phone?.Trim();

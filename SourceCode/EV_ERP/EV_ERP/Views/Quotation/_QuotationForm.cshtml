@@ -51,8 +51,13 @@
                                value="@Model.Coefficient" min="0.01" step="any" />
                         <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập / Hệ số + Vận chuyển</div>
                     </div>
+                    <div class="col-lg-3">
+                        <label class="form-label small fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
+                        <input type="date" id="frm_deadline" class="form-control form-control-sm"
+                               value="@Model.Deadline.ToString("yyyy-MM-dd")" />
+                    </div>
                 </div>
-                
+
                 @*Haven't need notes yet*@
                 @* <div class="mb-3">
                     <label class="form-label small fw-semibold">Ghi chu</label>
@@ -585,6 +590,7 @@
                 CustomerId: customerId,
                 QuotationDate: new Date().toISOString().split('T')[0],
                 ExpiryDate: null,
+                Deadline: document.getElementById('frm_deadline')?.value || new Date(Date.now() + 3*86400000).toISOString().split('T')[0],
                 SalesPersonId: parseInt(document.getElementById('frm_salesPersonId').value) || 0,
                 PaymentTerms: null,
                 TaxRate: 8,

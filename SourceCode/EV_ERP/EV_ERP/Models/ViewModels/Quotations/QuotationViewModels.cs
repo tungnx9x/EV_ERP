@@ -26,6 +26,7 @@ public class QuotationRowViewModel
     public string SalesPersonName { get; set; } = string.Empty;
     public DateTime QuotationDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
+    public DateTime Deadline { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public string Currency { get; set; } = "VND";
@@ -75,6 +76,10 @@ public class QuotationFormViewModel
 
     [Display(Name = "Ngày hết hạn")]
     public DateTime? ExpiryDate { get; set; }
+
+    [Required(ErrorMessage = "Hạn xử lý nội bộ là bắt buộc")]
+    [Display(Name = "Hạn xử lý nội bộ")]
+    public DateTime Deadline { get; set; } = DateTime.Today.AddDays(3);
 
     [Display(Name = "Nhân viên phụ trách")]
     public int SalesPersonId { get; set; }
@@ -173,6 +178,7 @@ public class QuotationDetailViewModel
     // Dates
     public DateTime QuotationDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
+    public DateTime Deadline { get; set; }
     public DateTime? SentAt { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public DateTime? RejectedAt { get; set; }

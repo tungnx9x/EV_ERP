@@ -75,6 +75,7 @@ public class RfqService : IRfqService
                 CustomerName = r.Customer.CustomerName,
                 CustomerCode = r.Customer.CustomerCode,
                 RequestDate = r.RequestDate,
+                Deadline = r.Deadline,
                 Status = r.Status,
                 Priority = r.Priority,
                 AssignedToName = r.AssignedToUser != null ? r.AssignedToUser.FullName : null,
@@ -136,6 +137,7 @@ public class RfqService : IRfqService
             CustomerId = r.CustomerId,
             ContactId = r.ContactId,
             RequestDate = r.RequestDate,
+            Deadline = r.Deadline,
             Description = r.Description,
             Priority = r.Priority,
             AssignedTo = r.AssignedTo,
@@ -162,6 +164,7 @@ public class RfqService : IRfqService
                 CustomerId = model.CustomerId,
                 ContactId = model.ContactId,
                 RequestDate = model.RequestDate,
+                Deadline = model.Deadline,
                 Description = model.Description,
                 Priority = model.Priority,
                 AssignedTo = model.AssignedTo,
@@ -205,6 +208,7 @@ public class RfqService : IRfqService
             rfq.CustomerId = model.CustomerId;
             rfq.ContactId = model.ContactId;
             rfq.RequestDate = model.RequestDate;
+            rfq.Deadline = model.Deadline;
             rfq.Description = model.Description;
             rfq.Priority = model.Priority;
             rfq.AssignedTo = model.AssignedTo;
@@ -248,6 +252,7 @@ public class RfqService : IRfqService
             ContactName = r.Contact?.ContactName,
             ContactPhone = r.Contact?.Phone,
             RequestDate = r.RequestDate,
+            Deadline = r.Deadline,
             Description = r.Description,
             Status = r.Status,
             Priority = r.Priority,

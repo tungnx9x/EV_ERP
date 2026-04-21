@@ -170,8 +170,11 @@ public class SalesOrderService : ISalesOrderService
             DeliveringAt = s.DeliveringAt,
             DeliveredAt = s.DeliveredAt,
             CompletedAt = s.CompletedAt,
+            ReportedAt = s.ReportedAt,
             CancelledAt = s.CancelledAt,
             CancelReason = s.CancelReason,
+            ReturnedAt = s.ReturnedAt,
+            ReturnReason = s.ReturnReason,
             CreatedAt = s.CreatedAt,
             UpdatedAt = s.UpdatedAt,
             Items = s.Items.Select(i => new SalesOrderItemDetailViewModel
@@ -426,13 +429,40 @@ public class SalesOrderService : ISalesOrderService
         return (true, null);
     }
 
-    // DELIVERED → COMPLETED (quyết toán + RFQ auto-complete)
+    // DELIVERED → RETURNED (khách trả hàng)
+    public async Task<(bool Success, string? ErrorMessage)> ReturnAsync(
+        int salesOrderId, SalesOrderReturnModel model, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status != "DELIVERED") return (false, "Chỉ có thể trả hàng ở trạng thái Đã giao");
+
+        so.Status = "RETURNED";
+        so.ReturnedAt = DateTime.Now;
+        so.ReturnReason = model.ReturnReason?.Trim();
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        // SLA: complete DELIVERED, start RETURNED
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERED");
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "RETURNED", so.CreatedBy);
+
+        _logger.LogInformation("SO returned: {No} Reason={Reason} by UserId={UserId}",
+            so.SalesOrderNo, model.ReturnReason, userId);
+        return (true, null);
+    }
+
+    // DELIVERED|RETURNED → COMPLETED (quyết toán + RFQ auto-complete)
     public async Task<(bool Success, string? ErrorMessage)> CompleteAsync(
         int salesOrderId, SalesOrderCompleteModel model, int userId)
     {
         var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
         if (so == null) return (false, "Không tìm thấy đơn hàng");
-        if (so.Status != "DELIVERED") return (false, "Chỉ có thể hoàn tất ở trạng thái Đã giao");
+        if (so.Status is not "DELIVERED" and not "RETURNED")
+            return (false, "Chỉ có thể hoàn tất ở trạng thái Đã giao hoặc Trả hàng");
 
         so.Status = "COMPLETED";
         so.ActualCost = model.ActualCost;
@@ -460,10 +490,33 @@ public class SalesOrderService : ISalesOrderService
 
         await _uow.SaveChangesAsync();
 
-        // SLA: complete DELIVERED tracking
+        // SLA: complete DELIVERED or RETURNED tracking
         await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERED");
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "RETURNED");
 
         _logger.LogInformation("SO completed: {No} by UserId={UserId}", so.SalesOrderNo, userId);
+        return (true, null);
+    }
+
+    // COMPLETED → REPORTED (nộp báo cáo KQKD)
+    public async Task<(bool Success, string? ErrorMessage)> ReportAsync(int salesOrderId, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status != "COMPLETED") return (false, "Chỉ có thể báo cáo KQKD ở trạng thái Hoàn tất");
+
+        so.Status = "REPORTED";
+        so.ReportedAt = DateTime.Now;
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        // SLA: complete COMPLETED tracking
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "COMPLETED");
+
+        _logger.LogInformation("SO reported: {No} by UserId={UserId}", so.SalesOrderNo, userId);
         return (true, null);
     }
 
@@ -473,7 +526,7 @@ public class SalesOrderService : ISalesOrderService
     {
         var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
         if (so == null) return (false, "Không tìm thấy đơn hàng");
-        if (so.Status == "COMPLETED") return (false, "Không thể hủy đơn hàng đã hoàn tất");
+        if (so.Status is "COMPLETED" or "REPORTED" or "RETURNED") return (false, "Không thể hủy đơn hàng đã hoàn tất hoặc trả hàng");
         if (so.Status == "CANCELLED") return (false, "Đơn hàng đã bị hủy");
 
         so.Status = "CANCELLED";

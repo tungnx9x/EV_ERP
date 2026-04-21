@@ -1,6 +1,6 @@
 @model EV_ERP.Models.ViewModels.SalesOrders.SalesOrderListViewModel
 @{
-    ViewData["Title"] = "Don hang";
+    ViewData["Title"] = "Đơn hàng";
     bool canEdit = ViewBag.CanEdit == true;
     var p = Model.Paged;
 }
@@ -30,8 +30,8 @@
                     <option value="">Tất cả</option>
                     @foreach (var s in new[] {
                         ("DRAFT","Nháp"), ("WAIT","Chờ tạm ứng"), ("BUYING","Đang mua"),
-                        ("RECEIVED","Đã nhận hàng"), ("DELIVERING","Đang giao"), ("DELIVERED","Đã giao"),
-                        ("COMPLETED","Hoàn tất"), ("CANCELLED","Đã hủy") })
+                        ("RECEIVED","Đã nhận hàng"), ("DELIVERING","Đang giao"), ("DELIVERED","Đã giao"), ("RETURNED","Trả hàng"),
+                        ("COMPLETED","Hoàn tất"), ("REPORTED","Đã báo cáo KQKD"), ("CANCELLED","Đã hủy") })
                     {
                         <option value="@s.Item1" selected="@(Model.FilterStatus == s.Item1)">@s.Item2</option>
                     }

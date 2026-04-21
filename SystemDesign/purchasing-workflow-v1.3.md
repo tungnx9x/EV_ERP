@@ -8,7 +8,7 @@
 ## Tổng Quan Luồng Quy Trình
 
 ```
-Yêu cầu từ KS → RFQ → Quotation → SO (mua + bán + giao) → Nhập kho → Giao hàng → Quyết toán
+Yêu cầu từ KS → RFQ → Quotation → SO (mua + bán + giao) → Nhập kho → Giao hàng → Quyết toán → Báo cáo
 ```
 
 ---
@@ -112,6 +112,12 @@ Nhân viên kho tiến hành nhận hàng, kiểm tra và xếp vào vị trí k
 
 → `SO: Delivered`
 
+**Nếu khách hàng không nhận hàng do có vấn đề**, sau đó trả lại hàng:
+
+- `StockTransaction OUT: Delivered`
+
+→ `SO: Returned`
+
 ---
 
 ### Bước 8 – Hoàn Tất Quyết Toán
@@ -121,6 +127,14 @@ Nhân viên mua hàng thực hiện:
 - **Đề nghị thanh toán** (nếu chi thực tế > tạm ứng)
 
 → `SO: Completed`
+
+---
+
+### Bước 9 – Báo cáo kết quả kinh doanh
+
+Nhân viên mua hàng thực hiện làm báo cáo theo mẫu và gửi cho quản lý
+
+→ `SO: Reported`
 → Hệ thống **tự động chuyển RFQ** sang `Completed`
 
 ---
@@ -167,11 +181,17 @@ Nhân viên mua hàng thực hiện:
                                                             │
                                                             ▼
                                           StockTransaction OUT: Delivered
-                                                   SO: Delivered
+                                                   SO: Delivered 
                                                             │
                                                             ▼
-                                                   SO: Completed
+                                                   SO: Completed or Returned
+														    │		
+                                                            ▼
+                                                   SO: Reported
                                                  RFQ: Completed (tự động)
+
+
+
 ```
 
 ---
@@ -194,7 +214,9 @@ Nhân viên mua hàng thực hiện:
 | SO | `Received` | Hàng đã về kho |
 | SO | `Delivering` | Đang giao cho vận chuyển |
 | SO | `Delivered` | KH đã nhận hàng & ký biên bản |
-| SO | `Completed` | Hoàn tất, đã quyết toán |
+| SO | `Returned` | KH không nhận hàng & hoàn trả do có lỗi |
+| SO | `Completed` | Đã quyết toán |
+| SO | `Reported` | Hoàn tất, đã báo cáo |
 | StockTransaction IN | `Draft` | Phiếu nhập kho tự động tạo |
 | StockTransaction IN | `Confirmed` | Nhân viên kho xác nhận nhập |
 | StockTransaction OUT | `Draft` | Phiếu xuất kho (giao hàng) |

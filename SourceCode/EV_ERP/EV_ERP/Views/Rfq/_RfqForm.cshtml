@@ -57,6 +57,13 @@
                                value="@Model.RequestDate.ToString("yyyy-MM-dd")" />
                     </div>
 
+                    <!-- Hạn xử lý -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Hạn xử lý <span class="text-danger">*</span></label>
+                        <input type="date" id="frm_deadline" class="form-control form-control-sm"
+                               value="@Model.Deadline.ToString("yyyy-MM-dd")" />
+                    </div>
+
                     <!-- Phân công -->
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Phân công cho</label>
@@ -158,6 +165,7 @@
             RfqId: isEdit ? parseInt(rfqIdEl.value) : null,
             CustomerId: customerId,
             RequestDate: document.getElementById('frm_requestDate').value,
+            Deadline: document.getElementById('frm_deadline').value,
             Priority: document.getElementById('frm_priority').value,
             AssignedTo: assignedTo,
             Description: descriptionEditor ? (descriptionEditor.getData().trim() || null) : null,

@@ -14,6 +14,7 @@ public class RFQ
     public int CustomerId { get; set; }
     public int? ContactId { get; set; }
     public DateTime RequestDate { get; set; } = DateTime.Today;
+    public DateTime Deadline { get; set; }
     public string? Description { get; set; }
     /// <summary>INPROGRESS → COMPLETED | CANCELLED</summary>
     public string Status { get; set; } = "INPROGRESS";
@@ -45,6 +46,7 @@ public class Quotation : AuditableEntity
     public int? ContactId { get; set; }
     public DateTime QuotationDate { get; set; } = DateTime.Today;
     public DateTime? ExpiryDate { get; set; }
+    public DateTime Deadline { get; set; }
     /// <summary>DRAFT → SENT → APPROVED / REJECTED / AMEND / EXPIRED</summary>
     public string Status { get; set; } = "DRAFT";
     public decimal SubTotal { get; set; }
@@ -133,7 +135,7 @@ public class SalesOrder : AuditableEntity
     public int? ContactId { get; set; }
     public DateTime OrderDate { get; set; } = DateTime.Today;
     public DateTime? ExpectedDeliveryDate { get; set; }
-    /// <summary>DRAFT → WAIT → BUYING → RECEIVED → DELIVERING → DELIVERED → COMPLETED → CANCELLED</summary>
+    /// <summary>DRAFT → WAIT → BUYING → RECEIVED → DELIVERING → DELIVERED → COMPLETED|RETURNED → REPORTED / CANCELLED</summary>
     public string Status { get; set; } = "DRAFT";
 
     // ── Thông tin PO phía khách sạn ──
@@ -186,8 +188,11 @@ public class SalesOrder : AuditableEntity
     public DateTime? DeliveringAt { get; set; }
     public DateTime? DeliveredAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public DateTime? ReportedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
     public string? CancelReason { get; set; }
+    public DateTime? ReturnedAt { get; set; }
+    public string? ReturnReason { get; set; }
 
     public virtual RFQ? Rfq { get; set; }
     public virtual Quotation? Quotation { get; set; }

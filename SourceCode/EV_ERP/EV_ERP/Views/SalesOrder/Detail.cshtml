@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = Model.SalesOrderNo;
     bool canEdit = ViewBag.CanEdit == true;
-    bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "COMPLETED";
+    bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "RETURNED" or "COMPLETED" or "REPORTED";
 }
 
 <!-- Header -->
@@ -85,7 +85,22 @@
             @if (Model.Status == "DELIVERED")
             {
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
+                    <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="showReturnModal()">
+                    <i class="bi bi-arrow-return-left me-1"></i> Trả hàng
+                </button>
+            }
+            @if (Model.Status == "RETURNED")
+            {
+                <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
                     <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
+                </button>
+            }
+            @if (Model.Status == "COMPLETED")
+            {
+                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('Report', 'Xác nhận nộp báo cáo KQKD?')">
+                    <i class="bi bi-file-earmark-bar-graph me-1"></i> Nộp báo cáo KQKD
                 </button>
             }
         }
@@ -100,8 +115,17 @@
                 var steps = new[] {
                     ("DRAFT", "Nháp"), ("WAIT", "Chờ tạm ứng"), ("BUYING", "Đang mua"),
                     ("RECEIVED", "Nhận hàng"), ("DELIVERING", "Đang giao"),
-                    ("DELIVERED", "Đã giao"), ("COMPLETED", "Hoàn tất")
+                    ("DELIVERED", "Đã giao"), ("COMPLETED", "Hoàn tất"),
+                    ("REPORTED", "Báo cáo KQKD")
                 };
+                // If RETURNED, inject it into the timeline between DELIVERED and COMPLETED
+                if (Model.Status == "RETURNED" || Model.ReturnedAt.HasValue)
+                {
+                    var list = steps.ToList();
+                    var deliveredIdx = list.FindIndex(s => s.Item1 == "COMPLETED");
+                    list.Insert(deliveredIdx, ("RETURNED", "Trả hàng"));
+                    steps = list.ToArray();
+                }
                 var statusOrder = steps.Select(s => s.Item1).ToList();
                 var currentIdx = statusOrder.IndexOf(Model.Status);
                 bool isCancelled = Model.Status == "CANCELLED";
@@ -305,7 +329,7 @@
         }
 
         <!-- Delivery timestamps -->
-        @if (Model.DeliveringAt.HasValue || Model.DeliveredAt.HasValue || Model.CompletedAt.HasValue)
+        @if (Model.DeliveringAt.HasValue || Model.DeliveredAt.HasValue || Model.ReturnedAt.HasValue || Model.CompletedAt.HasValue || Model.ReportedAt.HasValue)
         {
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
@@ -327,11 +351,25 @@
                                 <div class="fw-semibold text-success">@Model.DeliveredAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
+                        @if (Model.ReturnedAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Trả hàng</div>
+                                <div class="fw-semibold text-warning">@Model.ReturnedAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
                         @if (Model.CompletedAt.HasValue)
                         {
                             <div class="col-6">
                                 <div class="text-muted">Hoàn tất</div>
                                 <div class="fw-semibold text-success">@Model.CompletedAt.Value.ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                        @if (Model.ReportedAt.HasValue)
+                        {
+                            <div class="col-6">
+                                <div class="text-muted">Báo cáo KQKD</div>
+                                <div class="fw-semibold text-primary">@Model.ReportedAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                     </div>
@@ -340,7 +378,7 @@
         }
 
         <!-- Settlement -->
-        @if (Model.Status == "COMPLETED" && Model.ActualCost.HasValue)
+        @if (Model.Status is "COMPLETED" or "REPORTED" or "RETURNED" && Model.ActualCost.HasValue)
         {
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
                 <div class="card-body">
@@ -377,6 +415,25 @@
                         @if (!string.IsNullOrEmpty(Model.CancelReason))
                         {
                             <div class="mt-1">Lý do: @Model.CancelReason</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Return info -->
+        @if (Model.Status == "RETURNED" || Model.ReturnedAt.HasValue)
+        {
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
+                <div class="card-body">
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                        <i class="bi bi-arrow-return-left me-1"></i> Trả hàng
+                    </h6>
+                    <div class="small">
+                        <div class="text-muted">Trả hàng lúc: @Model.ReturnedAt?.ToString("dd/MM/yyyy HH:mm")</div>
+                        @if (!string.IsNullOrEmpty(Model.ReturnReason))
+                        {
+                            <div class="mt-1">Lý do: @Model.ReturnReason</div>
                         }
                     </div>
                 </div>
@@ -669,6 +726,29 @@
     </div>
 </div>
 
+<!-- Return Modal (DELIVERED → RETURNED) -->
+<div class="modal fade" id="returnModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Trả hàng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label small fw-semibold">Lý do trả hàng</label>
+                <textarea id="returnReason" class="form-control form-control-sm" rows="3"
+                          placeholder="Nhập lý do..."></textarea>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="confirmReturn()">
+                    <i class="bi bi-arrow-return-left me-1"></i> Xác nhận trả hàng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Cancel Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -840,6 +920,24 @@
         postAction('/SalesOrder/Complete/' + soId, body, function (data) {
             if (data.Success) location.reload();
             else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ── DELIVERED → RETURNED ───────────────────────
+    function showReturnModal() {
+        document.getElementById('returnReason').value = '';
+        new bootstrap.Modal(document.getElementById('returnModal')).show();
+    }
+
+    function confirmReturn() {
+        var reason = document.getElementById('returnReason').value.trim();
+        postAction('/SalesOrder/Return/' + soId, { ReturnReason: reason }, function (data) {
+            if (data.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('returnModal')).hide();
+                location.reload();
+            } else {
+                alert(data.Message || 'Lỗi');
+            }
         });
     }
 

@@ -6,6 +6,11 @@ namespace EV_ERP.Models.ViewModels.Users
     {
         public int? UserId { get; set; }
 
+        [Required(ErrorMessage = "Vui lòng nhập tên đăng nhập ngắn")]
+        [MaxLength(50, ErrorMessage = "Tối đa 50 ký tự")]
+        [Display(Name = "Tên ngắn (UserName)")]
+        public string UserName { get; set; } = string.Empty;
+
         [Required(ErrorMessage = "Vui lòng nhập họ và tên")]
         [MaxLength(200, ErrorMessage = "Tối đa 200 ký tự")]
         [Display(Name = "Họ và tên")]

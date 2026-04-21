@@ -28,8 +28,13 @@ public interface ISalesOrderService
     Task<(bool Success, string? ErrorMessage)> StartDeliveringAsync(int salesOrderId, int userId);
     Task<(bool Success, string? ErrorMessage)> ConfirmDeliveredAsync(int salesOrderId, int userId);
 
+    Task<(bool Success, string? ErrorMessage)> ReturnAsync(
+        int salesOrderId, SalesOrderReturnModel model, int userId);
+
     Task<(bool Success, string? ErrorMessage)> CompleteAsync(
         int salesOrderId, SalesOrderCompleteModel model, int userId);
+
+    Task<(bool Success, string? ErrorMessage)> ReportAsync(int salesOrderId, int userId);
 
     Task<(bool Success, string? ErrorMessage)> CancelAsync(
         int salesOrderId, int userId, string? reason);

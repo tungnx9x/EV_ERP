@@ -24,6 +24,7 @@ public class RfqRowViewModel
     public string CustomerName { get; set; } = string.Empty;
     public string CustomerCode { get; set; } = string.Empty;
     public DateTime RequestDate { get; set; }
+    public DateTime Deadline { get; set; }
     public string Status { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public string? AssignedToName { get; set; }
@@ -79,6 +80,9 @@ public class RfqFormViewModel
 
     public DateTime RequestDate { get; set; } = DateTime.Today;
 
+    [Required(ErrorMessage = "Hạn xử lý là bắt buộc")]
+    public DateTime Deadline { get; set; } = DateTime.Today.AddDays(7);
+
     public string? Description { get; set; }
 
     public string Priority { get; set; } = "NORMAL";
@@ -112,6 +116,7 @@ public class RfqDetailViewModel
     public string? ContactPhone { get; set; }
 
     public DateTime RequestDate { get; set; }
+    public DateTime Deadline { get; set; }
     public string? Description { get; set; }
     public string Status { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;

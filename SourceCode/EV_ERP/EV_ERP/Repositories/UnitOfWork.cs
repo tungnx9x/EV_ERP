@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using EV_ERP.Data;
 using EV_ERP.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EV_ERP.Repositories
@@ -46,6 +47,23 @@ namespace EV_ERP.Repositories
                 await _transaction.DisposeAsync();
                 _transaction = null;
             }
+        }
+
+        public async Task<long> NextSequenceValueAsync(string sequenceName)
+        {
+            var conn = _context.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+                await conn.OpenAsync();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT NEXT VALUE FOR [{sequenceName}]";
+
+            // Enlist in current transaction if any
+            if (_context.Database.CurrentTransaction != null)
+                cmd.Transaction = _context.Database.CurrentTransaction.GetDbTransaction();
+
+            var result = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt64(result);
         }
 
         public void Dispose()

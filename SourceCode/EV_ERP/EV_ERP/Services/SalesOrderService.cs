@@ -697,19 +697,8 @@ public class SalesOrderService : ISalesOrderService
     // ══════════════════════════════════════════════════
     private async Task<string> GenerateSalesOrderNoAsync()
     {
-        var prefix = $"SO-{DateTime.Now:yyyyMM}-";
-        var last = await _uow.Repository<SalesOrder>().Query()
-            .Where(s => s.SalesOrderNo.StartsWith(prefix))
-            .OrderByDescending(s => s.SalesOrderNo)
-            .FirstOrDefaultAsync();
-
-        int next = 1;
-        if (last != null)
-        {
-            var suffix = last.SalesOrderNo[prefix.Length..];
-            if (int.TryParse(suffix, out int n)) next = n + 1;
-        }
-        return $"{prefix}{next:D3}";
+        var seq = await _uow.NextSequenceValueAsync("SalesOrderSequence");
+        return $"SO-{DateTime.Now:yyyyMMdd}-{seq:D3}";
     }
 
     private async Task<List<CustomerOptionVM>> GetCustomerOptionsAsync()

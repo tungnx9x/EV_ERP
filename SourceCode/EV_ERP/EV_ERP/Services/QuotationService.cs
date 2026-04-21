@@ -819,19 +819,8 @@ public class QuotationService : IQuotationService
     // ══════════════════════════════════════════════════
     private async Task<string> GenerateQuotationNoAsync()
     {
-        var prefix = $"BG-{DateTime.Now:yyyyMM}-";
-        var last = await _uow.Repository<Quotation>().Query()
-            .Where(q => q.QuotationNo.StartsWith(prefix))
-            .OrderByDescending(q => q.QuotationNo)
-            .FirstOrDefaultAsync();
-
-        int next = 1;
-        if (last != null)
-        {
-            var suffix = last.QuotationNo[prefix.Length..];
-            if (int.TryParse(suffix, out int n)) next = n + 1;
-        }
-        return $"{prefix}{next:D3}";
+        var seq = await _uow.NextSequenceValueAsync("QuotationSequence");
+        return $"BG-{DateTime.Now:yyyyMMdd}-{seq:D3}";
     }
 
     private async Task<List<CustomerOptionViewModel>> GetCustomerOptionsAsync()

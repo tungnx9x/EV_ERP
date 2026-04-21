@@ -31,5 +31,8 @@ namespace EV_ERP.Repositories.Interfaces
         Task BeginTransactionAsync();
         Task CommitAsync();
         Task RollbackAsync();
+
+        /// <summary>Lấy giá trị tiếp theo từ SQL Server Sequence</summary>
+        Task<long> NextSequenceValueAsync(string sequenceName);
     }
 }

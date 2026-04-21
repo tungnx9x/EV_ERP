@@ -331,19 +331,8 @@ public class RfqService : IRfqService
     // ══════════════════════════════════════════════════
     private async Task<string> GenerateRfqNoAsync()
     {
-        var prefix = $"RFQ-{DateTime.Now:yyyyMM}-";
-        var last = await _uow.Repository<RFQ>().Query()
-            .Where(r => r.RfqNo.StartsWith(prefix))
-            .OrderByDescending(r => r.RfqNo)
-            .FirstOrDefaultAsync();
-
-        int next = 1;
-        if (last != null)
-        {
-            var suffix = last.RfqNo[prefix.Length..];
-            if (int.TryParse(suffix, out int n)) next = n + 1;
-        }
-        return $"{prefix}{next:D3}";
+        var seq = await _uow.NextSequenceValueAsync("RfqSequence");
+        return $"RFQ-{DateTime.Now:yyyyMMdd}-{seq:D3}";
     }
 
     private async Task<List<CustomerOption>> GetCustomerOptionsAsync()

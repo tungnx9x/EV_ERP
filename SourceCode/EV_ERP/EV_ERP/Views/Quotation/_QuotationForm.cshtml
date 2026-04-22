@@ -248,9 +248,10 @@
         cursor: pointer; transition: all .15s;
         flex-shrink: 0;
     }
-    .qi-img-empty-lg:hover {
+    .qi-img-empty-lg:not(.qi-img-readonly):hover {
         border-color: #93c5fd; background: #eff6ff; color: #3b82f6;
     }
+    .qi-img-readonly { cursor: default; }
     .qi-img-actions {
         display: flex; flex-direction: column;
         gap: 4px;
@@ -576,20 +577,30 @@
                 '<div class="qi-body">' +
                     // ── IMAGE ROW (separate, larger) ──
                     '<div class="qi-img-row">' +
-                        (item.ImageUrl
-                            ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
-                            : '<div class="qi-img-empty-lg" onclick="triggerUpload(' + idx + ')">' +
-                                '<i class="bi bi-cloud-arrow-up" style="font-size:1.5rem;"></i>' +
-                                '<span>Tai anh len</span>' +
-                              '</div>') +
-                        '<div class="qi-img-actions">' +
-                            '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this)" />' +
-                            '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ')">' +
-                                '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
-                            '</button>' +
-                            (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
-                            '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG, WebP — toi da 5MB</div>' +
-                        '</div>' +
+                        (item.IsProductMapped
+                            // System product → view only
+                            ? (item.ImageUrl
+                                ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
+                                : '<div class="qi-img-empty-lg qi-img-readonly"><i class="bi bi-image" style="font-size:1.5rem;"></i><span>Khong co anh</span></div>') +
+                              '<div class="qi-img-actions">' +
+                                  '<div class="text-muted" style="font-size:0.68rem;"><i class="bi bi-lock me-1"></i>Anh tu he thong</div>' +
+                              '</div>'
+                            // Ad-hoc product → upload allowed
+                            : (item.ImageUrl
+                                ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
+                                : '<div class="qi-img-empty-lg" onclick="triggerUpload(' + idx + ')">' +
+                                    '<i class="bi bi-cloud-arrow-up" style="font-size:1.5rem;"></i>' +
+                                    '<span>Tai anh len</span>' +
+                                  '</div>') +
+                              '<div class="qi-img-actions">' +
+                                  '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this)" />' +
+                                  '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ')">' +
+                                      '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
+                                  '</button>' +
+                                  (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
+                                  '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG, WebP — toi da 5MB</div>' +
+                              '</div>'
+                        ) +
                     '</div>' +
 
                     // ── PRODUCT INFO ──
@@ -647,11 +658,6 @@
                     // ── INTERNAL SECTION (collapsible) ──
                     '<div class="qi-internal" id="internal_' + idx + '" style="display:' + intDisplay + ';">' +
                         '<div class="qi-grid qi-grid-internal">' +
-                            '<div>' +
-                                '<div class="qi-label">NCC</div>' +
-                                '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Supplier || '') + '" ' +
-                                    'onchange="updateField(' + idx + ', \'Supplier\', this.value)" placeholder="Shopee, Lazada..." />' +
-                            '</div>' +
                             '<div>' +
                                 '<div class="qi-label">Link mua hang</div>' +
                                 '<input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +

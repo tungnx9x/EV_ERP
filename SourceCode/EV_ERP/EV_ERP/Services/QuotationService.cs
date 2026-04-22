@@ -18,15 +18,17 @@ public class QuotationService : IQuotationService
     private readonly IWebHostEnvironment _env;
     private readonly ISalesOrderService _salesOrderService;
     private readonly ISlaService _slaService;
+    private readonly string _storageRoot;
 
     public QuotationService(IUnitOfWork uow, ILogger<QuotationService> logger, IWebHostEnvironment env,
-        ISalesOrderService salesOrderService, ISlaService slaService)
+        ISalesOrderService salesOrderService, ISlaService slaService, IConfiguration config)
     {
         _uow = uow;
         _logger = logger;
         _env = env;
         _salesOrderService = salesOrderService;
         _slaService = slaService;
+        _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
     }
 
     // ══════════════════════════════════════════════════
@@ -922,5 +924,30 @@ public class QuotationService : IQuotationService
         return discountType == "PERCENT"
             ? Math.Round(subTotal * discountValue.Value / 100m, 0)
             : Math.Min(discountValue.Value, subTotal);
+    }
+
+    // ══════════════════════════════════════════════════
+    // IMAGE UPLOAD (for ad-hoc quotation items)
+    // ══════════════════════════════════════════════════
+    public async Task<string?> UploadItemImageAsync(IFormFile file)
+    {
+        if (file == null || file.Length == 0) return null;
+
+        var ext = Path.GetExtension(file.FileName).ToLower();
+        if (!new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" }.Contains(ext)) return null;
+
+        const long maxBytes = 5 * 1024 * 1024;
+        if (file.Length > maxBytes) return null;
+
+        var dir = Path.Combine(_storageRoot, "Quotation", "Images");
+        Directory.CreateDirectory(dir);
+
+        var fileName = $"quot-item-{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(dir, fileName);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"/uploads/Quotation/Images/{fileName}";
     }
 }

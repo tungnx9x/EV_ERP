@@ -36,4 +36,7 @@ public interface IQuotationService
 
     // ── Product search (Ajax) ────────────────────────
     Task<List<ProductSearchResult>> SearchProductsAsync(string keyword, int maxResults = 10);
+
+    // ── Image upload (for ad-hoc items) ─────────────
+    Task<string?> UploadItemImageAsync(IFormFile file);
 }

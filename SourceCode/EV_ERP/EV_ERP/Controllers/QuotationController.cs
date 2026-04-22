@@ -256,6 +256,29 @@ public class QuotationController : Controller
         var results = await _quotationService.SearchProductsAsync(keyword);
         return Json(results);
     }
+
+    // ── Upload Item Image (Ajax) ────────────────────
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadItemImage(IFormFile file)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Khong co quyen"));
+
+            var url = await _quotationService.UploadItemImageAsync(file);
+            if (url == null)
+                return Json(ApiResult<object>.Fail("File khong hop le (chi chap nhan JPG, PNG, WebP, GIF, toi da 5MB)"));
+
+            return Json(ApiResult<object>.Ok(new { url }, "Upload thanh cong"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UploadItemImage failed");
+            return Json(ApiResult<object>.Fail("Loi upload: " + ex.Message));
+        }
+    }
 }
 
 // ── Shared request model ─────────────────────────────

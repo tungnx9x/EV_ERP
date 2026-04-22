@@ -1,9 +1,9 @@
-﻿@model EV_ERP.Models.ViewModels.Quotations.QuotationFormViewModel
+@model EV_ERP.Models.ViewModels.Quotations.QuotationFormViewModel
 @{
     var action = Model.IsEditMode ? "Edit" : "Create";
     var title = Model.IsEditMode
         ? $"{Model.QuotationNo}"
-        : (!string.IsNullOrEmpty(Model.QuotationNo) ? Model.QuotationNo : "Tạo báo giá mới");
+        : (!string.IsNullOrEmpty(Model.QuotationNo) ? Model.QuotationNo : "Tạo báo giá mới");
     var icon = Model.IsEditMode ? "bi-pencil-square" : "bi-file-earmark-plus";
 }
 
@@ -33,9 +33,9 @@
                 <input type="hidden" id="frm_salesPersonId" value="@Model.SalesPersonId" />
                 <div class="row">
                     <div class="col-lg-6">
-                        <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
                         <select id="frm_customerId" class="form-select form-select-sm">
-                            <option value="">-- Chọn khách hàng --</option>
+                            <option value="">-- Chọn khách hàng --</option>
                             @foreach (var c in Model.Customers)
                             {
                                 <option value="@c.CustomerId" selected="@(Model.CustomerId == c.CustomerId)">
@@ -46,10 +46,10 @@
                     </div>
 
                     <div class="col-lg-6">
-                        <label class="form-label small fw-semibold">Hệ số <span class="text-danger">*</span></label>
+                        <label class="form-label small fw-semibold">Hệ số <span class="text-danger">*</span></label>
                         <input type="number" id="frm_coefficient" class="form-control form-control-sm"
                                value="@Model.Coefficient" min="0.01" step="any" />
-                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập / Hệ số + Vận chuyển</div>
+                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập / Hệ số + Vận chuyển</div>
                     </div>
                     <div class="col-lg-3">
                         <label class="form-label small fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
@@ -57,80 +57,50 @@
                                value="@(Model.Deadline?.ToString("yyyy-MM-ddTHH:mm"))" />
                     </div>
                 </div>
-
-                @*Haven't need notes yet*@
-                @* <div class="mb-3">
-                    <label class="form-label small fw-semibold">Ghi chu</label>
-                    <textarea id="frm_notes" class="form-control form-control-sm" rows="2"
-                              placeholder="Ghi chu cho khach hang...">@Model.Notes</textarea>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Ghi chu noi bo</label>
-                    <textarea id="frm_internalNotes" class="form-control form-control-sm" rows="2"
-                              placeholder="Ghi chu noi bo...">@Model.InternalNotes</textarea>
-                </div> *@
             </div>
         </div>
     </div>
 </div>
+
 <div class="row">
-    <!-- Items + Totals -->
     <div class="col-lg-12">
-        <!-- Items table -->
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-semibold small text-uppercase">
-                    <i class="bi bi-box-seam me-1"></i> Sản phẩm
-                    <span class="badge bg-primary rounded-pill ms-1" id="itemCountBadge">0</span>
-                </h6>
+        <!-- Items header -->
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="mb-0 fw-semibold small text-uppercase">
+                <i class="bi bi-box-seam me-1"></i> Sản phẩm
+                <span class="badge bg-primary rounded-pill ms-1" id="itemCountBadge">0</span>
+            </h6>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllInternal()">
+                    <i class="bi bi-eye me-1" id="toggleAllIcon"></i><span id="toggleAllText">Mở nội bộ</span>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEmptyRow()">
-                    <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
+                    <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
                 </button>
             </div>
-            <div class="card-body pb-2">
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.78rem;" id="itemsTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th rowspan="2" style="width:30px;" class="text-center align-middle">STT</th>
-                                <th colspan="6" class="text-center bg-primary-subtle">Thông tin sản phẩm</th>
-                                <th colspan="5" class="text-center bg-success-subtle">Báo giá khách hàng</th>
-                                <th colspan="5" class="text-center bg-warning-subtle">Thông tin nội bộ</th>
-                            </tr>
-                            <tr>
-                                <th style="min-width:180px;">Yêu cầu</th>
-                                <th style="min-width:140px;">Đề xuất</th>
-                                <th style="width:70px;">Hình ảnh</th>
-                                <th style="width:65px;">ĐVT</th>
-                                <th style="width:65px;">SL</th>
-                                <th style="width:110px;">Đơn giá</th>
-                                <th style="width:120px;">Trước VAT</th>
-                                <th style="width:60px;">VAT %</th>
-                                <th style="width:130px;">Sau VAT</th>
-                                <th style="min-width:130px;">NCC</th>
-                                <th style="width:110px;">Giá nhập</th>
-                                <th style="width:80px;">Tiền tệ</th>
-                                <th style="width:90px;">Vận chuyển</th>
-                                <th style="width:70px;">Hệ số</th>
-                            </tr>
-                        </thead>
-                        <tbody id="itemsBody">
-                            <!-- JS rendered -->
-                        </tbody>
-                        <tfoot id="itemsFoot" style="display:none;">
-                            <tr class="table-light fw-semibold">
-                                <td colspan="7" class="text-end">Tổng cộng:</td>
-                                <td class="text-end" id="sumExclVat">0</td>
-                                <td></td>
-                                <td class="text-end" id="sumInclVat">0</td>
-                                <td colspan="5"></td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                    <div id="itemsEmpty" class="text-center py-4 text-muted">
-                        <i class="bi bi-inbox" style="font-size:2rem;opacity:.3;"></i>
-                        <p class="small mt-1 mb-0">Chưa có sản phẩm — nhấn <strong>"Thêm sản phẩm"</strong> để bắt đầu</p>
+        </div>
+
+        <!-- Items container -->
+        <div id="itemsContainer"></div>
+
+        <div id="itemsEmpty" class="card border-0 shadow-sm mb-3">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size:2.5rem;opacity:.25;"></i>
+                <p class="small mt-2 mb-0">Chưa có sản phẩm — nhấn <strong>"Thêm sản phẩm"</strong> để bắt đầu</p>
+            </div>
+        </div>
+
+        <!-- Totals -->
+        <div id="totalsCard" class="card border-0 shadow-sm mb-3" style="display:none;">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-end gap-4">
+                    <div class="text-end">
+                        <div class="text-muted small">Tổng trước VAT</div>
+                        <div class="fw-semibold" id="sumExclVat">0</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted small">Tổng sau VAT</div>
+                        <div class="fw-bold text-primary fs-5" id="sumInclVat">0</div>
                     </div>
                 </div>
             </div>
@@ -138,537 +108,867 @@
 
         <!-- Actions -->
         <div class="d-flex gap-2 justify-content-end mb-4">
-            <div class="d-flex gap-2">
-                <a href="/Quotation" class="btn btn-outline-secondary">Hủy</a>
-                <button type="button" class="btn btn-primary" onclick="submitForm()" id="btnSubmit">
-                    <i class="bi bi-check-lg me-1"></i>
-                    @(Model.IsEditMode ? "Cập nhật" : "Tạo báo giá")
-                </button>
-            </div>
+            <a href="/Quotation" class="btn btn-outline-secondary">Hủy</a>
+            <button type="button" class="btn btn-primary" onclick="submitForm()" id="btnSubmit">
+                <i class="bi bi-check-lg me-1"></i>
+                @(Model.IsEditMode ? "Cập nhật" : "Tạo báo giá")
+            </button>
         </div>
     </div>
 </div>
 
-<!-- Inline search dropdown (shared, repositioned per cell) -->
+<!-- Inline search dropdown (shared, repositioned per input) -->
 <div id="inlineSearchDropdown" class="position-fixed bg-white border rounded shadow-sm"
-     style="z-index:2000; display:none; max-height:220px; overflow-y:auto; min-width:280px;">
+     style="z-index:2000; display:none; max-height:240px; overflow-y:auto; min-width:320px;">
 </div>
 
 <style>
-    .product-result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+    .qi-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #fff;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.04);
+        transition: box-shadow .15s;
+    }
+    .qi-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+
+    .qi-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px 6px;
+    }
+    .qi-num {
+        width: 26px; height: 26px;
+        display: flex; align-items: center; justify-content: center;
+        background: #f1f5f9; border-radius: 6px;
+        font-size: 0.72rem; font-weight: 600; color: #64748b;
+        flex-shrink: 0;
+    }
+    .qi-search {
+        flex: 1;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 0.82rem;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .qi-search:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 2px rgba(13,110,253,.12);
+    }
+    .qi-search::placeholder { color: #94a3b8; }
+
+    .qi-body { padding: 0 14px 10px; }
+
+    .qi-grid {
+        display: grid;
+        gap: 6px 12px;
+        align-items: end;
+    }
+    .qi-grid-product { grid-template-columns: 1fr 80px 1fr; }
+    .qi-grid-pricing { grid-template-columns: 80px 120px 1fr 60px 1fr; }
+    .qi-grid-internal { grid-template-columns: 1fr 1fr 100px 80px 90px 80px; }
+
+    .qi-label {
+        font-size: 0.68rem;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        margin-bottom: 2px;
+    }
+    .qi-val {
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 4px 0;
+        white-space: nowrap;
+    }
+    .qi-val-primary { color: #2563eb; font-weight: 700; }
+
+    .qi-card input.form-control,
+    .qi-card select.form-select {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        height: auto;
+    }
+
+    .qi-section-label {
+        font-size: 0.68rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        font-weight: 600;
+        margin: 6px 0 4px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .qi-internal {
+        background: #fefce8;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-top: 6px;
+    }
+
+    .qi-toggle-internal {
+        background: none; border: none;
+        font-size: 0.72rem; color: #94a3b8;
+        cursor: pointer; padding: 2px 4px;
+        display: flex; align-items: center; gap: 4px;
+    }
+    .qi-toggle-internal:hover { color: #64748b; }
+
+    .qi-img-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        margin: 4px 0;
+        border-top: 1px solid #f1f5f9;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .qi-img-preview {
+        width: 120px; height: 120px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        flex-shrink: 0;
+    }
+    .qi-img-empty-lg {
+        width: 120px; height: 120px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: #f8fafc; border-radius: 8px;
+        border: 2px dashed #cbd5e1;
+        color: #94a3b8; font-size: 0.72rem;
+        cursor: pointer; transition: all .15s;
+        flex-shrink: 0;
+    }
+    .qi-img-empty-lg:hover {
+        border-color: #93c5fd; background: #eff6ff; color: #3b82f6;
+    }
+    .qi-img-actions {
+        display: flex; flex-direction: column;
+        gap: 4px;
+    }
+    .qi-img-upload-btn {
+        font-size: 0.72rem; padding: 3px 10px;
+        border: 1px solid #cbd5e1; border-radius: 5px;
+        background: #fff; color: #475569;
+        cursor: pointer; transition: all .12s;
+        display: inline-flex; align-items: center; gap: 4px;
+    }
+    .qi-img-upload-btn:hover { border-color: #3b82f6; color: #2563eb; background: #eff6ff; }
+    .qi-img-remove-btn {
+        font-size: 0.68rem; padding: 2px 8px;
+        border: none; border-radius: 4px;
+        background: none; color: #94a3b8;
+        cursor: pointer;
+    }
+    .qi-img-remove-btn:hover { color: #dc2626; }
+
+    .qi-badge-mapped {
+        font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
+        font-weight: 600; flex-shrink: 0;
+    }
+    .qi-badge-ht { background: #dcfce7; color: #166534; }
+    .qi-badge-tmp { background: #fef9c3; color: #854d0e; }
+
+    .qi-delete {
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 6px; border: none;
+        background: #fff; color: #94a3b8;
+        cursor: pointer; flex-shrink: 0;
+        transition: all .15s;
+    }
+    .qi-delete:hover { background: #fef2f2; color: #dc2626; }
+
+    .qi-calc-symbol {
+        font-size: 0.78rem; color: #94a3b8; font-weight: 500;
+        display: flex; align-items: end; padding-bottom: 5px;
+    }
+
+    .product-result-item {
+        padding: 10px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background .1s;
+    }
     .product-result-item:hover { background: #f8fafc; }
     .product-result-item:last-child { border-bottom: none; }
-    .bg-primary-subtle { background-color: #e0f2fe !important; }
-    .bg-success-subtle { background-color: #dcfce7 !important; }
-    .bg-warning-subtle { background-color: #fef9c3 !important; }
-    #itemsTable input, #itemsTable select { font-size: 0.78rem; }
-    #itemsTable td { vertical-align: middle; padding: 0.25rem 0.35rem; }
-    #itemsTable .form-control, #itemsTable .form-select { padding: 0.2rem 0.4rem; }
-    .img-thumb-sm { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
-    .request-cell { position: relative; }
-    .request-input { border: 1px solid #dee2e6; border-radius: 4px; padding: 0.2rem 0.4rem; width: 100%; font-size: 0.78rem; }
-    .request-input:focus { border-color: #86b7fe; outline: 0; box-shadow: 0 0 0 0.15rem rgba(13,110,253,.15); }
+
+    @@media (max-width: 768px) {
+        .qi-grid-product { grid-template-columns: 1fr 60px; }
+        .qi-grid-pricing { grid-template-columns: 1fr 1fr; }
+        .qi-grid-internal { grid-template-columns: 1fr 1fr; }
+    }
 </style>
 
 <script>
-        // ══════════════════════════════════════════════
-        // STATE
-        // ══════════════════════════════════════════════
-        var items = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items));
-        var searchTimeout = null;
-        var isEditMode = @(Model.IsEditMode ? "true" : "false");
-        var activeSearchIdx = -1; // which row's Request cell is being searched
+    // ══════════════════════════════════════════════
+    // STATE
+    // ══════════════════════════════════════════════
+    var items = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items));
+    var searchTimeout = null;
+    var isEditMode = @(Model.IsEditMode ? "true" : "false");
+    var activeSearchIdx = -1;
+    var allInternalOpen = false;
 
-        var currencyRates = {
-            'VND': 1,
-            'USD': 25000,
-            'CNY': 3500,
-            'EUR': 27000,
-            'JPY': 170
-        };
+    var currencyRates = {
+        'VND': 1,
+        'USD': 25000,
+        'CNY': 3500,
+        'EUR': 27000,
+        'JPY': 170
+    };
 
-        // ══════════════════════════════════════════════
-        // INIT
-        // ══════════════════════════════════════════════
-        document.addEventListener('DOMContentLoaded', function () {
+    // ══════════════════════════════════════════════
+    // INIT
+    // ══════════════════════════════════════════════
+    document.addEventListener('DOMContentLoaded', function () {
+        renderItems();
+        recalcTotals();
+
+        document.getElementById('frm_coefficient').addEventListener('input', function () {
+            var globalCoeff = parseFloat(this.value) || 1;
+            items.forEach(function (item, idx) {
+                item.Coefficient = globalCoeff;
+                recalcUnitPriceFromImport(idx);
+                recalcItemLine(idx);
+            });
             renderItems();
             recalcTotals();
-
-            // Recalc when global coefficient changes
-            document.getElementById('frm_coefficient').addEventListener('input', function () {
-                var globalCoeff = parseFloat(this.value) || 1;
-                items.forEach(function (item, idx) {
-                    item.Coefficient = globalCoeff;
-                    recalcUnitPriceFromImport(idx);
-                    recalcItemLine(idx);
-                });
-                renderItems();
-                recalcTotals();
-            });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function (e) {
-                var dd = document.getElementById('inlineSearchDropdown');
-                if (!dd.contains(e.target) && !e.target.classList.contains('request-input')) {
-                    dd.style.display = 'none';
-                    activeSearchIdx = -1;
-                }
-            });
         });
 
-        // ══════════════════════════════════════════════
-        // ADD EMPTY ROW
-        // ══════════════════════════════════════════════
-        function addEmptyRow() {
-            var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
-            items.push({
-                QuotationItemId: null,
-                ProductId: 0,
-                ProductName: '',
-                Proposal: '',
-                ImageUrl: '',
-                UnitName: '',
-                Quantity: 1,
-                UnitPrice: 0,
-                AmountExclVat: 0,
-                VatRate: 8,
-                AmountInclVat: 0,
-                Supplier: '',
-                SourceUrl: '',
-                ImportPrice: 0,
-                Currency: 'VND',
-                Shipping: 0,
-                Coefficient: globalCoeff,
-                DiscountType: null,
-                DiscountValue: null,
-                DiscountAmount: 0,
-                LineTotal: 0,
-                SortOrder: items.length,
-                Notes: null,
-                IsProductMapped: false
-            });
-            renderItems();
-            recalcTotals();
-            // Focus the new Request input
-            setTimeout(function () {
-                var input = document.getElementById('req_' + (items.length - 1));
-                if (input) input.focus();
-            }, 50);
-        }
-
-        // ══════════════════════════════════════════════
-        // INLINE PRODUCT SEARCH (in Request column)
-        // ══════════════════════════════════════════════
-        function onRequestInput(idx, inputEl) {
-            var kw = inputEl.value.trim();
-            items[idx].ProductName = inputEl.value;
-            // If user manually edits the name, clear the product mapping
-            if (items[idx].IsProductMapped) {
-                items[idx].ProductId = 0;
-                items[idx].IsProductMapped = false;
-            }
-            activeSearchIdx = idx;
-
-            clearTimeout(searchTimeout);
+        document.addEventListener('click', function (e) {
             var dd = document.getElementById('inlineSearchDropdown');
-
-            if (kw.length < 2) {
+            if (!dd.contains(e.target) && !e.target.classList.contains('qi-search')) {
                 dd.style.display = 'none';
+                activeSearchIdx = -1;
+            }
+        });
+    });
+
+    // ══════════════════════════════════════════════
+    // ADD EMPTY ROW
+    // ══════════════════════════════════════════════
+    function addEmptyRow() {
+        var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
+        items.push({
+            QuotationItemId: null,
+            ProductId: 0,
+            ProductName: '',
+            Proposal: '',
+            ImageUrl: '',
+            UnitName: '',
+            Quantity: 1,
+            UnitPrice: 0,
+            AmountExclVat: 0,
+            VatRate: 8,
+            AmountInclVat: 0,
+            Supplier: '',
+            SourceUrl: '',
+            ImportPrice: 0,
+            Currency: 'VND',
+            Shipping: 0,
+            Coefficient: globalCoeff,
+            DiscountType: null,
+            DiscountValue: null,
+            DiscountAmount: 0,
+            LineTotal: 0,
+            SortOrder: items.length,
+            Notes: null,
+            IsProductMapped: false,
+            _internalOpen: allInternalOpen
+        });
+        renderItems();
+        recalcTotals();
+        setTimeout(function () {
+            var input = document.getElementById('req_' + (items.length - 1));
+            if (input) input.focus();
+        }, 50);
+    }
+
+    // ══════════════════════════════════════════════
+    // INLINE PRODUCT SEARCH
+    // ══════════════════════════════════════════════
+    function onRequestInput(idx, inputEl) {
+        var kw = inputEl.value.trim();
+        items[idx].ProductName = inputEl.value;
+        if (items[idx].IsProductMapped) {
+            items[idx].ProductId = 0;
+            items[idx].IsProductMapped = false;
+            // Update badge inline without full re-render
+            var badge = document.getElementById('badge_' + idx);
+            if (badge) {
+                badge.className = 'qi-badge-mapped qi-badge-tmp';
+                badge.textContent = 'Tam';
+                badge.title = 'SP nhap tay (chua co trong he thong)';
+            }
+        }
+        activeSearchIdx = idx;
+
+        clearTimeout(searchTimeout);
+        var dd = document.getElementById('inlineSearchDropdown');
+
+        if (kw.length < 2) {
+            dd.style.display = 'none';
+            return;
+        }
+
+        searchTimeout = setTimeout(function () {
+            fetch('/Quotation/SearchProducts?keyword=' + encodeURIComponent(kw))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (activeSearchIdx !== idx) return;
+
+                    if (!data || data.length === 0) {
+                        dd.innerHTML = '<div class="p-3 text-muted small text-center">Khong tim thay san pham — nhap tay thong tin</div>';
+                    } else {
+                        dd.innerHTML = data.map(function (p) {
+                            var imgHtml = p.ImageUrl
+                                ? '<img src="' + escapeHtml(p.ImageUrl) + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:8px;" />'
+                                : '';
+                            return '<div class="product-result-item d-flex align-items-center" onmousedown="selectProduct(' + idx + ', ' + JSON.stringify(p).replace(/"/g, '&quot;') + ')">' +
+                                imgHtml +
+                                '<div>' +
+                                '<div class="fw-semibold small">' + escapeHtml(p.ProductName) + '</div>' +
+                                '<div class="text-muted" style="font-size:0.72rem;">' +
+                                escapeHtml(p.ProductCode) + ' &bull; ' + escapeHtml(p.UnitName) +
+                                (p.DefaultPurchasePrice ? ' &bull; Nhap: ' + formatNumber(p.DefaultPurchasePrice) : '') +
+                                '</div></div></div>';
+                        }).join('');
+                    }
+
+                    var rect = inputEl.getBoundingClientRect();
+                    dd.style.left = rect.left + 'px';
+                    dd.style.top = (rect.bottom + 2) + 'px';
+                    dd.style.width = Math.max(rect.width, 320) + 'px';
+                    dd.style.display = 'block';
+                });
+        }, 300);
+    }
+
+    function onRequestBlur(idx) {
+        setTimeout(function () {
+            if (activeSearchIdx === idx) {
+                document.getElementById('inlineSearchDropdown').style.display = 'none';
+                activeSearchIdx = -1;
+            }
+        }, 200);
+    }
+
+    function selectProduct(idx, product) {
+        var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
+        var importPrice = product.DefaultPurchasePrice || 0;
+        var coeff = items[idx].Coefficient || globalCoeff;
+        var unitPrice = coeff > 0 ? Math.round(importPrice / coeff) : importPrice;
+
+        items[idx].ProductId = product.ProductId;
+        items[idx].ProductName = product.ProductName;
+        items[idx].Proposal = product.Description || '';
+        items[idx].ImageUrl = product.ImageUrl || '';
+        items[idx].UnitName = product.UnitName || '';
+        items[idx].ImportPrice = importPrice;
+        items[idx].UnitPrice = unitPrice;
+        items[idx].IsProductMapped = true;
+
+        recalcItemLine(idx);
+
+        document.getElementById('inlineSearchDropdown').style.display = 'none';
+        activeSearchIdx = -1;
+
+        renderItems();
+        recalcTotals();
+    }
+
+    // ══════════════════════════════════════════════
+    // TOGGLE INTERNAL SECTION
+    // ══════════════════════════════════════════════
+    function toggleInternal(idx) {
+        items[idx]._internalOpen = !items[idx]._internalOpen;
+        var section = document.getElementById('internal_' + idx);
+        var icon = document.getElementById('intIcon_' + idx);
+        if (section) {
+            section.style.display = items[idx]._internalOpen ? 'block' : 'none';
+            icon.className = items[idx]._internalOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
+        }
+    }
+
+    function toggleAllInternal() {
+        allInternalOpen = !allInternalOpen;
+        items.forEach(function (item, idx) {
+            item._internalOpen = allInternalOpen;
+            var section = document.getElementById('internal_' + idx);
+            var icon = document.getElementById('intIcon_' + idx);
+            if (section) {
+                section.style.display = allInternalOpen ? 'block' : 'none';
+                icon.className = allInternalOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
+            }
+        });
+        document.getElementById('toggleAllIcon').className = allInternalOpen ? 'bi bi-eye-slash me-1' : 'bi bi-eye me-1';
+        document.getElementById('toggleAllText').textContent = allInternalOpen ? 'An noi bo' : 'Mo noi bo';
+    }
+
+    // ══════════════════════════════════════════════
+    // RENDER ITEMS
+    // ══════════════════════════════════════════════
+    function renderItems() {
+        var container = document.getElementById('itemsContainer');
+        var empty = document.getElementById('itemsEmpty');
+        var totals = document.getElementById('totalsCard');
+        document.getElementById('itemCountBadge').textContent = items.length;
+
+        if (items.length === 0) {
+            container.innerHTML = '';
+            empty.style.display = 'block';
+            totals.style.display = 'none';
+            return;
+        }
+        empty.style.display = 'none';
+        totals.style.display = 'block';
+
+        var currencyOptions = Object.keys(currencyRates).map(function (c) {
+            return '<option value="' + c + '">{selected}' + c + '</option>';
+        }).join('');
+
+        container.innerHTML = items.map(function (item, idx) {
+            var currOpts = currencyOptions.replace(
+                '{selected}' + item.Currency,
+                'selected ' + item.Currency
+            ).replace(/\{selected\}/g, '');
+
+            var imgHtml = item.ImageUrl
+                ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-thumb" alt="" />'
+                : '<div class="qi-img-empty"><i class="bi bi-image"></i></div>';
+
+            var badgeClass = item.IsProductMapped ? 'qi-badge-ht' : 'qi-badge-tmp';
+            var badgeText = item.IsProductMapped ? 'HT' : 'Tam';
+            var badgeTitle = item.IsProductMapped ? 'SP trong he thong' : 'SP nhap tay (chua co trong he thong)';
+            var showBadge = item.IsProductMapped || item.ProductName;
+
+            var internalOpen = item._internalOpen || false;
+            var intIconClass = internalOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
+            var intDisplay = internalOpen ? 'block' : 'none';
+
+            var canUpload = !item.IsProductMapped;
+
+            return '<div class="qi-card">' +
+                // ── HEADER: Number + Search + Badge + Delete ──
+                '<div class="qi-header">' +
+                    '<div class="qi-num">' + (idx + 1) + '</div>' +
+                    '<input type="text" class="qi-search" id="req_' + idx + '" ' +
+                        'value="' + escapeHtml(item.ProductName) + '" ' +
+                        'oninput="onRequestInput(' + idx + ', this)" ' +
+                        'onblur="onRequestBlur(' + idx + ')" ' +
+                        'placeholder="Tim san pham hoac nhap ten truc tiep..." autocomplete="off" />' +
+                    (showBadge ? '<span class="qi-badge-mapped ' + badgeClass + '" id="badge_' + idx + '" title="' + badgeTitle + '">' + badgeText + '</span>' : '') +
+                    '<button class="qi-delete" onclick="removeItem(' + idx + ')" title="Xoa dong nay">' +
+                        '<i class="bi bi-trash3" style="font-size:0.8rem;"></i>' +
+                    '</button>' +
+                '</div>' +
+
+                '<div class="qi-body">' +
+                    // ── IMAGE ROW (separate, larger) ──
+                    '<div class="qi-img-row">' +
+                        (item.ImageUrl
+                            ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
+                            : '<div class="qi-img-empty-lg" onclick="triggerUpload(' + idx + ')">' +
+                                '<i class="bi bi-cloud-arrow-up" style="font-size:1.5rem;"></i>' +
+                                '<span>Tai anh len</span>' +
+                              '</div>') +
+                        '<div class="qi-img-actions">' +
+                            '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this)" />' +
+                            '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ')">' +
+                                '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
+                            '</button>' +
+                            (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
+                            '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG, WebP — toi da 5MB</div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // ── PRODUCT INFO ──
+                    '<div class="qi-grid qi-grid-product">' +
+                        '<div>' +
+                            '<div class="qi-label">Mo ta / De xuat</div>' +
+                            '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
+                                'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham..." />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">DVT</div>' +
+                            '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.UnitName) + '" ' +
+                                'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cai, Bo..." />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">Ghi chu</div>' +
+                            '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Notes || '') + '" ' +
+                                'onchange="updateField(' + idx + ', \'Notes\', this.value)" placeholder="Ghi chu..." />' +
+                        '</div>' +
+                    '</div>' +
+
+                    // ── CUSTOMER PRICING ──
+                    '<div class="qi-section-label">Bao gia khach hang</div>' +
+                    '<div class="qi-grid qi-grid-pricing">' +
+                        '<div>' +
+                            '<div class="qi-label">So luong</div>' +
+                            '<input type="number" class="form-control form-control-sm" id="qty_' + idx + '" ' +
+                                'value="' + item.Quantity + '" min="0.001" step="any" onchange="updateQtyOrPrice(' + idx + ')" />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">Don gia</div>' +
+                            '<input type="number" class="form-control form-control-sm" ' +
+                                'value="' + item.UnitPrice + '" min="0" step="any" onchange="updateUnitPrice(' + idx + ', this.value)" />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">Truoc VAT</div>' +
+                            '<div class="qi-val">' + formatNumber(item.AmountExclVat) + '</div>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">VAT %</div>' +
+                            '<input type="number" class="form-control form-control-sm" ' +
+                                'value="' + item.VatRate + '" min="0" max="100" step="0.5" onchange="updateVat(' + idx + ', this.value)" />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">Sau VAT</div>' +
+                            '<div class="qi-val qi-val-primary">' + formatNumber(item.AmountInclVat) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // ── INTERNAL TOGGLE ──
+                    '<button class="qi-toggle-internal" onclick="toggleInternal(' + idx + ')">' +
+                        '<i class="' + intIconClass + '" id="intIcon_' + idx + '" style="font-size:0.65rem;"></i> Thong tin noi bo' +
+                    '</button>' +
+
+                    // ── INTERNAL SECTION (collapsible) ──
+                    '<div class="qi-internal" id="internal_' + idx + '" style="display:' + intDisplay + ';">' +
+                        '<div class="qi-grid qi-grid-internal">' +
+                            '<div>' +
+                                '<div class="qi-label">NCC</div>' +
+                                '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Supplier || '') + '" ' +
+                                    'onchange="updateField(' + idx + ', \'Supplier\', this.value)" placeholder="Shopee, Lazada..." />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">Link mua hang</div>' +
+                                '<input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
+                                    'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">Gia nhap</div>' +
+                                '<input type="number" class="form-control form-control-sm" ' +
+                                    'value="' + item.ImportPrice + '" min="0" step="any" onchange="updateImportPrice(' + idx + ', this.value)" />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">Tien te</div>' +
+                                '<select class="form-select form-select-sm" onchange="updateCurrency(' + idx + ', this.value)">' + currOpts + '</select>' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">Van chuyen</div>' +
+                                '<input type="number" class="form-control form-control-sm" ' +
+                                    'value="' + item.Shipping + '" min="0" step="any" onchange="updateShipping(' + idx + ', this.value)" />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">He so</div>' +
+                                '<input type="number" class="form-control form-control-sm" ' +
+                                    'value="' + item.Coefficient + '" min="0.01" step="any" onchange="updateCoefficient(' + idx + ', this.value)" />' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    // ══════════════════════════════════════════════
+    // ITEM UPDATES
+    // ══════════════════════════════════════════════
+    function updateField(idx, field, val) {
+        items[idx][field] = val;
+    }
+
+    function updateQtyOrPrice(idx) {
+        var qty = parseFloat(document.getElementById('qty_' + idx).value) || 0;
+        items[idx].Quantity = qty;
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function updateUnitPrice(idx, val) {
+        items[idx].UnitPrice = parseFloat(val) || 0;
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function updateVat(idx, val) {
+        items[idx].VatRate = parseFloat(val) || 0;
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function updateImportPrice(idx, val) {
+        items[idx].ImportPrice = parseFloat(val) || 0;
+        recalcUnitPriceFromImport(idx);
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function updateCurrency(idx, val) {
+        items[idx].Currency = val;
+        recalcUnitPriceFromImport(idx);
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function updateShipping(idx, val) {
+        items[idx].Shipping = parseFloat(val) || 0;
+        recalcUnitPriceFromImport(idx);
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function updateCoefficient(idx, val) {
+        items[idx].Coefficient = parseFloat(val) || 1;
+        recalcUnitPriceFromImport(idx);
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    function removeItem(idx) {
+        items.splice(idx, 1);
+        renderItems();
+        recalcTotals();
+    }
+
+    // ══════════════════════════════════════════════
+    // IMAGE UPLOAD
+    // ══════════════════════════════════════════════
+    function triggerUpload(idx) {
+        document.getElementById('imgFile_' + idx).click();
+    }
+
+    function uploadItemImage(idx, inputEl) {
+        var file = inputEl.files[0];
+        if (!file) return;
+
+        var formData = new FormData();
+        formData.append('file', file);
+
+        // Show loading state
+        var preview = inputEl.closest('.qi-img-row');
+        if (preview) {
+            var firstChild = preview.firstElementChild;
+            if (firstChild) firstChild.style.opacity = '0.5';
+        }
+
+        fetch('/Quotation/UploadItemImage', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': getAntiForgeryToken() },
+            body: formData
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.Success && res.Data && res.Data.url) {
+                items[idx].ImageUrl = res.Data.url;
+                renderItems();
+            } else {
+                alert(res.Message || 'Upload that bai');
+                if (preview) {
+                    var firstChild = preview.firstElementChild;
+                    if (firstChild) firstChild.style.opacity = '1';
+                }
+            }
+        })
+        .catch(function () {
+            alert('Loi ket noi khi upload');
+            if (preview) {
+                var firstChild = preview.firstElementChild;
+                if (firstChild) firstChild.style.opacity = '1';
+            }
+        });
+    }
+
+    function removeImage(idx) {
+        items[idx].ImageUrl = '';
+        renderItems();
+    }
+
+    function recalcUnitPriceFromImport(idx) {
+        var item = items[idx];
+        var importVnd = item.ImportPrice * (currencyRates[item.Currency] || 1);
+        var coeff = item.Coefficient > 0 ? item.Coefficient : 1;
+        item.UnitPrice = Math.round(importVnd / coeff + item.Shipping);
+    }
+
+    function recalcItemLine(idx) {
+        var item = items[idx];
+        item.AmountExclVat = Math.round(item.UnitPrice * item.Quantity);
+        item.AmountInclVat = Math.round(item.AmountExclVat * (1 + item.VatRate / 100));
+        item.LineTotal = item.AmountInclVat;
+    }
+
+    // ══════════════════════════════════════════════
+    // TOTALS
+    // ══════════════════════════════════════════════
+    function recalcTotals() {
+        var totalExcl = 0;
+        var totalIncl = 0;
+        items.forEach(function (item) {
+            totalExcl += item.AmountExclVat;
+            totalIncl += item.AmountInclVat;
+        });
+        document.getElementById('sumExclVat').textContent = formatNumber(totalExcl);
+        document.getElementById('sumInclVat').textContent = formatNumber(totalIncl);
+    }
+
+    // ══════════════════════════════════════════════
+    // EXPORT EXCEL
+    // ══════════════════════════════════════════════
+    function exportExcel() {
+        if (items.length === 0) { alert('Chua co san pham de xuat'); return; }
+
+        var customerId = parseInt(document.getElementById('frm_customerId').value);
+        if (!customerId) { alert('Vui long lua chon khach hang'); return; }
+
+        var btn = document.getElementById('btnExport');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang xuat...';
+
+        var payload = {
+            CustomerId: customerId,
+            Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
+            Notes: null,
+            Items: items
+        };
+
+        fetch('/Quotation/ExportExcel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('Export failed');
+            var disposition = r.headers.get('Content-Disposition');
+            var filename = 'quotation.xlsx';
+            if (disposition) {
+                var match = disposition.match(/filename\*?=(?:UTF-8''|")([^";]+)/i);
+                if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''));
+            }
+            return r.blob().then(function (blob) { return { blob: blob, filename: filename }; });
+        })
+        .then(function (result) {
+            var url = window.URL.createObjectURL(result.blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = result.filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(function (err) {
+            alert('Loi xuat file: ' + err.message);
+        })
+        .finally(function () {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-file-earmark-excel me-1"></i> Xuat file bao gia';
+        });
+    }
+
+    // ══════════════════════════════════════════════
+    // SUBMIT
+    // ══════════════════════════════════════════════
+    function submitForm() {
+        var customerId = parseInt(document.getElementById('frm_customerId').value);
+        var deadlineVal = document.getElementById('frm_deadline')?.value;
+        if (!deadlineVal) { alert('Vui long chon han xu ly noi bo'); return; }
+        if (!customerId) { alert('Vui long chon khach hang'); return; }
+        if (items.length === 0) { alert('Vui long them it nhat 1 san pham'); return; }
+
+        for (var vi = 0; vi < items.length; vi++) {
+            if (!items[vi].ProductName || !items[vi].ProductName.trim()) {
+                alert('Dong ' + (vi + 1) + ': Vui long nhap ten san pham');
+                var inp = document.getElementById('req_' + vi);
+                if (inp) inp.focus();
                 return;
             }
-
-            searchTimeout = setTimeout(function () {
-                fetch('/Quotation/SearchProducts?keyword=' + encodeURIComponent(kw))
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        if (activeSearchIdx !== idx) return; // user moved on
-
-                        if (!data || data.length === 0) {
-                            dd.innerHTML = '<div class="p-3 text-muted small text-center">Không tìm thấy sản phẩm</div>';
-                        } else {
-                            dd.innerHTML = data.map(function (p) {
-                                return '<div class="product-result-item" onmousedown="selectProduct(' + idx + ', ' + JSON.stringify(p).replace(/"/g, '&quot;') + ')">' +
-                                    '<div class="fw-semibold small">' + escapeHtml(p.ProductName) + '</div>' +
-                                    '<div class="text-muted" style="font-size:0.72rem;">' +
-                                    escapeHtml(p.ProductCode) + ' &bull; ' + escapeHtml(p.UnitName) +
-                                    (p.DefaultPurchasePrice ? ' &bull; Nhap: ' + formatNumber(p.DefaultPurchasePrice) : '') +
-                                    '</div></div>';
-                            }).join('');
-                        }
-
-                        // Position dropdown below the input
-                        var rect = inputEl.getBoundingClientRect();
-                        dd.style.left = rect.left + 'px';
-                        dd.style.top = (rect.bottom + 2) + 'px';
-                        dd.style.width = Math.max(rect.width, 280) + 'px';
-                        dd.style.display = 'block';
-                    });
-            }, 300);
         }
 
-        function onRequestBlur(idx) {
-            // Delay to allow click on dropdown item
-            setTimeout(function () {
-                if (activeSearchIdx === idx) {
-                    document.getElementById('inlineSearchDropdown').style.display = 'none';
-                    activeSearchIdx = -1;
-                }
-            }, 200);
-        }
+        var btn = document.getElementById('btnSubmit');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang luu...';
 
-        function selectProduct(idx, product) {
-            var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
-            var importPrice = product.DefaultPurchasePrice || 0;
-            var coeff = items[idx].Coefficient || globalCoeff;
-            var unitPrice = coeff > 0 ? Math.round(importPrice / coeff) : importPrice;
+        var payload = {
+            QuotationId: isEditMode ? parseInt(document.getElementById('frm_quotationId')?.value) : null,
+            RfqId: document.getElementById('frm_rfqId')?.value ? parseInt(document.getElementById('frm_rfqId').value) : null,
+            CustomerId: customerId,
+            QuotationDate: new Date().toISOString().split('T')[0],
+            ExpiryDate: null,
+            Deadline: document.getElementById('frm_deadline')?.value || null,
+            SalesPersonId: parseInt(document.getElementById('frm_salesPersonId').value) || 0,
+            PaymentTerms: null,
+            TaxRate: 8,
+            Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
+            DiscountType: null,
+            DiscountValue: null,
+            Items: items
+        };
 
-            items[idx].ProductId = product.ProductId;
-            items[idx].ProductName = product.ProductName;
-            items[idx].Proposal = product.Description || '';
-            items[idx].ImageUrl = product.ImageUrl || '';
-            items[idx].UnitName = product.UnitName || '';
-            items[idx].ImportPrice = importPrice;
-            items[idx].UnitPrice = unitPrice;
-            items[idx].IsProductMapped = true;
-
-            recalcItemLine(idx);
-
-            document.getElementById('inlineSearchDropdown').style.display = 'none';
-            activeSearchIdx = -1;
-
-            renderItems();
-            recalcTotals();
-        }
-
-        // ══════════════════════════════════════════════
-        // RENDER ITEMS
-        // ══════════════════════════════════════════════
-        function renderItems() {
-            var tbody = document.getElementById('itemsBody');
-            var empty = document.getElementById('itemsEmpty');
-            var foot = document.getElementById('itemsFoot');
-            document.getElementById('itemCountBadge').textContent = items.length;
-
-            if (items.length === 0) {
-                tbody.innerHTML = '';
-                empty.style.display = 'block';
-                foot.style.display = 'none';
-                return;
-            }
-            empty.style.display = 'none';
-            foot.style.display = '';
-
-            var currencyOptions = Object.keys(currencyRates).map(function (c) {
-                return '<option value="' + c + '">{selected}' + c + '</option>';
-            }).join('');
-
-            tbody.innerHTML = items.map(function (item, idx) {
-                var currOpts = currencyOptions.replace(
-                    '{selected}' + item.Currency,
-                    'selected ' + item.Currency
-                ).replace(/\{selected\}/g, '');
-
-                var imgHtml = item.ImageUrl
-                    ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="img-thumb-sm" alt="" />'
-                    : '<span class="text-muted" style="font-size:0.7rem;">N/A</span>';
-
-                var mappedBadge = item.IsProductMapped
-                    ? '<span class="badge bg-success-subtle text-success" style="font-size:0.6rem;" title="SP trong hệ thống">HT</span>'
-                    : (item.ProductName ? '<span class="badge bg-warning-subtle text-warning" style="font-size:0.6rem;" title="SP nhập tay (chưa có trong hệ thống)">Tạm</span>' : '');
-
-                return '<tr>' +
-                    '<td class="text-center text-muted small">' + (idx + 1) + '</td>' +
-                    // Request — inline search input
-                    '<td class="request-cell">' +
-                    '<div class="d-flex align-items-center gap-1">' +
-                    '<input type="text" class="request-input flex-grow-1" id="req_' + idx + '" ' +
-                    'value="' + escapeHtml(item.ProductName) + '" ' +
-                    'oninput="onRequestInput(' + idx + ', this)" ' +
-                    'onblur="onRequestBlur(' + idx + ')" ' +
-                    'placeholder="Go ten san pham..." autocomplete="off" />' +
-                    mappedBadge +
-                    '</div></td>' +
-                    // Proposal
-                    '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
-                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mô tả..." /></td>' +
-                    // Image
-                    '<td class="text-center">' + imgHtml + '</td>' +
-                    // Unit
-                    '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.UnitName) + '" ' +
-                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" /></td>' +
-                    // Quantity
-                    '<td><input type="number" class="form-control form-control-sm" id="qty_' + idx + '" ' +
-                    'value="' + item.Quantity + '" min="0.001" step="any" onchange="updateQtyOrPrice(' + idx + ')" /></td>' +
-                    // Unit Price
-                    '<td><input type="number" class="form-control form-control-sm" ' +
-                    'value="' + item.UnitPrice + '" min="0" step="any" onchange="updateUnitPrice(' + idx + ', this.value)" /></td>' +
-                    // Amount Excl VAT
-                    '<td class="text-end fw-semibold">' + formatNumber(item.AmountExclVat) + '</td>' +
-                    // VAT %
-                    '<td><input type="number" class="form-control form-control-sm" ' +
-                    'value="' + item.VatRate + '" min="0" max="100" step="0.5" onchange="updateVat(' + idx + ', this.value)" /></td>' +
-                    // Amount Incl VAT
-                    '<td class="text-end fw-bold text-primary">' + formatNumber(item.AmountInclVat) + '</td>' +
-                    // Supplier (SourceName)
-                    '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Supplier || '') + '" ' +
-                    'onchange="updateField(' + idx + ', \'Supplier\', this.value)" placeholder="Shopee..." /></td>' +
-                    // SourceUrl
-                    '<td><input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
-                    'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." /></td>' +
-                    // Import Price
-                    '<td><input type="number" class="form-control form-control-sm" ' +
-                    'value="' + item.ImportPrice + '" min="0" step="any" onchange="updateImportPrice(' + idx + ', this.value)" /></td>' +
-                    // Currency
-                    '<td><select class="form-select form-select-sm" onchange="updateCurrency(' + idx + ', this.value)">' + currOpts + '</select></td>' +
-                    // Shipping
-                    '<td><input type="number" class="form-control form-control-sm" ' +
-                    'value="' + item.Shipping + '" min="0" step="any" onchange="updateShipping(' + idx + ', this.value)" /></td>' +
-                    // Coefficient
-                    '<td><input type="number" class="form-control form-control-sm" ' +
-                    'value="' + item.Coefficient + '" min="0.01" step="any" onchange="updateCoefficient(' + idx + ', this.value)" /></td>' +
-                    // Delete
-                    '<td><button class="btn btn-sm btn-outline-danger border-0" onclick="removeItem(' + idx + ')" title="Xoa">' +
-                    '<i class="bi bi-x-lg" style="font-size:.75rem;"></i></button></td>' +
-                    '</tr>';
-            }).join('');
-        }
-
-        // ══════════════════════════════════════════════
-        // ITEM UPDATES
-        // ══════════════════════════════════════════════
-        function updateField(idx, field, val) {
-            items[idx][field] = val;
-        }
-
-        function updateQtyOrPrice(idx) {
-            var qty = parseFloat(document.getElementById('qty_' + idx).value) || 0;
-            items[idx].Quantity = qty;
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function updateUnitPrice(idx, val) {
-            items[idx].UnitPrice = parseFloat(val) || 0;
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function updateVat(idx, val) {
-            items[idx].VatRate = parseFloat(val) || 0;
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function updateImportPrice(idx, val) {
-            items[idx].ImportPrice = parseFloat(val) || 0;
-            recalcUnitPriceFromImport(idx);
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function updateCurrency(idx, val) {
-            items[idx].Currency = val;
-            recalcUnitPriceFromImport(idx);
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function updateShipping(idx, val) {
-            items[idx].Shipping = parseFloat(val) || 0;
-            recalcUnitPriceFromImport(idx);
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function updateCoefficient(idx, val) {
-            items[idx].Coefficient = parseFloat(val) || 1;
-            recalcUnitPriceFromImport(idx);
-            recalcItemLine(idx);
-            renderItems();
-            recalcTotals();
-        }
-
-        function removeItem(idx) {
-            items.splice(idx, 1);
-            renderItems();
-            recalcTotals();
-        }
-
-        function recalcUnitPriceFromImport(idx) {
-            var item = items[idx];
-            var importVnd = item.ImportPrice * (currencyRates[item.Currency] || 1);
-            var coeff = item.Coefficient > 0 ? item.Coefficient : 1;
-            item.UnitPrice = Math.round(importVnd / coeff + item.Shipping);
-        }
-
-        function recalcItemLine(idx) {
-            var item = items[idx];
-            item.AmountExclVat = Math.round(item.UnitPrice * item.Quantity);
-            item.AmountInclVat = Math.round(item.AmountExclVat * (1 + item.VatRate / 100));
-            item.LineTotal = item.AmountInclVat;
-        }
-
-        // ══════════════════════════════════════════════
-        // TOTALS
-        // ══════════════════════════════════════════════
-        function recalcTotals() {
-            var totalExcl = 0;
-            var totalIncl = 0;
-            items.forEach(function (item) {
-                totalExcl += item.AmountExclVat;
-                totalIncl += item.AmountInclVat;
-            });
-            document.getElementById('sumExclVat').textContent = formatNumber(totalExcl);
-            document.getElementById('sumInclVat').textContent = formatNumber(totalIncl);
-        }
-
-        // ══════════════════════════════════════════════
-        // EXPORT EXCEL
-        // ══════════════════════════════════════════════
-        function exportExcel() {
-            if (items.length === 0) { alert('Chưa có sản phẩm đề xuất'); return; }
-
-            var customerId = parseInt(document.getElementById('frm_customerId').value);
-            if (!customerId) { alert('Vui lòng lựa chọn khách hàng'); return; }
-
-            var btn = document.getElementById('btnExport');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xuất...';
-
-            var payload = {
-                CustomerId: customerId,
-                Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
-                Notes: document.getElementById('frm_notes').value || null,
-                Items: items
-            };
-
-            fetch('/Quotation/ExportExcel', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': getAntiForgeryToken()
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(function (r) {
-                if (!r.ok) throw new Error('Export failed');
-                var disposition = r.headers.get('Content-Disposition');
-                var filename = 'quotation.xlsx';
-                if (disposition) {
-                    var match = disposition.match(/filename\*?=(?:UTF-8''|")([^";]+)/i);
-                    if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''));
-                }
-                return r.blob().then(function (blob) { return { blob: blob, filename: filename }; });
-            })
-            .then(function (result) {
-                var url = window.URL.createObjectURL(result.blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = result.filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-            })
-            .catch(function (err) {
-                alert('Loi xuat file: ' + err.message);
-            })
-            .finally(function () {
+        var url = isEditMode ? '/Quotation/Edit' : '/Quotation/Create';
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.Success && data.Data) {
+                window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
+            } else {
+                alert(data.Message || 'Loi luu bao gia');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-file-earmark-excel me-1"></i> Xuất file báo giá';
-            });
-        }
-
-        // ══════════════════════════════════════════════
-        // SUBMIT
-        // ══════════════════════════════════════════════
-        function submitForm() {
-            var customerId = parseInt(document.getElementById('frm_customerId').value);
-            var deadlineVal = document.getElementById('frm_deadline')?.value;
-            if (!deadlineVal) { alert('Vui lòng chọn hạn xử lý nội bộ'); return; }
-            if (!customerId) { alert('Vui lòng chọn khách hàng'); return; }
-            if (items.length === 0) { alert('Vui lòng thêm ít nhất 1 sản phẩm'); return; }
-
-            // Validate: each item must have a product name
-            for (var vi = 0; vi < items.length; vi++) {
-                if (!items[vi].ProductName || !items[vi].ProductName.trim()) {
-                    alert('Dong ' + (vi + 1) + ': Vui long nhap ten san pham');
-                    var inp = document.getElementById('req_' + vi);
-                    if (inp) inp.focus();
-                    return;
-                }
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cap nhat' : 'Tao bao gia');
             }
+        })
+        .catch(function () {
+            alert('Loi ket noi');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cap nhat' : 'Tao bao gia');
+        });
+    }
 
-            var btn = document.getElementById('btnSubmit');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang lưu...';
+    // ══════════════════════════════════════════════
+    // HELPERS
+    // ══════════════════════════════════════════════
+    function formatNumber(n) {
+        return Math.round(n).toLocaleString('vi-VN');
+    }
 
-            var payload = {
-                QuotationId: isEditMode ? parseInt(document.getElementById('frm_quotationId')?.value) : null,
-                RfqId: document.getElementById('frm_rfqId')?.value ? parseInt(document.getElementById('frm_rfqId').value) : null,
-                CustomerId: customerId,
-                QuotationDate: new Date().toISOString().split('T')[0],
-                ExpiryDate: null,
-                Deadline: document.getElementById('frm_deadline')?.value || null,
-                SalesPersonId: parseInt(document.getElementById('frm_salesPersonId').value) || 0,
-                PaymentTerms: null,
-                TaxRate: 8,
-                Coefficient: parseFloat(document.getElementById('frm_coefficient').value) || 1,
-                DiscountType: null,
-                DiscountValue: null,
-                //Notes: document.getElementById('frm_notes').value || null,
-                //InternalNotes: document.getElementById('frm_internalNotes').value || null,
-                Items: items
-            };
+    function escapeHtml(str) {
+        if (!str) return '';
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(str));
+        return d.innerHTML;
+    }
 
-            var url = isEditMode ? '/Quotation/Edit' : '/Quotation/Create';
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': getAntiForgeryToken()
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.Success && data.Data) {
-                    window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
-                } else {
-                    alert(data.Message || 'Lỗi lưu báo giá');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cập nhật' : 'Tạo báo giá');
-                }
-            })
-            .catch(function () {
-                alert('Lỗi kết nối');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cập nhật' : 'Tạo báo giá');
-            });
-        }
-
-        // ══════════════════════════════════════════════
-        // HELPERS
-        // ══════════════════════════════════════════════
-        function formatNumber(n) {
-            return Math.round(n).toLocaleString('vi-VN');
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            var d = document.createElement('div');
-            d.appendChild(document.createTextNode(str));
-            return d.innerHTML;
-        }
-
-        function getAntiForgeryToken() {
-            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
-        }
-    </script>
-    @Html.AntiForgeryToken()
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+</script>
+@Html.AntiForgeryToken()

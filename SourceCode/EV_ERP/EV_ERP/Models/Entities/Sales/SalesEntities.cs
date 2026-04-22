@@ -87,22 +87,33 @@ public class QuotationItem
 {
     public int QuotationItemId { get; set; }
     public int QuotationId { get; set; }
-    public int ProductId { get; set; }
+    /// <summary>NULL = sản phẩm chưa có trong hệ thống (nhập tay)</summary>
+    public int? ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;     // Snapshot
+    public string? ProductDescription { get; set; }
+    public string? ImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal? PurchasePrice { get; set; }
+    public decimal? ShippingFee { get; set; }
+    public decimal? Coefficient { get; set; } = 1;
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal? TaxRate { get; set; } = 10;
+    public decimal? TaxAmount { get; set; }
+    public decimal? LineTotalWithTax { get; set; }
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
     public int SortOrder { get; set; }
     public string? Notes { get; set; }
+    /// <summary>0 = chưa gắn SP, 1 = đã gắn Product</summary>
+    public bool IsProductMapped { get; set; }
 
     public virtual Quotation Quotation { get; set; } = null!;
-    public virtual Product Product { get; set; } = null!;
+    public virtual Product? Product { get; set; }
 }
 
 // ─── QUOTATION EMAIL HISTORY ─────────────────────────
@@ -207,13 +218,18 @@ public class SalesOrderItem
 {
     public int SOItemId { get; set; }
     public int SalesOrderId { get; set; }
-    public int ProductId { get; set; }
+    /// <summary>NULL = sản phẩm chưa có trong hệ thống (nhập tay từ Quotation)</summary>
+    public int? ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public string? ProductDescription { get; set; }
+    public string? ImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal DeliveredQty { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal? PurchasePrice { get; set; }
+    public decimal? ShippingFee { get; set; }
+    public decimal? Coefficient { get; set; } = 1;
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
     public string? DiscountType { get; set; }
@@ -221,9 +237,14 @@ public class SalesOrderItem
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
     public decimal? LineCost { get; set; }
+    public decimal? TaxRate { get; set; } = 10;
+    public decimal? TaxAmount { get; set; }
+    public decimal? LineTotalWithTax { get; set; }
     public int SortOrder { get; set; }
     public string? Notes { get; set; }
+    /// <summary>0 = chưa gắn SP, 1 = đã gắn Product</summary>
+    public bool IsProductMapped { get; set; }
 
     public virtual SalesOrder SalesOrder { get; set; } = null!;
-    public virtual Product Product { get; set; } = null!;
+    public virtual Product? Product { get; set; }
 }

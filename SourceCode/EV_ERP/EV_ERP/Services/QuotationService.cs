@@ -165,10 +165,17 @@ public class QuotationService : IQuotationService
                 QuotationItemId = i.QuotationItemId,
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
-                ImageUrl = i.Product.ImageUrl,
+                Proposal = i.ProductDescription,
+                ImageUrl = i.ImageUrl ?? i.Product?.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
+                ImportPrice = i.PurchasePrice ?? 0,
+                Shipping = i.ShippingFee ?? 0,
+                Coefficient = i.Coefficient ?? 1,
+                VatRate = i.TaxRate ?? 10,
+                AmountExclVat = i.LineTotal,
+                AmountInclVat = i.LineTotalWithTax ?? i.LineTotal,
                 DiscountType = i.DiscountType,
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
@@ -176,7 +183,8 @@ public class QuotationService : IQuotationService
                 Supplier = i.SourceName,
                 SourceUrl = i.SourceUrl,
                 SortOrder = i.SortOrder,
-                Notes = i.Notes
+                Notes = i.Notes,
+                IsProductMapped = i.IsProductMapped
             }).ToList(),
             Customers = customers,
             SalesPersons = salesPersons
@@ -227,22 +235,34 @@ public class QuotationService : IQuotationService
         {
             var discountAmt = CalculateLineDiscount(item.Quantity, item.UnitPrice, item.DiscountType, item.DiscountValue);
             var lineTotal = item.Quantity * item.UnitPrice - discountAmt;
+            var lineTaxAmount = Math.Round(lineTotal * item.VatRate / 100m, 0);
+            var lineTotalWithTax = lineTotal + lineTaxAmount;
+            var hasProduct = item.ProductId.HasValue && item.ProductId > 0;
 
             quotation.Items.Add(new QuotationItem
             {
-                ProductId = item.ProductId,
+                ProductId = hasProduct ? item.ProductId : null,
                 ProductName = item.ProductName.Trim(),
+                ProductDescription = item.Proposal?.Trim(),
+                ImageUrl = item.ImageUrl,
                 UnitName = item.UnitName.Trim(),
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
+                PurchasePrice = item.ImportPrice,
+                ShippingFee = item.Shipping,
+                Coefficient = item.Coefficient,
                 DiscountType = item.DiscountType,
                 DiscountValue = item.DiscountValue,
                 DiscountAmount = discountAmt,
                 LineTotal = lineTotal,
+                TaxRate = item.VatRate,
+                TaxAmount = lineTaxAmount,
+                LineTotalWithTax = lineTotalWithTax,
                 SourceUrl = item.SourceUrl?.Trim(),
                 SourceName = item.Supplier?.Trim(),
                 SortOrder = sortOrder++,
-                Notes = item.Notes?.Trim()
+                Notes = item.Notes?.Trim(),
+                IsProductMapped = hasProduct
             });
 
             subTotal += lineTotal;
@@ -321,22 +341,34 @@ public class QuotationService : IQuotationService
         {
             var discountAmt = CalculateLineDiscount(item.Quantity, item.UnitPrice, item.DiscountType, item.DiscountValue);
             var lineTotal = item.Quantity * item.UnitPrice - discountAmt;
+            var lineTaxAmount = Math.Round(lineTotal * item.VatRate / 100m, 0);
+            var lineTotalWithTax = lineTotal + lineTaxAmount;
+            var hasProduct = item.ProductId.HasValue && item.ProductId > 0;
 
             quotation.Items.Add(new QuotationItem
             {
-                ProductId = item.ProductId,
+                ProductId = hasProduct ? item.ProductId : null,
                 ProductName = item.ProductName.Trim(),
+                ProductDescription = item.Proposal?.Trim(),
+                ImageUrl = item.ImageUrl,
                 UnitName = item.UnitName.Trim(),
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
+                PurchasePrice = item.ImportPrice,
+                ShippingFee = item.Shipping,
+                Coefficient = item.Coefficient,
                 DiscountType = item.DiscountType,
                 DiscountValue = item.DiscountValue,
                 DiscountAmount = discountAmt,
                 LineTotal = lineTotal,
+                TaxRate = item.VatRate,
+                TaxAmount = lineTaxAmount,
+                LineTotalWithTax = lineTotalWithTax,
                 SourceUrl = item.SourceUrl?.Trim(),
                 SourceName = item.Supplier?.Trim(),
                 SortOrder = sortOrder++,
-                Notes = item.Notes?.Trim()
+                Notes = item.Notes?.Trim(),
+                IsProductMapped = hasProduct
             });
 
             subTotal += lineTotal;
@@ -430,17 +462,25 @@ public class QuotationService : IQuotationService
                 QuotationItemId = i.QuotationItemId,
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
-                ImageUrl = i.Product.ImageUrl,
+                Proposal = i.ProductDescription,
+                ImageUrl = i.ImageUrl ?? i.Product?.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
+                ImportPrice = i.PurchasePrice ?? 0,
+                Shipping = i.ShippingFee ?? 0,
+                Coefficient = i.Coefficient ?? 1,
+                VatRate = i.TaxRate ?? 10,
+                AmountExclVat = i.LineTotal,
+                AmountInclVat = i.LineTotalWithTax ?? i.LineTotal,
                 DiscountType = i.DiscountType,
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
                 LineTotal = i.LineTotal,
                 Supplier = i.SourceName,
                 SourceUrl = i.SourceUrl,
-                Notes = i.Notes
+                Notes = i.Notes,
+                IsProductMapped = i.IsProductMapped
             }).ToList()
         };
     }
@@ -569,17 +609,26 @@ public class QuotationService : IQuotationService
             {
                 ProductId = item.ProductId,
                 ProductName = item.ProductName,
+                ProductDescription = item.ProductDescription,
+                ImageUrl = item.ImageUrl,
                 UnitName = item.UnitName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
+                PurchasePrice = item.PurchasePrice,
+                ShippingFee = item.ShippingFee,
+                Coefficient = item.Coefficient,
                 DiscountType = item.DiscountType,
                 DiscountValue = item.DiscountValue,
                 DiscountAmount = item.DiscountAmount,
                 LineTotal = item.LineTotal,
+                TaxRate = item.TaxRate,
+                TaxAmount = item.TaxAmount,
+                LineTotalWithTax = item.LineTotalWithTax,
                 SourceUrl = item.SourceUrl,
                 SourceName = item.SourceName,
                 SortOrder = item.SortOrder,
-                Notes = item.Notes
+                Notes = item.Notes,
+                IsProductMapped = item.IsProductMapped
             });
         }
 

@@ -337,10 +337,16 @@ namespace EV_ERP.Data
                 e.HasKey(x => x.QuotationItemId);
                 e.Property(x => x.Quantity).HasColumnType("decimal(18,3)");
                 e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.PurchasePrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.ShippingFee).HasColumnType("decimal(18,2)");
+                e.Property(x => x.Coefficient).HasColumnType("decimal(10,4)");
                 e.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TaxRate).HasColumnType("decimal(5,2)");
+                e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.LineTotalWithTax).HasColumnType("decimal(18,2)");
                 e.HasOne(x => x.Quotation).WithMany(q => q.Items).HasForeignKey(x => x.QuotationId);
-                e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<QuotationEmailHistory>(e =>
@@ -384,11 +390,16 @@ namespace EV_ERP.Data
                 e.Property(x => x.DeliveredQty).HasColumnType("decimal(18,3)");
                 e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.PurchasePrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.ShippingFee).HasColumnType("decimal(18,2)");
+                e.Property(x => x.Coefficient).HasColumnType("decimal(10,4)");
                 e.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
                 e.Property(x => x.LineCost).HasColumnType("decimal(18,2)");
+                e.Property(x => x.TaxRate).HasColumnType("decimal(5,2)");
+                e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.LineTotalWithTax).HasColumnType("decimal(18,2)");
                 e.HasOne(x => x.SalesOrder).WithMany(s => s.Items).HasForeignKey(x => x.SalesOrderId);
-                e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             });
 
             // ─────────────────────────────────────────────

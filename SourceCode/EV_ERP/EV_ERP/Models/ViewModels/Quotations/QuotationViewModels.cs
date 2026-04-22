@@ -123,13 +123,14 @@ public class QuotationItemFormModel
 {
     public int? QuotationItemId { get; set; }
 
-    [Required(ErrorMessage = "Sản phẩm là bắt buộc")]
-    public int ProductId { get; set; }
+    /// <summary>NULL/0 = sản phẩm chưa có trong hệ thống (nhập tay)</summary>
+    public int? ProductId { get; set; }
 
     public string ProductName { get; set; } = string.Empty;
     public string? Proposal { get; set; }
     public string? ImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
+    public bool IsProductMapped { get; set; }
 
     [Required(ErrorMessage = "Số lượng là bắt buộc")]
     [Range(0.001, double.MaxValue, ErrorMessage = "Số lượng phải > 0")]
@@ -248,11 +249,12 @@ public class QuotationDetailViewModel
 public class QuotationItemDetailViewModel
 {
     public int QuotationItemId { get; set; }
-    public int ProductId { get; set; }
+    public int? ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string? Proposal { get; set; }
     public string? ImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
+    public bool IsProductMapped { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal AmountExclVat { get; set; }

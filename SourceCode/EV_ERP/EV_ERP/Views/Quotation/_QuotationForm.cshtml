@@ -244,7 +244,8 @@
                 DiscountAmount: 0,
                 LineTotal: 0,
                 SortOrder: items.length,
-                Notes: null
+                Notes: null,
+                IsProductMapped: false
             });
             renderItems();
             recalcTotals();
@@ -261,6 +262,11 @@
         function onRequestInput(idx, inputEl) {
             var kw = inputEl.value.trim();
             items[idx].ProductName = inputEl.value;
+            // If user manually edits the name, clear the product mapping
+            if (items[idx].IsProductMapped) {
+                items[idx].ProductId = 0;
+                items[idx].IsProductMapped = false;
+            }
             activeSearchIdx = idx;
 
             clearTimeout(searchTimeout);
@@ -323,6 +329,7 @@
             items[idx].UnitName = product.UnitName || '';
             items[idx].ImportPrice = importPrice;
             items[idx].UnitPrice = unitPrice;
+            items[idx].IsProductMapped = true;
 
             recalcItemLine(idx);
 
@@ -365,16 +372,22 @@
                     ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="img-thumb-sm" alt="" />'
                     : '<span class="text-muted" style="font-size:0.7rem;">N/A</span>';
 
+                var mappedBadge = item.IsProductMapped
+                    ? '<span class="badge bg-success-subtle text-success" style="font-size:0.6rem;" title="SP trong hệ thống">HT</span>'
+                    : (item.ProductName ? '<span class="badge bg-warning-subtle text-warning" style="font-size:0.6rem;" title="SP nhập tay (chưa có trong hệ thống)">Tạm</span>' : '');
+
                 return '<tr>' +
                     '<td class="text-center text-muted small">' + (idx + 1) + '</td>' +
                     // Request — inline search input
                     '<td class="request-cell">' +
-                    '<input type="text" class="request-input" id="req_' + idx + '" ' +
+                    '<div class="d-flex align-items-center gap-1">' +
+                    '<input type="text" class="request-input flex-grow-1" id="req_' + idx + '" ' +
                     'value="' + escapeHtml(item.ProductName) + '" ' +
                     'oninput="onRequestInput(' + idx + ', this)" ' +
                     'onblur="onRequestBlur(' + idx + ')" ' +
                     'placeholder="Go ten san pham..." autocomplete="off" />' +
-                    '</td>' +
+                    mappedBadge +
+                    '</div></td>' +
                     // Proposal
                     '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
                     'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mô tả..." /></td>' +
@@ -581,6 +594,16 @@
             if (!deadlineVal) { alert('Vui lòng chọn hạn xử lý nội bộ'); return; }
             if (!customerId) { alert('Vui lòng chọn khách hàng'); return; }
             if (items.length === 0) { alert('Vui lòng thêm ít nhất 1 sản phẩm'); return; }
+
+            // Validate: each item must have a product name
+            for (var vi = 0; vi < items.length; vi++) {
+                if (!items[vi].ProductName || !items[vi].ProductName.trim()) {
+                    alert('Dong ' + (vi + 1) + ': Vui long nhap ten san pham');
+                    var inp = document.getElementById('req_' + vi);
+                    if (inp) inp.focus();
+                    return;
+                }
+            }
 
             var btn = document.getElementById('btnSubmit');
             btn.disabled = true;

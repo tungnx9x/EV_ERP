@@ -180,7 +180,7 @@ public class SalesOrderService : ISalesOrderService
             Items = s.Items.Select(i => new SalesOrderItemDetailViewModel
             {
                 SOItemId = i.SOItemId,
-                ProductId = i.ProductId,
+                ProductId = i.ProductId ?? 0,
                 ProductName = i.ProductName,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
@@ -247,17 +247,26 @@ public class SalesOrderService : ISalesOrderService
             {
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
+                ProductDescription = i.ProductDescription,
+                ImageUrl = i.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
+                PurchasePrice = i.PurchasePrice,
+                ShippingFee = i.ShippingFee,
+                Coefficient = i.Coefficient,
                 DiscountType = i.DiscountType,
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
                 LineTotal = i.LineTotal,
+                TaxRate = i.TaxRate,
+                TaxAmount = i.TaxAmount,
+                LineTotalWithTax = i.LineTotalWithTax,
                 SourceUrl = i.SourceUrl,
                 SourceName = i.SourceName,
                 SortOrder = i.SortOrder,
-                Notes = i.Notes
+                Notes = i.Notes,
+                IsProductMapped = i.IsProductMapped
             }).ToList()
         };
 

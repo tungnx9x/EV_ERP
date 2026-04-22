@@ -237,11 +237,13 @@ namespace EV_ERP.Services
                 {
                     form.SalesOrderId = so.SalesOrderId;
                     form.SalesOrderNo = so.SalesOrderNo;
-                    form.Items = so.Items.Select(i => new StockTransactionItemFormModel
+                    form.Items = so.Items
+                        .Where(i => i.ProductId.HasValue)
+                        .Select(i => new StockTransactionItemFormModel
                     {
-                        ProductId = i.ProductId,
+                        ProductId = i.ProductId!.Value,
                         ProductName = i.ProductName,
-                        ProductCode = i.Product.ProductCode,
+                        ProductCode = i.Product!.ProductCode,
                         Barcode = i.Product.Barcode,
                         ImageUrl = i.Product.ImageUrl,
                         Quantity = type == "OUTBOUND" ? i.Quantity : i.Quantity,
@@ -571,12 +573,12 @@ namespace EV_ERP.Services
                     entity.ReceiverName = so.Customer?.CustomerName;
                 }
 
-                foreach (var item in so.Items)
+                foreach (var item in so.Items.Where(i => i.ProductId.HasValue))
                 {
                     entity.Items.Add(new StockTransactionItem
                     {
-                        ProductId = item.ProductId,
-                        Barcode = item.Product.Barcode,
+                        ProductId = item.ProductId!.Value,
+                        Barcode = item.Product!.Barcode,
                         Quantity = item.Quantity,
                         UnitName = item.UnitName
                     });

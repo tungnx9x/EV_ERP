@@ -251,7 +251,14 @@
                             {
                                 <tr>
                                     <td class="text-center text-muted">@(idx++)</td>
-                                    <td class="fw-semibold">@item.ProductName</td>
+                                    <td class="fw-semibold">
+                                        @item.ProductName
+                                        @if (!item.IsProductMapped)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning ms-1" style="font-size:0.6rem;"
+                                                  title="SP nhap tay - chua co trong he thong">Tam</span>
+                                        }
+                                    </td>
                                     <td class="text-muted small">@(item.Proposal ?? "—")</td>
                                     <td class="text-center">
                                         @if (!string.IsNullOrEmpty(item.ImageUrl))

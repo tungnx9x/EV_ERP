@@ -248,9 +248,15 @@
         <a href="/Warehouse" class="sidebar-link @NavClass("/Warehouse")" style="padding-left:2.2rem;font-size:0.82rem;">
             <i class="bi bi-building"></i> Kho hàng
         </a>
-        <a href="/Report" class="sidebar-link disabled @NavClass("/Report")">
-            <i class="bi bi-bar-chart-line"></i> Báo cáo
-        </a>
+        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER")
+        {
+            <a href="#" class="sidebar-link">
+                <i class="bi bi-bar-chart-line"></i> Báo cáo
+            </a>
+            <a href="/Report/SalesRevenue" class="sidebar-link @NavClass("/Report/SalesRevenue")" style="padding-left:2.2rem;font-size:0.82rem;">
+                <i class="bi bi-cash-stack"></i> Doanh thu
+            </a>
+        }
 
         @if (IsAdmin())
         {

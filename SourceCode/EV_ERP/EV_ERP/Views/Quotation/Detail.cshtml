@@ -237,7 +237,6 @@
                                 <th class="text-end">Truoc VAT</th>
                                 <th class="text-center">VAT</th>
                                 <th class="text-end">Sau VAT</th>
-                                <th>NCC</th>
                                 <th>Link</th>
                                 <th class="text-end">Gia nhap</th>
                                 <th>Tien te</th>
@@ -276,7 +275,6 @@
                                     <td class="text-end">@item.AmountExclVat.ToString("N0")</td>
                                     <td class="text-center">@item.VatRate%</td>
                                     <td class="text-end fw-bold text-primary">@item.AmountInclVat.ToString("N0")</td>
-                                    <td class="small">@(item.Supplier ?? "—")</td>
                                     <td class="small">
                                         @if (!string.IsNullOrEmpty(item.SourceUrl))
                                         {

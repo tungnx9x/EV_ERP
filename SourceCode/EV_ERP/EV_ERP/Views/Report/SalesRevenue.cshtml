@@ -1,0 +1,338 @@
+@model EV_ERP.Models.ViewModels.Reports.SalesRevenueReportViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Báo cáo doanh thu";
+    var chartLabels = JsonSerializer.Serialize(Model.ChartLabels);
+    var chartData = JsonSerializer.Serialize(Model.ChartData);
+}
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-line me-2"></i>Báo cáo doanh thu</h5>
+</div>
+
+<!-- Filter Bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-2 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Từ ngày</label>
+                <input type="date" id="filter_dateFrom" class="form-control form-control-sm"
+                       value="@Model.Filter.DateFrom?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-lg-2 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Đến ngày</label>
+                <input type="date" id="filter_dateTo" class="form-control form-control-sm"
+                       value="@Model.Filter.DateTo?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-lg-3 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Khách hàng</label>
+                <select id="filter_customerId" class="form-select form-select-sm">
+                    <option value="">-- Tất cả --</option>
+                    @foreach (var c in Model.Customers)
+                    {
+                        <option value="@c.CustomerId" selected="@(Model.Filter.CustomerId == c.CustomerId)">
+                            @c.CustomerName (@c.CustomerCode)
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Nhân viên</label>
+                <select id="filter_salesPersonId" class="form-select form-select-sm">
+                    <option value="">-- Tất cả --</option>
+                    @foreach (var s in Model.SalesPersons)
+                    {
+                        <option value="@s.UserId" selected="@(Model.Filter.SalesPersonId == s.UserId)">
+                            @s.FullName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-12 d-flex gap-2">
+                <button class="btn btn-primary btn-sm" onclick="applyFilter()">
+                    <i class="bi bi-funnel me-1"></i>Lọc
+                </button>
+                <button class="btn btn-success btn-sm" onclick="exportExcel()">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#eff6ff;">
+                    <i class="bi bi-cash-stack" style="color:#2563eb;font-size:1.4rem;"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="summary_totalRevenue">@Model.TotalRevenue.ToString("#,##0")</div>
+                    <div class="text-muted small">Tổng doanh thu (VND)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#f0fdf4;">
+                    <i class="bi bi-receipt" style="color:#16a34a;font-size:1.4rem;"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="summary_totalOrders">@Model.TotalOrders</div>
+                    <div class="text-muted small">Số đơn hàng</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fffbeb;">
+                    <i class="bi bi-calculator" style="color:#d97706;font-size:1.4rem;"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="summary_avgValue">@Model.AverageOrderValue.ToString("#,##0")</div>
+                    <div class="text-muted small">Trung bình / đơn (VND)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 fw-semibold">
+        <i class="bi bi-bar-chart me-1"></i> Doanh thu theo tháng
+    </div>
+    <div class="card-body">
+        <canvas id="chartRevenue" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 fw-semibold d-flex justify-content-between">
+        <span><i class="bi bi-table me-1"></i> Chi tiết đơn hàng</span>
+        <span class="text-muted small" id="rowCount">@Model.Rows.Count đơn</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0" id="revenueTable">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">STT</th>
+                        <th>Mã đơn</th>
+                        <th>Khách hàng</th>
+                        <th>Nhân viên</th>
+                        <th>Ngày đặt</th>
+                        <th class="text-end">Trước thuế</th>
+                        <th class="text-end">Chiết khấu</th>
+                        <th class="text-end">Thuế</th>
+                        <th class="text-end">Tổng tiền</th>
+                        <th class="text-center">Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody id="revenueTableBody">
+                    @await Html.PartialAsync("_SalesRevenueTable", Model.Rows)
+                </tbody>
+                <tfoot class="table-light fw-bold" id="revenueTableFoot">
+                    <tr>
+                        <td colspan="5" class="text-end ps-3">TỔNG CỘNG</td>
+                        <td class="text-end">@Model.Rows.Sum(r => r.SubTotal).ToString("#,##0")</td>
+                        <td class="text-end">@Model.Rows.Sum(r => r.DiscountAmount).ToString("#,##0")</td>
+                        <td class="text-end">@Model.Rows.Sum(r => r.TaxAmount).ToString("#,##0")</td>
+                        <td class="text-end">@Model.TotalRevenue.ToString("#,##0")</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    var revenueChart = null;
+    var palette = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#db2777'];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderChart(@Html.Raw(chartLabels), @Html.Raw(chartData));
+    });
+
+    function renderChart(labels, data) {
+        var ctx = document.getElementById('chartRevenue');
+        if (revenueChart) revenueChart.destroy();
+
+        revenueChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Doanh thu (VND)',
+                    data: data,
+                    backgroundColor: palette.slice(0, labels.length),
+                    borderColor: palette.slice(0, labels.length),
+                    borderWidth: 2,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.parsed.y.toLocaleString('vi-VN') + ' VND';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (v) { return v.toLocaleString('vi-VN'); }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function getFilterPayload() {
+        return {
+            DateFrom: document.getElementById('filter_dateFrom').value || null,
+            DateTo: document.getElementById('filter_dateTo').value || null,
+            CustomerId: parseInt(document.getElementById('filter_customerId').value) || null,
+            SalesPersonId: parseInt(document.getElementById('filter_salesPersonId').value) || null
+        };
+    }
+
+    function applyFilter() {
+        var payload = getFilterPayload();
+        fetch('/Report/SalesRevenue', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res.Success) { alert(res.Message || 'Lỗi'); return; }
+            var d = res.Data;
+
+            // Update summary cards
+            document.getElementById('summary_totalRevenue').textContent = formatNumber(d.TotalRevenue);
+            document.getElementById('summary_totalOrders').textContent = d.TotalOrders;
+            document.getElementById('summary_avgValue').textContent = formatNumber(d.AverageOrderValue);
+            document.getElementById('rowCount').textContent = d.TotalOrders + ' đơn';
+
+            // Update chart
+            renderChart(d.ChartLabels, d.ChartData);
+
+            // Update table body
+            var tbody = document.getElementById('revenueTableBody');
+            tbody.innerHTML = '';
+            var totalSub = 0, totalDisc = 0, totalTax = 0, totalAmount = 0;
+
+            d.Rows.forEach(function (r, i) {
+                totalSub += r.SubTotal;
+                totalDisc += r.DiscountAmount;
+                totalTax += r.TaxAmount;
+                totalAmount += r.TotalAmount;
+
+                var tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = function () { window.location.href = '/SalesOrder/Detail/' + r.SalesOrderId; };
+                tr.innerHTML =
+                    '<td class="ps-3">' + (i + 1) + '</td>' +
+                    '<td><span class="fw-semibold text-primary">' + r.SalesOrderNo + '</span></td>' +
+                    '<td>' + r.CustomerName + '</td>' +
+                    '<td>' + r.SalesPersonName + '</td>' +
+                    '<td>' + formatDate(r.OrderDate) + '</td>' +
+                    '<td class="text-end">' + formatNumber(r.SubTotal) + '</td>' +
+                    '<td class="text-end">' + formatNumber(r.DiscountAmount) + '</td>' +
+                    '<td class="text-end">' + formatNumber(r.TaxAmount) + '</td>' +
+                    '<td class="text-end fw-semibold">' + formatNumber(r.TotalAmount) + '</td>' +
+                    '<td class="text-center">' + statusBadge(r.Status) + '</td>';
+                tbody.appendChild(tr);
+            });
+
+            // Update footer
+            var tfoot = document.getElementById('revenueTableFoot');
+            tfoot.innerHTML =
+                '<tr>' +
+                '<td colspan="5" class="text-end ps-3">TỔNG CỘNG</td>' +
+                '<td class="text-end">' + formatNumber(totalSub) + '</td>' +
+                '<td class="text-end">' + formatNumber(totalDisc) + '</td>' +
+                '<td class="text-end">' + formatNumber(totalTax) + '</td>' +
+                '<td class="text-end">' + formatNumber(totalAmount) + '</td>' +
+                '<td></td>' +
+                '</tr>';
+        });
+    }
+
+    function exportExcel() {
+        var payload = getFilterPayload();
+        fetch('/Report/ExportSalesRevenue', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) {
+            if (!r.ok) { alert('Lỗi xuất Excel'); return; }
+            var ct = r.headers.get('Content-Type') || '';
+            if (ct.indexOf('json') >= 0) {
+                return r.json().then(function (d) { alert(d.Message || 'Không có dữ liệu'); });
+            }
+            return r.blob().then(function (blob) {
+                var cd = r.headers.get('Content-Disposition') || '';
+                var match = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                var fileName = match ? match[1].replace(/['"]/g, '') : 'DoanhThu.xlsx';
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            });
+        });
+    }
+
+    function formatNumber(n) {
+        if (n == null || isNaN(n)) return '0';
+        return Math.round(n).toLocaleString('vi-VN');
+    }
+
+    function formatDate(d) {
+        if (!d) return '';
+        var dt = new Date(d);
+        return dt.toLocaleDateString('vi-VN');
+    }
+
+    function statusBadge(status) {
+        var map = {
+            'DELIVERED': ['bg-info', 'Đã giao'],
+            'COMPLETED': ['bg-success', 'Hoàn thành'],
+            'REPORTED': ['bg-secondary', 'Đã quyết toán']
+        };
+        var m = map[status] || ['bg-dark', status];
+        return '<span class="badge ' + m[0] + '">' + m[1] + '</span>';
+    }
+
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+</script>
+@Html.AntiForgeryToken()

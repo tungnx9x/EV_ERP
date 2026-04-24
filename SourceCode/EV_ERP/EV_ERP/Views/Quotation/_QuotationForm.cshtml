@@ -54,7 +54,8 @@
                     <div class="col-lg-3">
                         <label class="form-label small fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
                         <input type="datetime-local" id="frm_deadline" class="form-control form-control-sm"
-                               value="@(Model.Deadline?.ToString("yyyy-MM-ddTHH:mm"))" />
+                               value="@(Model.Deadline?.ToString("yyyy-MM-ddTHH:mm"))"
+                               @(Model.RfqId.HasValue ? "readonly" : "") />
                     </div>
                 </div>
             </div>

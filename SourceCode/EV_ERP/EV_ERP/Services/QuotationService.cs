@@ -129,7 +129,10 @@ public class QuotationService : IQuotationService
                 var rfq = await _uow.Repository<RFQ>().Query()
                     .FirstOrDefaultAsync(r => r.RfqId == rfqId.Value);
                 if (rfq != null)
+                {
                     vm.CustomerId = rfq.CustomerId;
+                    vm.Deadline = rfq.Deadline;
+                }
             }
 
             return vm;

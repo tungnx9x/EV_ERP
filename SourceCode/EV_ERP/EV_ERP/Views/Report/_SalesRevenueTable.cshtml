@@ -1,0 +1,37 @@
+@model List<EV_ERP.Models.ViewModels.Reports.SalesRevenueRowViewModel>
+@{
+    var statusMap = new Dictionary<string, (string CssClass, string Label)>
+    {
+        ["DELIVERED"] = ("bg-info", "Đã giao"),
+        ["COMPLETED"] = ("bg-success", "Hoàn thành"),
+        ["REPORTED"] = ("bg-secondary", "Đã quyết toán")
+    };
+}
+
+@if (Model.Count == 0)
+{
+    <tr>
+        <td colspan="10" class="text-center text-muted py-4">Không có dữ liệu</td>
+    </tr>
+}
+else
+{
+    var idx = 0;
+    @foreach (var r in Model)
+    {
+        idx++;
+        var badge = statusMap.ContainsKey(r.Status) ? statusMap[r.Status] : ("bg-dark", r.Status);
+        <tr style="cursor:pointer" onclick="window.location.href='/SalesOrder/Detail/@r.SalesOrderId'">
+            <td class="ps-3">@idx</td>
+            <td><span class="fw-semibold text-primary">@r.SalesOrderNo</span></td>
+            <td>@r.CustomerName</td>
+            <td>@r.SalesPersonName</td>
+            <td>@r.OrderDate.ToString("dd/MM/yyyy")</td>
+            <td class="text-end">@r.SubTotal.ToString("#,##0")</td>
+            <td class="text-end">@r.DiscountAmount.ToString("#,##0")</td>
+            <td class="text-end">@r.TaxAmount.ToString("#,##0")</td>
+            <td class="text-end fw-semibold">@r.TotalAmount.ToString("#,##0")</td>
+            <td class="text-center"><span class="badge @badge.Item1">@badge.Item2</span></td>
+        </tr>
+    }
+}

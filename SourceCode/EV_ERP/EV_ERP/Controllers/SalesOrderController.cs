@@ -1,6 +1,7 @@
 using EV_ERP.Filters;
 using EV_ERP.Helpers;
 using EV_ERP.Models.Common;
+using EV_ERP.Models.ViewModels.Products;
 using EV_ERP.Models.ViewModels.SalesOrders;
 using EV_ERP.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +12,13 @@ namespace EV_ERP.Controllers;
 public class SalesOrderController : Controller
 {
     private readonly ISalesOrderService _salesOrderService;
+    private readonly IProductService _productService;
     private readonly ILogger<SalesOrderController> _logger;
 
-    public SalesOrderController(ISalesOrderService salesOrderService, ILogger<SalesOrderController> logger)
+    public SalesOrderController(ISalesOrderService salesOrderService, IProductService productService, ILogger<SalesOrderController> logger)
     {
         _salesOrderService = salesOrderService;
+        _productService = productService;
         _logger = logger;
     }
 
@@ -47,7 +50,46 @@ public class SalesOrderController : Controller
             return RedirectToAction("Index");
         }
         ViewBag.CanEdit = CanEdit;
+        if (CanEdit && vm.Status == "DRAFT" && vm.HasUnmappedProducts)
+        {
+            var productForm = await _productService.GetFormAsync();
+            ViewBag.ProductForm = productForm;
+        }
         return View(vm);
+    }
+
+    // ── Create Product & Map (from SO Detail modal) ─────
+    [HttpPost]
+    public async Task<IActionResult> CreateProduct(int id, ProductFormViewModel model, IList<IFormFile>? GalleryFiles, int AvatarIndex = 0)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            model.GalleryFiles = GalleryFiles?.ToList();
+            model.AvatarIndex = AvatarIndex;
+
+            var (success, error, productId) = await _productService.CreateAsync(model, CurrentUserId);
+            if (!success)
+                return Json(ApiResult<object>.Fail(error ?? "Tạo sản phẩm thất bại"));
+
+            // Auto-map to SO item
+            if (model.SoItemId.HasValue && productId.HasValue)
+            {
+                var (mapOk, mapErr) = await _salesOrderService.MapProductToSOItemAsync(
+                    id, model.SoItemId.Value, productId.Value, CurrentUserId);
+                if (!mapOk)
+                    return Json(ApiResult<object>.Fail(mapErr ?? "Tạo SP thành công nhưng gắn vào đơn hàng thất bại"));
+            }
+
+            return Json(ApiResult<object>.Ok(new { productId }, "Đã tạo sản phẩm và gắn vào đơn hàng"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateProduct failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
     }
 
     // ── Update Draft Info (PO KH + file) ──────────────
@@ -65,6 +107,25 @@ public class SalesOrderController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "UpdateDraftInfo failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    // ── Create Product & Map to SO Item ────────────────
+    [HttpPost]
+    public async Task<IActionResult> CreateAndMapProduct(int id, [FromBody] QuickProductModel model)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            var (success, error) = await _salesOrderService.CreateProductAndMapAsync(id, model.SOItemId, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã tạo và gắn sản phẩm" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateAndMapProduct failed for SO #{Id}", id);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }

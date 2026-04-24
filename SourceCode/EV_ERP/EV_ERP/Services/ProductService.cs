@@ -187,7 +187,7 @@ namespace EV_ERP.Services
         }
 
         // ── Create ───────────────────────────────────────
-        public async Task<(bool Success, string? ErrorMessage)> CreateAsync(
+        public async Task<(bool Success, string? ErrorMessage, int? ProductId)> CreateAsync(
             ProductFormViewModel model, int createdBy)
         {
             // Validate category has SKU config
@@ -196,7 +196,7 @@ namespace EV_ERP.Services
                 var hasSkuConfig = await _uow.Repository<SkuConfig>().Query()
                     .AnyAsync(sc => sc.CategoryId == model.CategoryId.Value && sc.IsActive);
                 if (!hasSkuConfig)
-                    return (false, "Danh mục này chưa được cấu hình SKU. Vui lòng cấu hình SKU cho danh mục trước khi tạo sản phẩm.");
+                    return (false, "Danh mục này chưa được cấu hình SKU. Vui lòng cấu hình SKU cho danh mục trước khi tạo sản phẩm.", null);
             }
 
             var repo = _uow.Repository<Product>();
@@ -296,7 +296,7 @@ namespace EV_ERP.Services
             }
 
             _logger.LogInformation("Product created: {Code} by UserId={UserId}", code, createdBy);
-            return (true, null);
+            return (true, null, product.ProductId);
         }
 
         // ── Update ───────────────────────────────────────

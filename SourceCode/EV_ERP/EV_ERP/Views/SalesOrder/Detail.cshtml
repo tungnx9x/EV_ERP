@@ -3,6 +3,7 @@
     ViewData["Title"] = Model.SalesOrderNo;
     bool canEdit = ViewBag.CanEdit == true;
     bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "RETURNED" or "COMPLETED" or "REPORTED";
+    var productForm = ViewBag.ProductForm as EV_ERP.Models.ViewModels.Products.ProductFormViewModel;
 }
 
 <!-- Header -->
@@ -43,43 +44,43 @@
             @if (Model.Status == "DRAFT")
             {
                 <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất DNTU
+                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất DNTU
                 </a>
                 <button class="btn btn-sm btn-primary" onclick="showSubmitWaitModal()">
-                    <i class="bi bi-send me-1"></i> Gửi DNTU
+                    <i class="bi bi-send me-1"></i> Gửi DNTU
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Hủy
+                    <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
             @if (Model.Status == "WAIT")
             {
                 <button class="btn btn-sm btn-info text-white" onclick="showBuyingModal()">
-                    <i class="bi bi-cart3 me-1"></i> Bắt đầu mua hàng
+                    <i class="bi bi-cart3 me-1"></i> Bắt đầu mua hàng
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Hủy
+                    <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
             @if (Model.Status == "BUYING")
             {
-                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xác nhận hàng đã về kho?')">
-                    <i class="bi bi-box-seam me-1"></i> Xác nhận nhận hàng
+                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xác nhận hàng đã về kho?')">
+                    <i class="bi bi-box-seam me-1"></i> Xác nhận nhận hàng
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Hủy
+                    <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
             @if (Model.Status == "RECEIVED")
             {
-                <button class="btn btn-sm btn-info text-white" onclick="doSimpleAction('StartDelivering', 'Xác nhận bàn giao cho vận chuyển?')">
-                    <i class="bi bi-truck me-1"></i> Giao cho vận chuyển
+                <button class="btn btn-sm btn-info text-white" onclick="doSimpleAction('StartDelivering', 'Xác nhận bàn giao cho vận chuyển?')">
+                    <i class="bi bi-truck me-1"></i> Giao cho vận chuyển
                 </button>
             }
             @if (Model.Status == "DELIVERING")
             {
-                <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xác nhận khách hàng đã nhận hàng?')">
-                    <i class="bi bi-check-circle me-1"></i> KH đã nhận hàng
+                <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xác nhận khách hàng đã nhận hàng?')">
+                    <i class="bi bi-check-circle me-1"></i> KH đã nhận hàng
                 </button>
             }
             @if (Model.Status == "DELIVERED")
@@ -94,7 +95,7 @@
             @if (Model.Status == "RETURNED")
             {
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
-                    <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
+                    <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
                 </button>
             }
             @if (Model.Status == "COMPLETED")
@@ -107,18 +108,29 @@
     </div>
 </div>
 
+<!-- Unmapped products warning -->
+@if (canEdit && Model.Status == "DRAFT" && Model.HasUnmappedProducts)
+{
+    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-2 mb-3 py-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div class="small">
+            <strong>@Model.UnmappedProductCount sản phẩm chưa được nhập vào hệ thống.</strong>
+            Nhấn nút <i class="bi bi-plus-circle"></i> <strong>Tạo SP</strong> bên cạnh từng sản phẩm để tạo mới và gắn vào hệ thống trước khi gửi DNTU.
+        </div>
+    </div>
+}
+
 <!-- Status timeline -->
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2 px-3">
         <div class="d-flex align-items-center gap-1 flex-wrap" style="font-size:0.78rem;">
             @{
                 var steps = new[] {
-                    ("DRAFT", "Nháp"), ("WAIT", "Chờ tạm ứng"), ("BUYING", "Đang mua"),
-                    ("RECEIVED", "Nhận hàng"), ("DELIVERING", "Đang giao"),
-                    ("DELIVERED", "Đã giao"), ("COMPLETED", "Hoàn tất"),
+                    ("DRAFT", "Nháp"), ("WAIT", "Chờ tạm ứng"), ("BUYING", "Đang mua"),
+                    ("RECEIVED", "Nhận hàng"), ("DELIVERING", "Đang giao"),
+                    ("DELIVERED", "Đã giao"), ("COMPLETED", "Hoàn tất"),
                     ("REPORTED", "Báo cáo KQKD")
                 };
-                // If RETURNED, inject it into the timeline between DELIVERED and COMPLETED
                 if (Model.Status == "RETURNED" || Model.ReturnedAt.HasValue)
                 {
                     var list = steps.ToList();
@@ -148,7 +160,7 @@
             }
             @if (isCancelled)
             {
-                <span class="badge bg-danger ms-2">Đã hủy</span>
+                <span class="badge bg-danger ms-2">Đã hủy</span>
             }
         </div>
     </div>
@@ -157,52 +169,29 @@
 <div class="row g-3">
     <!-- LEFT: Info cards -->
     <div class="col-lg-4">
-        <!-- Customer info -->
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body">
-                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                    Thông tin khách hàng
-                </h6>
-                <div class="mb-2">
-                    <div class="fw-semibold">@Model.CustomerName</div>
-                    <div class="text-muted small">@Model.CustomerCode</div>
-                </div>
-                @if (Model.ContactName != null)
-                {
-                    <div class="d-flex align-items-center gap-2 mb-1 small">
-                        <i class="bi bi-person text-muted" style="width:16px;"></i>
-                        <span>@Model.ContactName</span>
-                    </div>
-                }
-                @if (Model.ContactPhone != null)
-                {
-                    <div class="d-flex align-items-center gap-2 mb-1 small">
-                        <i class="bi bi-telephone text-muted" style="width:16px;"></i>
-                        <span>@Model.ContactPhone</span>
-                    </div>
-                }
-            </div>
-        </div>
-
         <!-- Order info -->
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                    Thông tin đơn hàng
+                    Thông tin đơn hàng
                 </h6>
                 <div class="row g-2 small">
                     <div class="col-6">
-                        <div class="text-muted">Ngày tạo</div>
+                        <div class="text-muted">Khách hàng</div>
+                        <div class="fw-semibold">@Model.CustomerName</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Ngày tạo</div>
                         <div class="fw-semibold">@Model.OrderDate.ToString("dd/MM/yyyy")</div>
                     </div>
                     <div class="col-6">
-                        <div class="text-muted">Phụ trách</div>
+                        <div class="text-muted">Phụ trách</div>
                         <div class="fw-semibold">@Model.SalesPersonName</div>
                     </div>
                     @if (Model.Status != "DRAFT" && Model.CustomerPoNo != null)
                     {
                         <div class="col-6">
-                            <div class="text-muted">Mã PO KH</div>
+                            <div class="text-muted">Mã PO KH</div>
                             <div class="fw-semibold">@Model.CustomerPoNo</div>
                         </div>
                     }
@@ -210,13 +199,13 @@
                     {
                         <div class="col-6">
                             <div class="text-muted">File PO KH</div>
-                            <div><a href="@Model.CustomerPoFile" target="_blank" class="text-primary"><i class="bi bi-file-earmark-arrow-down me-1"></i>Tải xuống</a></div>
+                            <div><a href="@Model.CustomerPoFile" target="_blank" class="text-primary"><i class="bi bi-file-earmark-arrow-down me-1"></i>Tải xuống</a></div>
                         </div>
                     }
                     @if (Model.PaymentDueDate.HasValue)
                     {
                         <div class="col-6">
-                            <div class="text-muted">Hạn thanh toán</div>
+                            <div class="text-muted">Hạn thanh toán</div>
                             <div class="fw-semibold">@Model.PaymentDueDate.Value.ToString("dd/MM/yyyy")</div>
                         </div>
                     }
@@ -230,27 +219,27 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-primary">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-file-earmark-text me-1"></i> PO Khách hàng
+                        <i class="bi bi-file-earmark-text me-1"></i> PO Khách hàng
                     </h6>
                     <form id="draftInfoForm" enctype="multipart/form-data">
                         <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">Mã PO khách hàng</label>
+                            <label class="form-label small fw-semibold mb-1">Mã PO khách hàng</label>
                             <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
-                                   placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
+                                   placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
+                            <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
                             @if (Model.CustomerPoFile != null)
                             {
                                 <div class="mb-1">
                                     <a href="@Model.CustomerPoFile" target="_blank" class="text-primary small">
-                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>File hiện tại
+                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>File hiện tại
                                     </a>
                                 </div>
                             }
                             <input type="file" id="draftCustomerPoFile" class="form-control form-control-sm"
                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
-                            <div class="form-text" style="font-size:0.7rem;">PDF, ảnh, Word, Excel (tối đa 10MB)</div>
+                            <div class="form-text" style="font-size:0.7rem;">PDF, ảnh, Word, Excel (tối đa 10MB)</div>
                         </div>
                         <button type="button" class="btn btn-sm btn-primary w-100" onclick="saveDraftInfo()">
                             <i class="bi bi-check-lg me-1"></i> Lưu thông tin PO
@@ -266,15 +255,15 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-cash-stack me-1"></i> Tạm ứng
+                        <i class="bi bi-cash-stack me-1"></i> Tạm ứng
                     </h6>
                     <div class="row g-2 small">
                         <div class="col-6">
-                            <div class="text-muted">Số tiền</div>
+                            <div class="text-muted">Số tiền</div>
                             <div class="fw-bold text-warning">@Model.AdvanceAmount?.ToString("N0") @Model.Currency</div>
                         </div>
                         <div class="col-6">
-                            <div class="text-muted">Trạng thái</div>
+                            <div class="text-muted">Trạng thái</div>
                             <div class="fw-semibold">@(Model.AdvanceStatus ?? "—")</div>
                         </div>
                     </div>
@@ -288,38 +277,38 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-info">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-cart3 me-1"></i> Thông tin mua hàng
+                        <i class="bi bi-cart3 me-1"></i> Thông tin mua hàng
                     </h6>
                     <div class="row g-2 small">
                         <div class="col-12">
-                            <div class="text-muted">Nhà cung cấp</div>
+                            <div class="text-muted">Nhà cung cấp</div>
                             <div class="fw-semibold">@(Model.PurchaseSource ?? "—")</div>
                         </div>
                         @if (Model.ExpectedReceiveDate.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Dự kiến về kho</div>
+                                <div class="text-muted">Dự kiến về kho</div>
                                 <div class="fw-semibold">@Model.ExpectedReceiveDate.Value.ToString("dd/MM/yyyy")</div>
                             </div>
                         }
                         @if (Model.BuyingAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Bắt đầu mua</div>
+                                <div class="text-muted">Bắt đầu mua</div>
                                 <div class="fw-semibold">@Model.BuyingAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (Model.ReceivedAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Nhận hàng</div>
+                                <div class="text-muted">Nhận hàng</div>
                                 <div class="fw-semibold text-success">@Model.ReceivedAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (!string.IsNullOrEmpty(Model.BuyingNotes))
                         {
                             <div class="col-12">
-                                <div class="text-muted">Ghi chú mua</div>
+                                <div class="text-muted">Ghi chú mua</div>
                                 <div style="white-space:pre-wrap;">@Model.BuyingNotes</div>
                             </div>
                         }
@@ -334,20 +323,20 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-clock-history me-1"></i> Tiến trình
+                        <i class="bi bi-clock-history me-1"></i> Tiến trình
                     </h6>
                     <div class="row g-2 small">
                         @if (Model.DeliveringAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Giao vận chuyển</div>
+                                <div class="text-muted">Giao vận chuyển</div>
                                 <div class="fw-semibold">@Model.DeliveringAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
                         @if (Model.DeliveredAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">KH nhận hàng</div>
+                                <div class="text-muted">KH nhận hàng</div>
                                 <div class="fw-semibold text-success">@Model.DeliveredAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
@@ -361,7 +350,7 @@
                         @if (Model.CompletedAt.HasValue)
                         {
                             <div class="col-6">
-                                <div class="text-muted">Hoàn tất</div>
+                                <div class="text-muted">Hoàn tất</div>
                                 <div class="fw-semibold text-success">@Model.CompletedAt.Value.ToString("dd/MM HH:mm")</div>
                             </div>
                         }
@@ -383,17 +372,17 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-calculator me-1"></i> Quyết toán
+                        <i class="bi bi-calculator me-1"></i> Quyết toán
                     </h6>
                     <div class="row g-2 small">
                         <div class="col-6">
-                            <div class="text-muted">Chi phí thực tế</div>
+                            <div class="text-muted">Chi phí thực tế</div>
                             <div class="fw-bold">@Model.ActualCost?.ToString("N0") @Model.Currency</div>
                         </div>
                         @if (!string.IsNullOrEmpty(Model.SettlementNotes))
                         {
                             <div class="col-12">
-                                <div class="text-muted">Ghi chú</div>
+                                <div class="text-muted">Ghi chú</div>
                                 <div>@Model.SettlementNotes</div>
                             </div>
                         }
@@ -408,13 +397,13 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-danger">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-x-circle me-1"></i> Thông tin hủy
+                        <i class="bi bi-x-circle me-1"></i> Thông tin hủy
                     </h6>
                     <div class="small">
-                        <div class="text-muted">Hủy lúc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
+                        <div class="text-muted">Hủy lúc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
                         @if (!string.IsNullOrEmpty(Model.CancelReason))
                         {
-                            <div class="mt-1">Lý do: @Model.CancelReason</div>
+                            <div class="mt-1">Lý do: @Model.CancelReason</div>
                         }
                     </div>
                 </div>
@@ -446,7 +435,7 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        Ghi chú
+                        Ghi chú
                     </h6>
                     <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
                 </div>
@@ -457,7 +446,7 @@
             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
                 <div class="card-body">
                     <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
+                        <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
                     </h6>
                     <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
                 </div>
@@ -470,8 +459,14 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom py-2">
                 <h6 class="mb-0 fw-semibold small text-uppercase">
-                    <i class="bi bi-box-seam me-1"></i> Chi tiết sản phẩm
+                    <i class="bi bi-box-seam me-1"></i> Chi tiết sản phẩm
                     <span class="badge bg-primary rounded-pill ms-1">@Model.Items.Count</span>
+                    @if (Model.Status == "DRAFT" && Model.HasUnmappedProducts)
+                    {
+                        <span class="badge bg-warning rounded-pill ms-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@Model.UnmappedProductCount chưa nhập SP
+                        </span>
+                    }
                 </h6>
             </div>
             <div class="card-body p-0">
@@ -480,26 +475,48 @@
                         <thead class="table-light">
                             <tr>
                                 <th style="width:30px;" class="text-center">STT</th>
-                                <th>Sản phẩm</th>
+                                <th>Sản phẩm</th>
+                                @if (canEdit && Model.Status == "DRAFT")
+                                {
+                                    <th style="width:80px;" class="text-center">Trạng thái</th>
+                                }
                                 <th>DVT</th>
                                 <th class="text-end">SL</th>
-                                <th class="text-end bg-success-subtle">Đơn giá bán</th>
-                                <th class="text-end bg-success-subtle">Thành tiền</th>
+                                <th class="text-end bg-success-subtle">Đơn giá bán</th>
+                                <th class="text-end bg-success-subtle">Thành tiền</th>
                                 @if (showBuyingInfo)
                                 {
-                                    <th class="text-end bg-warning-subtle">Giá mua</th>
-                                    <th class="text-end bg-warning-subtle">Chi phí</th>
+                                    <th class="text-end bg-warning-subtle">Giá mua</th>
+                                    <th class="text-end bg-warning-subtle">Chi phí</th>
                                 }
-                                <th class="d-none d-md-table-cell">Ghi chú</th>
+                                <th class="d-none d-md-table-cell">Ghi chú</th>
                             </tr>
                         </thead>
                         <tbody>
                             @{ int idx = 1; }
                             @foreach (var item in Model.Items)
                             {
-                                <tr>
+                                <tr class="@(!item.IsProductMapped && Model.Status == "DRAFT" ? "table-warning" : "")">
                                     <td class="text-center text-muted">@(idx++)</td>
                                     <td class="fw-semibold">@item.ProductName</td>
+                                    @if (canEdit && Model.Status == "DRAFT")
+                                    {
+                                        <td class="text-center">
+                                            @if (item.IsProductMapped)
+                                            {
+                                                <span class="badge bg-success-subtle text-success-emphasis">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>OK
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning py-0 px-1"
+                                                        onclick="openCreateProductModal(@item.SOItemId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductName)', @item.UnitPrice, @(item.PurchasePrice?.ToString() ?? "0"), '@System.Web.HttpUtility.JavaScriptStringEncode(item.SourceUrl ?? "")')">
+                                                    <i class="bi bi-plus-circle me-1"></i>Tạo SP
+                                                </button>
+                                            }
+                                        </td>
+                                    }
                                     <td>@item.UnitName</td>
                                     <td class="text-end">@item.Quantity.ToString("N3")</td>
                                     <td class="text-end">@item.UnitPrice.ToString("N0")</td>
@@ -524,26 +541,26 @@
                 <div class="row">
                     <div class="col-md-6">
                         <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                            <i class="bi bi-cash me-1"></i> Giá trị bán
+                            <i class="bi bi-cash me-1"></i> Giá trị bán
                         </h6>
                         <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
                             <tr>
-                                <td class="text-muted">Tạm tính</td>
+                                <td class="text-muted">Tạm tính</td>
                                 <td class="text-end">@Model.SubTotal.ToString("N0")</td>
                             </tr>
                             @if (Model.DiscountAmount > 0)
                             {
                                 <tr>
-                                    <td class="text-muted">Chiết khấu</td>
+                                    <td class="text-muted">Chiết khấu</td>
                                     <td class="text-end text-danger">-@Model.DiscountAmount.ToString("N0")</td>
                                 </tr>
                             }
                             <tr>
-                                <td class="text-muted">Thuế (@Model.TaxRate%)</td>
+                                <td class="text-muted">Thuế (@Model.TaxRate%)</td>
                                 <td class="text-end">@Model.TaxAmount.ToString("N0")</td>
                             </tr>
                             <tr class="fw-bold border-top">
-                                <td>Tổng bán</td>
+                                <td>Tổng bán</td>
                                 <td class="text-end text-primary fs-6">@Model.TotalAmount.ToString("N0") @Model.Currency</td>
                             </tr>
                         </table>
@@ -552,15 +569,15 @@
                     {
                         <div class="col-md-6">
                             <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                                <i class="bi bi-calculator me-1"></i> Chi phí & Lợi nhuận
+                                <i class="bi bi-calculator me-1"></i> Chi phí & Lợi nhuận
                             </h6>
                             <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
                                 <tr>
-                                    <td class="text-muted">Chi phí mua</td>
+                                    <td class="text-muted">Chi phí mua</td>
                                     <td class="text-end">@(Model.PurchaseCost?.ToString("N0") ?? "—")</td>
                                 </tr>
                                 <tr class="fw-bold border-top">
-                                    <td>Lợi nhuận</td>
+                                    <td>Lợi nhuận</td>
                                     <td class="text-end @(Model.ProfitAmount >= 0 ? "text-success" : "text-danger")">
                                         @Model.ProfitAmount.ToString("N0") @Model.Currency
                                     </td>
@@ -583,30 +600,75 @@
 <!-- MODALS                                             -->
 <!-- ═══════════════════════════════════════════════════ -->
 
+<!-- Create Product Modal (full form) -->
+@if (canEdit && Model.Status == "DRAFT" && Model.HasUnmappedProducts && productForm != null)
+{
+    <div class="modal fade" id="createProductModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold">
+                        <i class="bi bi-plus-circle me-1 text-primary"></i> Tạo sản phẩm mới
+                        <span class="text-muted small ms-2" id="cpItemLabel"></span>
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="cpSoItemId" />
+
+                    @await Html.PartialAsync("~/Views/Product/_ProductForm.cshtml", productForm)
+
+                    <hr class="my-4" />
+
+                    <!-- Section: Hình ảnh sản phẩm -->
+                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.75rem;letter-spacing:.06em;">
+                        <i class="bi bi-images me-1"></i> Hình ảnh sản phẩm
+                    </h6>
+                    <div class="mb-3">
+                        <input type="file" id="cp-gallery-input"
+                               class="form-control form-control-sm"
+                               accept="image/jpeg,image/png,image/webp,image/gif"
+                               multiple onchange="previewCpGallery(this)" />
+                        <div class="form-text small">JPG, PNG, WebP — tối đa 5 MB mỗi ảnh. Ảnh đầu tiên mặc định là ảnh đại diện — nhấn vào ảnh khác để thay đổi.</div>
+                    </div>
+                    <input type="hidden" id="cp-avatar-index" value="0" />
+                    <div id="cp-gallery-preview" class="d-flex flex-wrap gap-2 mb-3"></div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="cpSubmitBtn" onclick="submitCreateProduct()">
+                        <i class="bi bi-check-lg me-1"></i> Tạo sản phẩm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Submit Wait Modal (DRAFT → WAIT) -->
 <div class="modal fade" id="submitWaitModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Gửi DNTU</h6>
+                <h6 class="modal-title fw-bold">Gửi DNTU</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Mã PO khách hàng</label>
+                    <label class="form-label small fw-semibold">Mã PO khách hàng</label>
                     <input type="text" id="inputCustomerPoNo" class="form-control form-control-sm"
-                           placeholder="Nhập mã PO của khách hàng..." value="@Model.CustomerPoNo" />
+                           placeholder="Nhập mã PO của khách hàng..." value="@Model.CustomerPoNo" />
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Số tiền tạm ứng</label>
+                    <label class="form-label small fw-semibold">Số tiền tạm ứng</label>
                     <input type="number" id="inputAdvanceAmount" class="form-control form-control-sm"
                            placeholder="0" value="@(Model.AdvanceAmount ?? 0)" />
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-primary" onclick="confirmSubmitWait()">
-                    <i class="bi bi-send me-1"></i> Gửi
+                    <i class="bi bi-send me-1"></i> Gửi
                 </button>
             </div>
         </div>
@@ -618,7 +680,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Bắt đầu mua hàng</h6>
+                <h6 class="modal-title fw-bold">Bắt đầu mua hàng</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -629,26 +691,26 @@
                                placeholder="VD: Shopee + Lazada" />
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-semibold">Dự kiến hàng về kho</label>
+                        <label class="form-label small fw-semibold">Dự kiến hàng về kho</label>
                         <input type="date" id="inputExpectedReceiveDate" class="form-control form-control-sm" />
                     </div>
                     <div class="col-12">
-                        <label class="form-label small fw-semibold">Ghi chú mua hàng</label>
+                        <label class="form-label small fw-semibold">Ghi chú mua hàng</label>
                         <textarea id="inputBuyingNotes" class="form-control form-control-sm" rows="2"
-                                  placeholder="Ghi chú..."></textarea>
+                                  placeholder="Ghi chú..."></textarea>
                     </div>
                 </div>
 
-                <h6 class="fw-semibold small mb-2">Giá mua từng sản phẩm</h6>
+                <h6 class="fw-semibold small mb-2">Giá mua từng sản phẩm</h6>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
                         <thead class="table-light">
                             <tr>
-                                <th>Sản phẩm</th>
+                                <th>Sản phẩm</th>
                                 <th class="text-end" style="width:80px;">SL</th>
-                                <th class="text-end" style="width:120px;">Giá bán</th>
-                                <th class="text-end" style="width:140px;">Giá mua (nhập)</th>
-                                <th class="text-end" style="width:120px;">Chi phí dòng</th>
+                                <th class="text-end" style="width:120px;">Giá bán</th>
+                                <th class="text-end" style="width:140px;">Giá mua (nhập)</th>
+                                <th class="text-end" style="width:120px;">Chi phí dòng</th>
                             </tr>
                         </thead>
                         <tbody id="buyingItemsBody">
@@ -679,7 +741,7 @@
                         </tbody>
                         <tfoot class="table-light">
                             <tr class="fw-bold">
-                                <td colspan="4" class="text-end">Tổng chi phí mua:</td>
+                                <td colspan="4" class="text-end">Tổng chi phí mua:</td>
                                 <td class="text-end" id="totalPurchaseCost">0</td>
                             </tr>
                         </tfoot>
@@ -687,9 +749,9 @@
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-info text-white" onclick="confirmBuying()">
-                    <i class="bi bi-cart3 me-1"></i> Xác nhận mua hàng
+                    <i class="bi bi-cart3 me-1"></i> Xác nhận mua hàng
                 </button>
             </div>
         </div>
@@ -701,25 +763,25 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Hoàn tất quyết toán</h6>
+                <h6 class="modal-title fw-bold">Hoàn tất quyết toán</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Chi phí thực tế</label>
+                    <label class="form-label small fw-semibold">Chi phí thực tế</label>
                     <input type="number" id="inputActualCost" class="form-control form-control-sm"
                            placeholder="0" value="@(Model.PurchaseCost ?? 0)" />
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Ghi chú quyết toán</label>
+                    <label class="form-label small fw-semibold">Ghi chú quyết toán</label>
                     <textarea id="inputSettlementNotes" class="form-control form-control-sm" rows="3"
-                              placeholder="Hoàn ứng / thanh toán bổ sung..."></textarea>
+                              placeholder="Hoàn ứng / thanh toán bổ sung..."></textarea>
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-success" onclick="confirmComplete()">
-                    <i class="bi bi-check-all me-1"></i> Hoàn tất
+                    <i class="bi bi-check-all me-1"></i> Hoàn tất
                 </button>
             </div>
         </div>
@@ -754,18 +816,18 @@
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Hủy đơn hàng</h6>
+                <h6 class="modal-title fw-bold">Hủy đơn hàng</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label small fw-semibold">Lý do hủy</label>
+                <label class="form-label small fw-semibold">Lý do hủy</label>
                 <textarea id="cancelReason" class="form-control form-control-sm" rows="3"
-                          placeholder="Nhập lý do..."></textarea>
+                          placeholder="Nhập lý do..."></textarea>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
                 <button type="button" class="btn btn-sm btn-danger" onclick="confirmCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Hủy đơn hàng
+                    <i class="bi bi-x-circle me-1"></i> Hủy đơn hàng
                 </button>
             </div>
         </div>
@@ -791,6 +853,7 @@
 
 <script>
     var soId = @Model.SalesOrderId;
+    var hasUnmappedProducts = @(Model.HasUnmappedProducts ? "true" : "false");
 
     // ── Helpers ──────────────────────────────────────
     function postAction(url, body, callback) {
@@ -810,7 +873,7 @@
         if (!confirm(msg)) return;
         postAction('/SalesOrder/' + action + '/' + soId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else alert(data.Message || 'Lỗi');
         });
     }
 
@@ -844,6 +907,10 @@
 
     // ── DRAFT → WAIT ────────────────────────────────
     function showSubmitWaitModal() {
+        if (hasUnmappedProducts) {
+            alert('Còn sản phẩm chưa được nhập vào hệ thống. Vui lòng tạo sản phẩm cho tất cả các dòng trước khi gửi DNTU.');
+            return;
+        }
         new bootstrap.Modal(document.getElementById('submitWaitModal')).show();
     }
 
@@ -854,8 +921,146 @@
         };
         postAction('/SalesOrder/SubmitWait/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else alert(data.Message || 'Lỗi');
         });
+    }
+
+    // ── Create Product Modal ────────────────────────
+    function openCreateProductModal(soItemId, productName, salePrice, purchasePrice, sourceUrl) {
+        document.getElementById('cpSoItemId').value = soItemId;
+        document.getElementById('cpItemLabel').textContent = '(cho: ' + productName + ')';
+
+        // Pre-fill form fields
+        document.getElementById('ProductName').value = productName;
+        document.getElementById('DefaultSalePrice').value = salePrice || '';
+        document.getElementById('DefaultPurchasePrice').value = purchasePrice || '';
+        document.getElementById('SourceUrl').value = sourceUrl || '';
+
+        // Reset image upload
+        var galleryInput = document.getElementById('cp-gallery-input');
+        if (galleryInput) galleryInput.value = '';
+        document.getElementById('cp-gallery-preview').innerHTML = '';
+        document.getElementById('cp-avatar-index').value = '0';
+
+        new bootstrap.Modal(document.getElementById('createProductModal')).show();
+    }
+
+    function submitCreateProduct() {
+        var productName = document.getElementById('ProductName').value.trim();
+        var unitId = document.getElementById('UnitId').value;
+
+        if (!productName) { alert('Tên sản phẩm là bắt buộc'); return; }
+        if (!unitId || unitId === '0') { alert('Vui lòng chọn đơn vị tính'); return; }
+
+        var formData = new FormData();
+        formData.append('SoItemId', document.getElementById('cpSoItemId').value);
+        formData.append('ProductName', productName);
+        formData.append('Description', document.getElementById('Description')?.value || '');
+        formData.append('CategoryId', document.getElementById('CategoryId')?.value || '');
+        formData.append('UnitId', unitId);
+        formData.append('DefaultSalePrice', document.getElementById('DefaultSalePrice')?.value || '');
+        formData.append('DefaultPurchasePrice', document.getElementById('DefaultPurchasePrice')?.value || '');
+        formData.append('MinStockLevel', document.getElementById('MinStockLevel')?.value || '0');
+        formData.append('Barcode', document.getElementById('Barcode')?.value || '');
+        formData.append('BarcodeType', document.getElementById('BarcodeType')?.value || 'CODE128');
+        formData.append('SourceUrl', document.getElementById('SourceUrl')?.value || '');
+        formData.append('Weight', document.getElementById('Weight')?.value || '');
+        formData.append('WeightUnit', document.getElementById('WeightUnit')?.value || '');
+        formData.append('IsActive', document.getElementById('IsActive')?.checked ? 'true' : 'false');
+        formData.append('AvatarIndex', document.getElementById('cp-avatar-index')?.value || '0');
+
+        // SKU attribute values
+        document.querySelectorAll('[name^="AttributeValues["]').forEach(function (el) {
+            if (el.value) formData.append(el.name, el.value);
+        });
+
+        // Gallery files
+        var galleryInput = document.getElementById('cp-gallery-input');
+        if (galleryInput && galleryInput.files) {
+            for (var i = 0; i < galleryInput.files.length; i++) {
+                formData.append('GalleryFiles', galleryInput.files[i]);
+            }
+        }
+
+        var btn = document.getElementById('cpSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang tạo...';
+
+        fetch('/SalesOrder/CreateProduct/' + soId, {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+            },
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('createProductModal')).hide();
+                location.reload();
+            } else {
+                alert(data.Message || 'Lỗi tạo sản phẩm');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Tạo sản phẩm';
+            }
+        })
+        .catch(function(err) {
+            alert('Lỗi hệ thống');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Tạo sản phẩm';
+        });
+    }
+
+    // ── Gallery preview for product modal ─────────────
+    function previewCpGallery(input) {
+        var container = document.getElementById('cp-gallery-preview');
+        container.innerHTML = '';
+        document.getElementById('cp-avatar-index').value = '0';
+        if (!input.files || input.files.length === 0) return;
+
+        Array.from(input.files).forEach(function (file, idx) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var wrap = document.createElement('div');
+                wrap.className = 'position-relative';
+                wrap.dataset.idx = idx;
+                wrap.style.cssText = 'width:80px;height:80px;cursor:pointer;';
+                wrap.title = 'Nhấn để đặt làm ảnh đại diện';
+                wrap.onclick = function () { setCpAvatar(idx); };
+
+                var img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:6px;border:2px solid ' + (idx === 0 ? '#2563eb' : '#e2e8f0') + ';';
+                img.dataset.idx = idx;
+                wrap.appendChild(img);
+
+                if (idx === 0) {
+                    var badge = document.createElement('span');
+                    badge.className = 'position-absolute top-0 start-0 badge bg-primary cp-avatar-badge';
+                    badge.style.cssText = 'font-size:0.55rem;border-radius:6px 0 4px 0!important;pointer-events:none;';
+                    badge.textContent = 'Avatar';
+                    wrap.appendChild(badge);
+                }
+                container.appendChild(wrap);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function setCpAvatar(idx) {
+        document.getElementById('cp-avatar-index').value = idx;
+        document.querySelectorAll('.cp-avatar-badge').forEach(function(b) { b.remove(); });
+        document.querySelectorAll('#cp-gallery-preview img').forEach(function (img) {
+            img.style.border = img.dataset.idx == idx ? '2px solid #2563eb' : '2px solid #e2e8f0';
+        });
+        var target = document.querySelector('#cp-gallery-preview [data-idx="' + idx + '"]');
+        if (target) {
+            var badge = document.createElement('span');
+            badge.className = 'position-absolute top-0 start-0 badge bg-primary cp-avatar-badge';
+            badge.style.cssText = 'font-size:0.55rem;border-radius:6px 0 4px 0!important;pointer-events:none;';
+            badge.textContent = 'Avatar';
+            target.appendChild(badge);
+        }
     }
 
     // ── WAIT → BUYING ───────────────────────────────
@@ -919,7 +1124,7 @@
         };
         postAction('/SalesOrder/Complete/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else alert(data.Message || 'Lỗi');
         });
     }
 
@@ -954,7 +1159,7 @@
                 bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Lỗi');
+                alert(data.Message || 'Lỗi');
             }
         });
     }

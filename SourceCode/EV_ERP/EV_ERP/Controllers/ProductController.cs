@@ -59,7 +59,7 @@ namespace EV_ERP.Controllers
                 return View(model);
             }
 
-            var (success, error) = await _productService.CreateAsync(model, CurrentUserId);
+            var (success, error, _) = await _productService.CreateAsync(model, CurrentUserId);
             if (!success)
             {
                 ModelState.AddModelError(string.Empty, error ?? "Tạo sản phẩm thất bại");

@@ -43,6 +43,17 @@ public interface ISalesOrderService
     Task<(bool Success, string? ErrorMessage)> UpdateDraftInfoAsync(
         int salesOrderId, string? customerPoNo, IFormFile? customerPoFile, int userId);
 
+    // ── Create product & map to SO item ────────────────
+    Task<(bool Success, string? ErrorMessage)> CreateProductAndMapAsync(
+        int salesOrderId, int soItemId, QuickProductModel model, int userId);
+
+    // ── Map existing product to SO item ─────────────
+    Task<(bool Success, string? ErrorMessage)> MapProductToSOItemAsync(
+        int salesOrderId, int soItemId, int productId, int userId);
+
+    // ── Unit options (for quick product create) ──────
+    Task<List<UnitOptionVM>> GetUnitOptionsAsync();
+
     // ── Export ĐNTU Excel ────────────────────────────
     Task<(byte[] FileBytes, string FileName)?> ExportDntuAsync(int salesOrderId, int userId);
 }

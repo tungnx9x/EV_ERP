@@ -125,6 +125,10 @@ namespace EV_ERP.Models.ViewModels.Products
         public string? SKU { get; set; }
 
         public bool IsEditMode => ProductId.HasValue && ProductId > 0;
+
+        // SO context: when creating product from Sales Order detail page
+        public int? SoId { get; set; }
+        public int? SoItemId { get; set; }
     }
 
     // ── Detail ───────────────────────────────────────────

@@ -179,6 +179,10 @@ public class SalesOrderDetailViewModel
 
     // Items
     public List<SalesOrderItemDetailViewModel> Items { get; set; } = [];
+
+    // Computed: any item not yet mapped to a real Product
+    public bool HasUnmappedProducts => Items.Any(i => !i.IsProductMapped);
+    public int UnmappedProductCount => Items.Count(i => !i.IsProductMapped);
 }
 
 public class SalesOrderItemDetailViewModel
@@ -201,6 +205,7 @@ public class SalesOrderItemDetailViewModel
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
     public string? Notes { get; set; }
+    public bool IsProductMapped { get; set; }
 }
 
 // ══════════════════════════════════════════════════════
@@ -237,6 +242,24 @@ public class SalesOrderCompleteModel
 public class SalesOrderReturnModel
 {
     public string? ReturnReason { get; set; }
+}
+
+public class QuickProductModel
+{
+    public int SOItemId { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int UnitId { get; set; }
+    public decimal? DefaultSalePrice { get; set; }
+    public decimal? DefaultPurchasePrice { get; set; }
+    public string? SourceUrl { get; set; }
+}
+
+public class UnitOptionVM
+{
+    public int UnitId { get; set; }
+    public string UnitCode { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
 }
 
 // ══════════════════════════════════════════════════════

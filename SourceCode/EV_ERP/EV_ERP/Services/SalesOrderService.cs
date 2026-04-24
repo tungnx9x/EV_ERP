@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
+using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.SalesOrders;
 using EV_ERP.Repositories.Interfaces;
@@ -194,7 +195,8 @@ public class SalesOrderService : ISalesOrderService
                 LineCost = i.LineCost,
                 SourceUrl = i.SourceUrl,
                 SourceName = i.SourceName,
-                Notes = i.Notes
+                Notes = i.Notes,
+                IsProductMapped = i.IsProductMapped
             }).ToList()
         };
     }
@@ -290,9 +292,16 @@ public class SalesOrderService : ISalesOrderService
     public async Task<(bool Success, string? ErrorMessage)> SubmitWaitAsync(
         int salesOrderId, SalesOrderDraftModel model, int userId)
     {
-        var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
         if (so == null) return (false, "Không tìm thấy đơn hàng");
         if (so.Status != "DRAFT") return (false, "Chỉ có thể gửi đề nghị tạm ứng ở trạng thái Nháp");
+
+        // Validate: all items must be mapped to a real product
+        var unmappedCount = so.Items.Count(i => !i.IsProductMapped);
+        if (unmappedCount > 0)
+            return (false, $"Còn {unmappedCount} sản phẩm chưa được gắn vào hệ thống. Vui lòng hoàn thiện thông tin sản phẩm trước khi gửi DNTU.");
 
         so.CustomerPoNo = model.CustomerPoNo?.Trim();
         so.AdvanceAmount = model.AdvanceAmount;
@@ -699,6 +708,125 @@ public class SalesOrderService : ISalesOrderService
     {
         var invalid = Path.GetInvalidFileNameChars();
         return string.Join("", name.Where(c => !invalid.Contains(c))).Trim();
+    }
+
+    // ══════════════════════════════════════════════════
+    // CREATE PRODUCT & MAP TO SO ITEM
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage)> CreateProductAndMapAsync(
+        int salesOrderId, int soItemId, QuickProductModel model, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status != "DRAFT") return (false, "Chỉ có thể tạo sản phẩm ở trạng thái Nháp");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+
+        if (string.IsNullOrWhiteSpace(model.ProductName))
+            return (false, "Tên sản phẩm là bắt buộc");
+        if (model.UnitId <= 0)
+            return (false, "Đơn vị tính là bắt buộc");
+
+        // Generate product code
+        var productCode = await GenerateProductCodeAsync();
+
+        // Create product
+        var product = new Product
+        {
+            ProductCode = productCode,
+            ProductName = model.ProductName.Trim(),
+            Description = model.Description?.Trim(),
+            UnitId = model.UnitId,
+            DefaultSalePrice = model.DefaultSalePrice,
+            DefaultPurchasePrice = model.DefaultPurchasePrice,
+            SourceUrl = model.SourceUrl?.Trim(),
+            IsActive = true,
+            CreatedBy = userId,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        await _uow.Repository<Product>().AddAsync(product);
+        await _uow.SaveChangesAsync();
+
+        // Auto-generate barcode
+        product.Barcode = product.ProductCode;
+        product.BarcodeType = "CODE128";
+        _uow.Repository<Product>().Update(product);
+
+        // Map to SO item
+        item.ProductId = product.ProductId;
+        item.IsProductMapped = true;
+
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+        _uow.Repository<SalesOrder>().Update(so);
+
+        await _uow.SaveChangesAsync();
+
+        _logger.LogInformation("Product #{ProductId} ({Code}) created and mapped to SO item #{ItemId} in SO {No} by UserId={UserId}",
+            product.ProductId, productCode, soItemId, so.SalesOrderNo, userId);
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> MapProductToSOItemAsync(
+        int salesOrderId, int soItemId, int productId, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status != "DRAFT") return (false, "Chỉ gắn sản phẩm ở trạng thái Nháp");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+        if (item.IsProductMapped) return (false, "Dòng này đã được gắn sản phẩm");
+
+        item.ProductId = productId;
+        item.IsProductMapped = true;
+
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        _logger.LogInformation("Product #{ProductId} mapped to SO item #{ItemId} in SO {No} by UserId={UserId}",
+            productId, soItemId, so.SalesOrderNo, userId);
+        return (true, null);
+    }
+
+    public async Task<List<UnitOptionVM>> GetUnitOptionsAsync()
+    {
+        return await _uow.Repository<Unit>().Query()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.UnitName)
+            .Select(u => new UnitOptionVM
+            {
+                UnitId = u.UnitId,
+                UnitCode = u.UnitCode,
+                UnitName = u.UnitName
+            })
+            .ToListAsync();
+    }
+
+    private async Task<string> GenerateProductCodeAsync()
+    {
+        var last = await _uow.Repository<Product>().Query()
+            .Where(p => p.ProductCode.StartsWith("SP-"))
+            .OrderByDescending(p => p.ProductCode)
+            .FirstOrDefaultAsync();
+
+        int next = 1;
+        if (last != null && last.ProductCode.Length > 3)
+        {
+            if (int.TryParse(last.ProductCode[3..], out int n))
+                next = n + 1;
+        }
+        return $"SP-{next:D5}";
     }
 
     // ══════════════════════════════════════════════════

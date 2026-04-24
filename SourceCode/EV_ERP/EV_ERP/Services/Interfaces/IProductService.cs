@@ -7,7 +7,7 @@ namespace EV_ERP.Services.Interfaces
     {
         Task<ProductListViewModel> GetListAsync(string? keyword, int? categoryId, string? status);
         Task<ProductFormViewModel> GetFormAsync(int? productId = null);
-        Task<(bool Success, string? ErrorMessage)> CreateAsync(ProductFormViewModel model, int createdBy);
+        Task<(bool Success, string? ErrorMessage, int? ProductId)> CreateAsync(ProductFormViewModel model, int createdBy);
         Task<(bool Success, string? ErrorMessage)> UpdateAsync(ProductFormViewModel model, int updatedBy);
         Task<(bool Success, string? ErrorMessage)> ToggleActiveAsync(int productId, int updatedBy);
         Task<ProductDetailViewModel?> GetDetailAsync(int productId);

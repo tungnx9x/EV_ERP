@@ -19,7 +19,7 @@ public interface ISalesOrderService
 
     // ── Status transitions ───────────────────────────
     Task<(bool Success, string? ErrorMessage)> SubmitWaitAsync(
-        int salesOrderId, SalesOrderDraftModel model, int userId);
+        int salesOrderId, SalesOrderDraftModel? model, int userId);
 
     Task<(bool Success, string? ErrorMessage)> StartBuyingAsync(
         int salesOrderId, SalesOrderBuyingModel model, int userId);

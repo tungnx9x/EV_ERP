@@ -658,35 +658,6 @@
     </div>
 }
 
-<!-- Submit Wait Modal (DRAFT → WAIT) -->
-<div class="modal fade" id="submitWaitModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Gửi DNTU</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Mã PO khách hàng</label>
-                    <input type="text" id="inputCustomerPoNo" class="form-control form-control-sm"
-                           placeholder="Nhập mã PO của khách hàng..." value="@Model.CustomerPoNo" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Số tiền tạm ứng</label>
-                    <input type="number" id="inputAdvanceAmount" class="form-control form-control-sm"
-                           placeholder="0" value="@(Model.AdvanceAmount ?? 0)" />
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-sm btn-primary" onclick="confirmSubmitWait()">
-                    <i class="bi bi-send me-1"></i> Gửi
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Buying Modal (WAIT → BUYING) -->
 <div class="modal fade" id="buyingModal" tabindex="-1">
@@ -977,15 +948,24 @@
             alert('Còn sản phẩm chưa được nhập vào hệ thống. Vui lòng tạo sản phẩm cho tất cả các dòng trước khi gửi DNTU.');
             return;
         }
-        new bootstrap.Modal(document.getElementById('submitWaitModal')).show();
-    }
 
-    function confirmSubmitWait() {
-        var body = {
-            CustomerPoNo: document.getElementById('inputCustomerPoNo').value.trim(),
-            AdvanceAmount: parseFloat(document.getElementById('inputAdvanceAmount').value) || 0
-        };
-        postAction('/SalesOrder/SubmitWait/' + soId, body, function (data) {
+        var customerPoNo = document.getElementById('draftCustomerPoNo')?.value.trim();
+        if (!customerPoNo) {
+            alert('Vui lòng nhập Mã PO khách hàng trước khi gửi DNTU.');
+            document.getElementById('draftCustomerPoNo')?.focus();
+            return;
+        }
+
+        var hasExistingFile = @(Model.CustomerPoFile != null ? "true" : "false");
+        var hasNewFile = document.getElementById('draftCustomerPoFile')?.files.length > 0;
+        if (!hasExistingFile && !hasNewFile) {
+            alert('Vui lòng upload File PO khách hàng trước khi gửi DNTU.');
+            return;
+        }
+
+        if (!confirm('Xác nhận gửi đề nghị tạm ứng?')) return;
+
+        postAction('/SalesOrder/SubmitWait/' + soId, null, function (data) {
             if (data.Success) location.reload();
             else alert(data.Message || 'Lỗi');
         });

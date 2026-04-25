@@ -132,7 +132,7 @@ public class SalesOrderController : Controller
 
     // ── Status: DRAFT → WAIT ─────────────────────────
     [HttpPost]
-    public async Task<IActionResult> SubmitWait(int id, [FromBody] SalesOrderDraftModel model)
+    public async Task<IActionResult> SubmitWait(int id, [FromBody] SalesOrderDraftModel? model)
     {
         try
         {

@@ -290,9 +290,9 @@ public class SalesOrderService : ISalesOrderService
     // STATUS TRANSITIONS
     // ══════════════════════════════════════════════════
 
-    // DRAFT → WAIT (nhập PO KH, đề nghị tạm ứng)
+    // DRAFT → WAIT (gửi DNTU — PO KH đã được lưu trước đó)
     public async Task<(bool Success, string? ErrorMessage)> SubmitWaitAsync(
-        int salesOrderId, SalesOrderDraftModel model, int userId)
+        int salesOrderId, SalesOrderDraftModel? model, int userId)
     {
         var so = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Items)
@@ -305,9 +305,13 @@ public class SalesOrderService : ISalesOrderService
         if (unmappedCount > 0)
             return (false, $"Còn {unmappedCount} sản phẩm chưa được gắn vào hệ thống. Vui lòng hoàn thiện thông tin sản phẩm trước khi gửi DNTU.");
 
-        so.CustomerPoNo = model.CustomerPoNo?.Trim();
-        so.AdvanceAmount = model.AdvanceAmount;
-        so.AdvanceStatus = model.AdvanceAmount > 0 ? "PENDING" : null;
+        // Validate: PO info must be filled
+        if (string.IsNullOrWhiteSpace(so.CustomerPoNo))
+            return (false, "Vui lòng nhập Mã PO khách hàng trước khi gửi DNTU.");
+        if (string.IsNullOrWhiteSpace(so.CustomerPoFile))
+            return (false, "Vui lòng upload File PO khách hàng trước khi gửi DNTU.");
+
+        so.AdvanceStatus = so.AdvanceAmount > 0 ? "PENDING" : null;
         so.Status = "WAIT";
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;

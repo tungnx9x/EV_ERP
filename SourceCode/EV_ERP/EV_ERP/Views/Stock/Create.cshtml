@@ -30,7 +30,26 @@
             <input type="hidden" id="frm_transactionType" value="@Model.TransactionType" />
             <input type="hidden" id="frm_salesOrderId" value="@Model.SalesOrderId" />
 
-            <div class="col-md-4">
+            @if (Model.TransactionType == "OUTBOUND")
+            {
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Mã đơn hàng (SO)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="frm_soCode" class="form-control form-control-sm"
+                               placeholder="VD: SO-202604-001" value="@Model.SalesOrderNo"
+                               @(Model.SalesOrderId > 0 ? "readonly" : "") />
+                        @if (Model.SalesOrderId == null || Model.SalesOrderId == 0)
+                        {
+                            <button class="btn btn-outline-primary btn-sm" type="button" onclick="lookupSalesOrder()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        }
+                    </div>
+                    <div id="soLookupError" class="text-danger small mt-1" style="display:none;"></div>
+                    <div id="soLookupSuccess" class="text-success small mt-1" style="display:none;"></div>
+                </div>
+            }
+            <div class="@(Model.TransactionType == "OUTBOUND" ? "col-md-4" : "col-md-4")">
                 <label class="form-label small fw-semibold">Kho <span class="text-danger">*</span></label>
                 <select id="frm_warehouseId" class="form-select form-select-sm" onchange="onWarehouseChange()">
                     <option value="">— Chọn kho —</option>
@@ -47,11 +66,14 @@
                 <input type="date" id="frm_transactionDate" class="form-control form-control-sm"
                        value="@Model.TransactionDate.ToString("yyyy-MM-dd")" />
             </div>
-            <div class="col-md-4">
-                <label class="form-label small fw-semibold">Ghi chú</label>
-                <input type="text" id="frm_notes" class="form-control form-control-sm"
-                       value="@Model.Notes" placeholder="Ghi chú phiếu..." />
-            </div>
+            @if (Model.TransactionType != "OUTBOUND")
+            {
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Ghi chú</label>
+                    <input type="text" id="frm_notes" class="form-control form-control-sm"
+                           value="@Model.Notes" placeholder="Ghi chú phiếu..." />
+                </div>
+            }
 
             @if (Model.TransactionType == "OUTBOUND")
             {
@@ -77,7 +99,38 @@
                     <input type="text" id="frm_receiverPhone" class="form-control form-control-sm"
                            value="@Model.ReceiverPhone" placeholder="Số điện thoại" />
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Ghi chú</label>
+                    <input type="text" id="frm_notes" class="form-control form-control-sm"
+                           value="@Model.Notes" placeholder="Ghi chú phiếu..." />
+                </div>
             }
+        </div>
+
+        <!-- SO reference products (OUTBOUND only, shown after lookup) -->
+        <div id="soReferencePanel" class="card border-1 border-warning mb-3" style="display:none;">
+            <div class="card-header bg-warning-subtle py-2 d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 small fw-semibold">
+                    <i class="bi bi-list-check me-1"></i> Danh sách sản phẩm cần giao từ <span id="soRefNo" class="text-primary"></span>
+                </h6>
+                <span class="badge bg-secondary rounded-pill" id="soRefPickedCount">0/0</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.8rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:30px;" class="text-center">#</th>
+                            <th style="width:36px;"></th>
+                            <th>Sản phẩm</th>
+                            <th style="width:120px;">Barcode</th>
+                            <th style="width:80px;" class="text-end">SL cần giao</th>
+                            <th style="width:80px;" class="text-end">Đã lấy</th>
+                            <th style="width:60px;" class="text-center">TT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="soRefBody"></tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Barcode scanner section -->
@@ -155,6 +208,7 @@
 
 <style>
     .bg-primary-subtle { background-color: #dbeafe !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; }
     #itemsBody tr td { vertical-align: middle; }
     #itemsBody input, #itemsBody select { font-size: 0.82rem; }
     #barcodeInput:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.25); border-color: #3b82f6; }
@@ -176,6 +230,17 @@
                 doBarcodeLookup();
             }
         });
+
+        // SO code input: Enter key triggers lookup
+        var soCodeInput = document.getElementById('frm_soCode');
+        if (soCodeInput) {
+            soCodeInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    lookupSalesOrder();
+                }
+            });
+        }
     });
 
     // ── Barcode Lookup ───────────────────────────────────
@@ -233,6 +298,115 @@
             });
     }
 
+    // ── Sales Order Lookup ────────────────────────────────
+    var soRefItems = []; // reference list from SO (read-only)
+
+    function lookupSalesOrder() {
+        var soCode = document.getElementById('frm_soCode')?.value.trim();
+        if (!soCode) return;
+
+        var errEl = document.getElementById('soLookupError');
+        var okEl = document.getElementById('soLookupSuccess');
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+
+        fetch('/Stock/LookupSalesOrder?soCode=' + encodeURIComponent(soCode))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.Success) {
+                    errEl.textContent = data.Message || 'Không tìm thấy';
+                    errEl.style.display = 'block';
+                    document.getElementById('soReferencePanel').style.display = 'none';
+                    return;
+                }
+
+                var so = data.Data;
+                document.getElementById('frm_salesOrderId').value = so.SalesOrderId;
+                document.getElementById('frm_soCode').value = so.SalesOrderNo;
+                document.getElementById('frm_soCode').readOnly = true;
+
+                // Store reference items (not added to transaction)
+                soRefItems = so.Items.map(function(i) {
+                    return {
+                        ProductId: i.ProductId,
+                        ProductName: i.ProductName,
+                        ProductCode: i.ProductCode,
+                        Barcode: i.Barcode || '',
+                        ImageUrl: i.ImageUrl || '',
+                        Quantity: i.Quantity,
+                        UnitName: i.UnitName || ''
+                    };
+                });
+
+                // Show reference panel
+                document.getElementById('soRefNo').textContent = so.SalesOrderNo;
+                renderSoReference();
+                document.getElementById('soReferencePanel').style.display = 'block';
+
+                // Pre-fill receiver from customer
+                if (so.CustomerName) {
+                    var receiverEl = document.getElementById('frm_receiverName');
+                    if (receiverEl && !receiverEl.value) receiverEl.value = so.CustomerName;
+                }
+
+                okEl.textContent = 'Đã liên kết: ' + so.SalesOrderNo + (so.CustomerName ? ' — KH: ' + so.CustomerName : '') + ' (' + so.Items.length + ' SP cần giao)';
+                okEl.style.display = 'block';
+            })
+            .catch(function() {
+                errEl.textContent = 'Lỗi kết nối';
+                errEl.style.display = 'block';
+            });
+    }
+
+    function renderSoReference() {
+        var tbody = document.getElementById('soRefBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        var pickedCount = 0;
+        soRefItems.forEach(function(ref, idx) {
+            var pickedQty = getPickedQtyForProduct(ref.ProductId);
+            var isDone = pickedQty >= ref.Quantity;
+            if (isDone) pickedCount++;
+
+            var imgHtml = ref.ImageUrl
+                ? '<img src="' + ref.ImageUrl + '" class="rounded" style="width:28px;height:28px;object-fit:cover;" />'
+                : '<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:28px;height:28px;"><i class="bi bi-box text-muted small"></i></div>';
+
+            var statusHtml = isDone
+                ? '<i class="bi bi-check-circle-fill text-success"></i>'
+                : (pickedQty > 0
+                    ? '<i class="bi bi-exclamation-circle-fill text-warning"></i>'
+                    : '<i class="bi bi-circle text-muted" style="opacity:.3;"></i>');
+
+            var row = '<tr class="' + (isDone ? 'table-success' : '') + '">' +
+                '<td class="text-center text-muted">' + (idx + 1) + '</td>' +
+                '<td>' + imgHtml + '</td>' +
+                '<td>' +
+                    '<div class="fw-semibold small">' + escHtml(ref.ProductName) + '</div>' +
+                    '<div class="text-muted" style="font-size:0.72rem;">' + escHtml(ref.ProductCode) + '</div>' +
+                '</td>' +
+                '<td class="font-monospace small">' + escHtml(ref.Barcode) + '</td>' +
+                '<td class="text-end">' + ref.Quantity.toLocaleString('vi-VN') + ' ' + escHtml(ref.UnitName) + '</td>' +
+                '<td class="text-end fw-semibold ' + (pickedQty >= ref.Quantity ? 'text-success' : (pickedQty > 0 ? 'text-warning' : '')) + '">' +
+                    pickedQty.toLocaleString('vi-VN') +
+                '</td>' +
+                '<td class="text-center">' + statusHtml + '</td>' +
+            '</tr>';
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+
+        document.getElementById('soRefPickedCount').textContent = pickedCount + '/' + soRefItems.length;
+    }
+
+    function getPickedQtyForProduct(productId) {
+        var qty = 0;
+        items.forEach(function(item) {
+            if (item.ProductId === productId) qty += (item.Quantity || 0);
+        });
+        return qty;
+    }
+
     // ── Render Items Table ───────────────────────────────
     function renderItems() {
         var tbody = document.getElementById('itemsBody');
@@ -245,6 +419,8 @@
             updateTotal();
             return;
         }
+
+        if (soRefItems.length > 0) renderSoReference();
 
         items.forEach(function (item, idx) {
             var imgHtml = item.ImageUrl
@@ -310,7 +486,10 @@
     function updateItemField(idx, field, value) {
         if (idx >= 0 && idx < items.length) {
             items[idx][field] = value;
-            if (field === 'Quantity') updateTotal();
+            if (field === 'Quantity') {
+                updateTotal();
+                if (soRefItems.length > 0) renderSoReference();
+            }
         }
     }
 

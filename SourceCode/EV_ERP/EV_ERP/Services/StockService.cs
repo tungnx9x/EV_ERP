@@ -656,6 +656,41 @@ namespace EV_ERP.Services
                 .ToListAsync();
         }
 
+        // ── Sales Order Lookup (for OUTBOUND linking) ────
+        public async Task<object?> LookupSalesOrderAsync(string? soCode)
+        {
+            if (string.IsNullOrWhiteSpace(soCode)) return null;
+
+            var so = await _uow.Repository<SalesOrder>().Query()
+                .Include(s => s.Items).ThenInclude(i => i.Product).ThenInclude(p => p!.Unit)
+                .Include(s => s.Customer)
+                .FirstOrDefaultAsync(s => s.SalesOrderNo == soCode.Trim());
+
+            if (so == null) return null;
+
+            if (so.Status != "RECEIVED")
+                return null;
+
+            return new
+            {
+                SalesOrderId = so.SalesOrderId,
+                SalesOrderNo = so.SalesOrderNo,
+                CustomerName = so.Customer?.CustomerName,
+                Items = so.Items
+                    .Where(i => i.ProductId.HasValue)
+                    .Select(i => new
+                    {
+                        ProductId = i.ProductId!.Value,
+                        ProductName = i.ProductName,
+                        ProductCode = i.Product?.ProductCode ?? "",
+                        Barcode = i.Product?.Barcode,
+                        ImageUrl = i.Product?.ImageUrl,
+                        Quantity = i.Quantity,
+                        UnitName = i.UnitName
+                    }).ToList()
+            };
+        }
+
         // ══ Private helpers ══════════════════════════════
 
         private async Task<string> GenerateTransactionNoAsync()

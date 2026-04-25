@@ -12,11 +12,13 @@ namespace EV_ERP.Controllers
     {
         private readonly IStockService _stockService;
         private readonly IWarehouseService _warehouseService;
+        private readonly ISalesOrderService _salesOrderService;
 
-        public StockController(IStockService stockService, IWarehouseService warehouseService)
+        public StockController(IStockService stockService, IWarehouseService warehouseService, ISalesOrderService salesOrderService)
         {
             _stockService = stockService;
             _warehouseService = warehouseService;
+            _salesOrderService = salesOrderService;
         }
 
         private int CurrentUserId =>
@@ -152,6 +154,17 @@ namespace EV_ERP.Controllers
         {
             var locations = await _stockService.GetLocationOptionsAsync(warehouseId);
             return Json(ApiResult<List<LocationOptionViewModel>>.Ok(locations));
+        }
+
+        // ── Lookup Sales Order by code (Ajax) ───────────
+        [HttpGet]
+        public async Task<IActionResult> LookupSalesOrder(string soCode)
+        {
+            var result = await _stockService.LookupSalesOrderAsync(soCode?.Trim());
+            if (result == null)
+                return Json(ApiResult<object>.Fail("Không tìm thấy đơn hàng với mã này"));
+
+            return Json(ApiResult<object>.Ok(result));
         }
     }
 }

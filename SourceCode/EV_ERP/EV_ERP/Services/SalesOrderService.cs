@@ -402,7 +402,7 @@ public class SalesOrderService : ISalesOrderService
         return (true, null);
     }
 
-    // RECEIVED → DELIVERING
+    // RECEIVED → DELIVERING (triggered by warehouse OUTBOUND stock note)
     public async Task<(bool Success, string? ErrorMessage)> StartDeliveringAsync(int salesOrderId, int userId)
     {
         var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
@@ -416,11 +416,6 @@ public class SalesOrderService : ISalesOrderService
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
-
-        // Auto-create OUTBOUND StockTransaction
-        var (stkOk, stkErr, stkId) = await _stockService.CreateFromSalesOrderAsync(salesOrderId, "OUTBOUND", userId);
-        if (!stkOk)
-            _logger.LogWarning("Failed to auto-create OUTBOUND for SO {No}: {Err}", so.SalesOrderNo, stkErr);
 
         // SLA: complete RECEIVED, start DELIVERING
         await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED");

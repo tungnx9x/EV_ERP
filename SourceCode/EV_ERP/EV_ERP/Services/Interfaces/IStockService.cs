@@ -41,5 +41,8 @@ namespace EV_ERP.Services.Interfaces
 
         // ── Locations for a warehouse ────────────────────
         Task<List<LocationOptionViewModel>> GetLocationOptionsAsync(int warehouseId);
+
+        // ── Sales Order lookup (for OUTBOUND linking) ───
+        Task<object?> LookupSalesOrderAsync(string? soCode);
     }
 }

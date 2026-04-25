@@ -106,10 +106,11 @@ public class WorkspaceController : Controller
                 RfqNo = r.RfqNo,
                 CustomerName = r.Customer.CustomerName,
                 DetailUrl = $"/Rfq/Detail/{r.RfqId}",
-                ExtraInfo = r.Priority,
+                //ExtraInfo = r.Deadline.ToString("yyyy-MM-dd HH:mm:ss"),
                 EntityType = "RFQ",
                 EntityId = r.RfqId,
-                Notes = r.Notes
+                Notes = r.Notes,
+                CreatedAt = r.CreatedAt
             })
             .ToListAsync();
 
@@ -133,17 +134,17 @@ public class WorkspaceController : Controller
                 RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                //ExtraInfo = q.TotalAmount.ToString("N0") + " " + q.Currency,
                 EntityType = "QUOTATION",
                 EntityId = q.QuotationId,
-                Notes = q.Notes
+                Notes = q.Notes,
+                CreatedAt = q.CreatedAt
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 2,
-            Title = "Báo giá chờ gửi",
+            Title = "Báo giá đang làm",
             Icon = "bi-envelope",
             BadgeColor = "secondary",
             Tasks = quotDraftTasks

@@ -1,0 +1,72 @@
+@model EV_ERP.Models.ViewModels.Workspace.WorkspaceTaskItem
+@{
+    var slaClass = Model.SlaSeverity switch
+    {
+        "DANGER" => "sla-danger",
+        "WARNING" => "sla-warning",
+        _ => ""
+    };
+    var showElapsed = Model.CreatedAt.HasValue;
+}
+<div class="task-item @(showElapsed ? "" : slaClass)">
+    <div class="d-flex align-items-start justify-content-between">
+        <a href="@Model.DetailUrl" class="text-decoration-none flex-grow-1" style="min-width:0;">
+            <div class="fw-semibold text-dark" style="font-size:0.8rem;">
+                @Model.RfqNo
+                @if (Model.SalesOrderNo != null)
+                {
+                    <span class="text-muted fw-normal">/ @Model.SalesOrderNo</span>
+                }
+            </div>
+            <div class="text-muted text-truncate" style="font-size:0.75rem;">
+                @Model.CustomerName
+            </div>
+        </a>
+        <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">
+            @if (!string.IsNullOrEmpty(Model.Notes))
+            {
+                <a href="javascript:;" class="btn-note has-note"
+                   data-entity-type="@Model.EntityType"
+                   data-entity-id="@Model.EntityId"
+                   data-notes="@Html.Raw(System.Web.HttpUtility.HtmlAttributeEncode(Model.Notes))"
+                   data-bs-toggle="tooltip"
+                   data-bs-placement="top"
+                   data-bs-custom-class="note-tooltip"
+                   data-bs-title="@Model.Notes">
+                    <i class="bi bi-sticky-fill"></i>
+                </a>
+            }
+            else
+            {
+                <a href="javascript:;" class="btn-note no-note"
+                   data-entity-type="@Model.EntityType"
+                   data-entity-id="@Model.EntityId"
+                   data-notes="">
+                    <i class="bi bi-pencil-square"></i>
+                </a>
+            }
+            @if (showElapsed)
+            {
+                <span class="badge bg-light text-muted border elapsed-timer" style="font-size:0.65rem;"
+                      data-created="@Model.CreatedAt.Value.ToString("o")">
+                    <i class="bi bi-stopwatch me-1"></i><span class="elapsed-text"></span>
+                </span>
+            }
+            else if (Model.SlaTimeRemaining != null)
+            {
+                var slaBadge = Model.SlaSeverity == "DANGER" ? "bg-danger text-white"
+                             : Model.SlaSeverity == "WARNING" ? "bg-warning text-dark"
+                             : "bg-light text-muted border";
+                <span class="badge @slaBadge" style="font-size:0.65rem;" title="SLA">
+                    <i class="bi bi-clock me-1"></i>@Model.SlaTimeRemaining
+                </span>
+            }
+            @if (Model.ExtraInfo != null)
+            {
+                <span class="badge bg-light text-muted border" style="font-size:0.68rem;">
+                    @Model.ExtraInfo
+                </span>
+            }
+        </div>
+    </div>
+</div>

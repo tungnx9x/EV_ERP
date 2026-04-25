@@ -53,6 +53,9 @@ public class WorkspaceTaskItem
     public string? SlaSeverity { get; set; }          // NORMAL, WARNING, DANGER
     public string? SlaTimeRemaining { get; set; }     // VD: "2.5h", "Quá hạn 1.2h"
 
+    // Elapsed timer (steps 1 & 2: show time since creation instead of SLA)
+    public DateTime? CreatedAt { get; set; }
+
     // Quick note
     public string? Notes { get; set; }
 

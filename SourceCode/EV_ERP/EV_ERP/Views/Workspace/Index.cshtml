@@ -121,70 +121,21 @@
                     }
                     else
                     {
-                        @* ── Individual Workspace: Task list ── *@
+                        @* ── Individual Workspace: Task list (max 10 visible) ── *@
+                        var visibleTasks = card.Tasks.Take(10).ToList();
+                        var hasMore = card.Tasks.Count > 10;
                         <div class="task-list" style="max-height:320px; overflow-y:auto;">
-                            @foreach (var task in card.Tasks)
+                            @foreach (var task in visibleTasks)
                             {
-                                var slaClass = task.SlaSeverity switch
-                                {
-                                    "DANGER" => "sla-danger",
-                                    "WARNING" => "sla-warning",
-                                    _ => ""
-                                };
-                                <div class="task-item @slaClass">
-                                    <div class="d-flex align-items-start justify-content-between">
-                                        <a href="@task.DetailUrl" class="text-decoration-none flex-grow-1" style="min-width:0;">
-                                            <div class="fw-semibold text-dark" style="font-size:0.8rem;">
-                                                @task.RfqNo
-                                                @if (task.SalesOrderNo != null)
-                                                {
-                                                    <span class="text-muted fw-normal">/ @task.SalesOrderNo</span>
-                                                }
-                                            </div>
-                                            <div class="text-muted text-truncate" style="font-size:0.75rem;">
-                                                @task.CustomerName
-                                            </div>
-                                        </a>
-                                        <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">
-                                            @if (!string.IsNullOrEmpty(task.Notes))
-                                            {
-                                                <a href="javascript:;" class="btn-note has-note"
-                                                   data-entity-type="@task.EntityType"
-                                                   data-entity-id="@task.EntityId"
-                                                   data-notes="@Html.Raw(System.Web.HttpUtility.HtmlAttributeEncode(task.Notes))"
-                                                   data-bs-toggle="tooltip"
-                                                   data-bs-placement="top"
-                                                   data-bs-custom-class="note-tooltip"
-                                                   data-bs-title="@task.Notes">
-                                                    <i class="bi bi-sticky-fill"></i>
-                                                </a>
-                                            }
-                                            else
-                                            {
-                                                <a href="javascript:;" class="btn-note no-note"
-                                                   data-entity-type="@task.EntityType"
-                                                   data-entity-id="@task.EntityId"
-                                                   data-notes="">
-                                                    <i class="bi bi-pencil-square"></i>
-                                                </a>
-                                            }
-                                            @if (task.SlaTimeRemaining != null)
-                                            {
-                                                var slaBadge = task.SlaSeverity == "DANGER" ? "bg-danger text-white"
-                                                             : task.SlaSeverity == "WARNING" ? "bg-warning text-dark"
-                                                             : "bg-light text-muted border";
-                                                <span class="badge @slaBadge" style="font-size:0.65rem;" title="SLA">
-                                                    <i class="bi bi-clock me-1"></i>@task.SlaTimeRemaining
-                                                </span>
-                                            }
-                                            @if (task.ExtraInfo != null)
-                                            {
-                                                <span class="badge bg-light text-muted border" style="font-size:0.68rem;">
-                                                    @task.ExtraInfo
-                                                </span>
-                                            }
-                                        </div>
-                                    </div>
+                                @await Html.PartialAsync("_WorkspaceTaskItem", task)
+                            }
+                            @if (hasMore)
+                            {
+                                <div class="text-center py-2 border-top">
+                                    <button type="button" class="btn btn-sm btn-outline-primary border-0"
+                                            onclick="showAllTasks(@card.StepNumber)">
+                                        <i class="bi bi-list-ul me-1"></i> Xem thêm (@(card.Tasks.Count - 10) còn lại)
+                                    </button>
                                 </div>
                             }
                         </div>
@@ -203,6 +154,60 @@
         </div>
     }
 </div>
+
+<!-- View All Tasks Modal -->
+<div class="modal fade" id="allTasksModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2 px-3">
+                <h6 class="modal-title mb-0">
+                    <i class="bi bi-list-ul me-2"></i><span id="allTasksTitle"></span>
+                    <span class="badge bg-primary rounded-pill ms-2" id="allTasksCount"></span>
+                </h6>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="allTasksBody">
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!Model.IsManagerOverview)
+{
+    <script>
+        var allCardTasks = {};
+        @foreach (var card in Model.Cards)
+        {
+            if (card.Tasks.Count > 10)
+            {
+                @:allCardTasks[@card.StepNumber] = {
+                    @:title: '@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(card.Title))',
+                    @:tasks: [
+                    @foreach (var task in card.Tasks)
+                    {
+                        var slaClass = task.SlaSeverity switch { "DANGER" => "sla-danger", "WARNING" => "sla-warning", _ => "" };
+                        var slaBadge = task.SlaSeverity == "DANGER" ? "bg-danger text-white" : task.SlaSeverity == "WARNING" ? "bg-warning text-dark" : "bg-light text-muted border";
+                        @:{
+                            @:rfqNo: '@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(task.RfqNo ?? ""))',
+                            @:soNo: @(task.SalesOrderNo != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.SalesOrderNo)}'" : "null"),
+                            @:customerName: '@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(task.CustomerName ?? ""))',
+                            @:detailUrl: '@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(task.DetailUrl ?? ""))',
+                            @:entityType: '@task.EntityType',
+                            @:entityId: @task.EntityId,
+                            @:notes: @(task.Notes != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.Notes)}'" : "null"),
+                            @:slaClass: '@slaClass',
+                            @:slaTimeRemaining: @(task.SlaTimeRemaining != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.SlaTimeRemaining)}'" : "null"),
+                            @:slaBadge: '@slaBadge',
+                            @:extraInfo: @(task.ExtraInfo != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.ExtraInfo)}'" : "null"),
+                            @:createdAt: @(task.CreatedAt.HasValue ? $"'{task.CreatedAt.Value.ToString("o")}'" : "null")
+                        @:},
+                    }
+                    @:]
+                @:};
+            }
+        }
+    </script>
+}
 
 <!-- Quick Note Modal -->
 <div class="modal fade" id="noteModal" tabindex="-1">
@@ -382,19 +387,120 @@
 </style>
 
 <script>
+    function showAllTasks(stepNumber) {
+        var data = allCardTasks[stepNumber];
+        if (!data) return;
+
+        document.getElementById('allTasksTitle').textContent = data.title;
+        document.getElementById('allTasksCount').textContent = data.tasks.length;
+
+        var html = '<div class="task-list" style="max-height:60vh; overflow-y:auto;">';
+        data.tasks.forEach(function (t) {
+            var noteHtml = '';
+            if (t.notes) {
+                noteHtml = '<a href="javascript:;" class="btn-note has-note"' +
+                    ' data-entity-type="' + t.entityType + '"' +
+                    ' data-entity-id="' + t.entityId + '"' +
+                    ' data-notes="' + escAttr(t.notes) + '"' +
+                    ' data-bs-toggle="tooltip" data-bs-placement="top"' +
+                    ' data-bs-custom-class="note-tooltip"' +
+                    ' data-bs-title="' + escAttr(t.notes) + '">' +
+                    '<i class="bi bi-sticky-fill"></i></a>';
+            } else {
+                noteHtml = '<a href="javascript:;" class="btn-note no-note"' +
+                    ' data-entity-type="' + t.entityType + '"' +
+                    ' data-entity-id="' + t.entityId + '"' +
+                    ' data-notes="">' +
+                    '<i class="bi bi-pencil-square"></i></a>';
+            }
+
+            var slaHtml = '';
+            if (t.createdAt) {
+                slaHtml = '<span class="badge bg-light text-muted border elapsed-timer" style="font-size:0.65rem;"' +
+                    ' data-created="' + t.createdAt + '">' +
+                    '<i class="bi bi-stopwatch me-1"></i><span class="elapsed-text"></span></span>';
+            } else if (t.slaTimeRemaining) {
+                slaHtml = '<span class="badge ' + t.slaBadge + '" style="font-size:0.65rem;" title="SLA">' +
+                    '<i class="bi bi-clock me-1"></i>' + escHtml(t.slaTimeRemaining) + '</span>';
+            }
+
+            var extraHtml = '';
+            if (t.extraInfo) {
+                extraHtml = '<span class="badge bg-light text-muted border" style="font-size:0.68rem;">' +
+                    escHtml(t.extraInfo) + '</span>';
+            }
+
+            var soHtml = t.soNo ? ' <span class="text-muted fw-normal">/ ' + escHtml(t.soNo) + '</span>' : '';
+
+            html += '<div class="task-item ' + t.slaClass + '">' +
+                '<div class="d-flex align-items-start justify-content-between">' +
+                    '<a href="' + t.detailUrl + '" class="text-decoration-none flex-grow-1" style="min-width:0;">' +
+                        '<div class="fw-semibold text-dark" style="font-size:0.8rem;">' + escHtml(t.rfqNo) + soHtml + '</div>' +
+                        '<div class="text-muted text-truncate" style="font-size:0.75rem;">' + escHtml(t.customerName) + '</div>' +
+                    '</a>' +
+                    '<div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">' +
+                        noteHtml + slaHtml + extraHtml +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+
+        document.getElementById('allTasksBody').innerHTML = html;
+
+        // Init tooltips & note click handlers in modal
+        document.querySelectorAll('#allTasksBody [data-bs-toggle="tooltip"]').forEach(function (el) {
+            new bootstrap.Tooltip(el);
+        });
+        document.querySelectorAll('#allTasksBody .btn-note').forEach(function (btn) {
+            btn.addEventListener('click', handleNoteClick);
+        });
+
+        new bootstrap.Modal(document.getElementById('allTasksModal')).show();
+        updateElapsedTimers();
+    }
+
+    function escHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function escAttr(s) { return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
+
+    // ── Elapsed timer ──────────────────────────────────
+    function formatElapsed(ms) {
+        var totalSec = Math.floor(ms / 1000);
+        var days = Math.floor(totalSec / 86400);
+        var hours = Math.floor((totalSec % 86400) / 3600);
+        var mins = Math.floor((totalSec % 3600) / 60);
+        var secs = totalSec % 60;
+
+        if (days > 0) return days + 'n ' + hours + 'h ' + (mins < 10 ? '0' : '') + mins + 'p';
+        if (hours > 0) return hours + 'h ' + (mins < 10 ? '0' : '') + mins + 'p ' + (secs < 10 ? '0' : '') + secs + 's';
+        return mins + 'p ' + (secs < 10 ? '0' : '') + secs + 's';
+    }
+
+    function updateElapsedTimers() {
+        var now = new Date().getTime();
+        document.querySelectorAll('.elapsed-timer').forEach(function (el) {
+            var created = new Date(el.dataset.created).getTime();
+            var elapsed = now - created;
+            if (elapsed < 0) elapsed = 0;
+            el.querySelector('.elapsed-text').textContent = formatElapsed(elapsed);
+        });
+    }
+
+    function handleNoteClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.getElementById('noteEntityType').value = this.dataset.entityType;
+        document.getElementById('noteEntityId').value = this.dataset.entityId;
+        document.getElementById('noteContent').value = this.dataset.notes || '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('noteModal')).show();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         var noteModal = new bootstrap.Modal(document.getElementById('noteModal'));
 
         // Open note modal on click
         document.querySelectorAll('.btn-note').forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                document.getElementById('noteEntityType').value = this.dataset.entityType;
-                document.getElementById('noteEntityId').value = this.dataset.entityId;
-                document.getElementById('noteContent').value = this.dataset.notes || '';
-                noteModal.show();
-            });
+            btn.addEventListener('click', handleNoteClick);
         });
 
         // Save note
@@ -452,5 +558,9 @@
         document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
             new bootstrap.Tooltip(el);
         });
+
+        // Start elapsed timers
+        updateElapsedTimers();
+        setInterval(updateElapsedTimers, 1000);
     });
 </script>

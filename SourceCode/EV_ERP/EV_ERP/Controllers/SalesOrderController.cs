@@ -313,4 +313,48 @@ public class SalesOrderController : Controller
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             result.Value.FileName);
     }
+
+    // ── Export Product Template Excel ────────────────
+    [HttpGet]
+    public async Task<IActionResult> ExportProductTemplate(int id)
+    {
+        if (!CanEdit) return BadRequest("Bạn không có quyền");
+
+        var result = await _salesOrderService.ExportProductTemplateAsync(id);
+        if (result == null)
+            return BadRequest("Không thể xuất template");
+
+        return File(result.Value.FileBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            result.Value.FileName);
+    }
+
+    // ── Import Products from Excel ──────────────────
+    [HttpPost]
+    public async Task<IActionResult> ImportProducts(int id, IFormFile file)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            if (file == null || file.Length == 0)
+                return Json(ApiResult<object>.Fail("Chưa chọn file"));
+
+            var (success, message, created, mapped) =
+                await _salesOrderService.ImportProductsAsync(id, file, CurrentUserId);
+
+            return Json(new ApiResult<object>
+            {
+                Success = success,
+                Message = message,
+                Data = new { created, mapped }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ImportProducts failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
 }

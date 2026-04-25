@@ -20,5 +20,6 @@ COPY --from=build /app/publish .
 
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+ENV FileStorage__RootPath=/app/FileStorage
 
 ENTRYPOINT ["dotnet", "EV_ERP.dll"]

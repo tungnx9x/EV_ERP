@@ -19,10 +19,11 @@ public class SalesOrderService : ISalesOrderService
     private readonly string _storageRoot;
     private readonly ISlaService _slaService;
     private readonly IStockService _stockService;
+    private readonly IProductAttributeService _attrService;
 
     public SalesOrderService(IUnitOfWork uow, ILogger<SalesOrderService> logger,
         IWebHostEnvironment env, IConfiguration config, ISlaService slaService,
-        IStockService stockService)
+        IStockService stockService, IProductAttributeService attrService)
     {
         _uow = uow;
         _logger = logger;
@@ -30,6 +31,7 @@ public class SalesOrderService : ISalesOrderService
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         _slaService = slaService;
         _stockService = stockService;
+        _attrService = attrService;
     }
 
     // ══════════════════════════════════════════════════
@@ -864,6 +866,474 @@ public class SalesOrderService : ISalesOrderService
                 FullName = u.FullName
             })
             .ToListAsync();
+    }
+
+    // ══════════════════════════════════════════════════
+    // EXPORT PRODUCT TEMPLATE (Excel)
+    // ══════════════════════════════════════════════════
+    public async Task<(byte[] FileBytes, string FileName)?> ExportProductTemplateAsync(int salesOrderId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return null;
+
+        var unmappedItems = so.Items.Where(i => !i.IsProductMapped).OrderBy(i => i.SortOrder).ToList();
+        if (unmappedItems.Count == 0) return null;
+
+        // Load reference data
+        var categories = await _uow.Repository<ProductCategory>().Query()
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.DisplayOrder)
+            .ToListAsync();
+
+        var units = await _uow.Repository<Unit>().Query()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.UnitName)
+            .ToListAsync();
+
+        // Load all active attributes with values (for reference sheet)
+        var attributes = await _uow.Repository<ProductAttribute>().Query()
+            .Include(a => a.Values.Where(v => v.IsActive).OrderBy(v => v.DisplayOrder))
+            .Where(a => a.IsActive && a.DataType == "LIST")
+            .OrderBy(a => a.DisplayOrder)
+            .ToListAsync();
+
+        // Load SKU configs per category to know which attributes apply
+        var skuConfigs = await _uow.Repository<SkuConfig>().Query()
+            .Include(c => c.Attribute)
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.CategoryId).ThenBy(c => c.SkuPosition)
+            .ToListAsync();
+
+        // Determine max attribute columns needed across all categories
+        var maxAttrCount = skuConfigs.GroupBy(c => c.CategoryId)
+            .Select(g => g.Count())
+            .DefaultIfEmpty(0).Max();
+
+        using var wb = new XLWorkbook();
+
+        // ── Sheet 1: Sản phẩm (main data entry) ──
+        var ws = wb.AddWorksheet("Sản phẩm");
+
+        // Fixed columns
+        var headers = new List<string>
+        {
+            "SOItemId", "STT", "Tên sản phẩm (*)", "Mã danh mục (*)", "Mã ĐVT (*)",
+            "Mô tả", "Giá bán", "Giá mua", "Tồn kho tối thiểu",
+            "Khối lượng", "ĐV khối lượng (kg/g)", "Link nguồn mua"
+        };
+
+        // Dynamic attribute columns
+        for (int a = 1; a <= maxAttrCount; a++)
+        {
+            headers.Add($"Thuộc tính {a} (Mã TT)");
+            headers.Add($"Thuộc tính {a} (Mã giá trị)");
+        }
+
+        // Write headers
+        for (int c = 0; c < headers.Count; c++)
+        {
+            var cell = ws.Cell(1, c + 1);
+            cell.Value = headers[c];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightSteelBlue;
+            cell.Style.Alignment.WrapText = true;
+        }
+
+        // Write unmapped items (pre-filled)
+        int row = 2;
+        foreach (var item in unmappedItems)
+        {
+            ws.Cell(row, 1).Value = item.SOItemId;          // A: SOItemId (hidden ref)
+            ws.Cell(row, 2).Value = row - 1;                // B: STT
+            ws.Cell(row, 3).Value = item.ProductName;       // C: Product name
+            // D: CategoryCode — blank for user to fill
+            // E: UnitCode — blank for user to fill
+            ws.Cell(row, 6).Value = item.Notes ?? "";        // F: Description
+            ws.Cell(row, 7).Value = item.UnitPrice;          // G: Sale price
+            ws.Cell(row, 8).Value = item.PurchasePrice ?? 0; // H: Purchase price
+            ws.Cell(row, 9).Value = 0;                       // I: MinStockLevel
+            // J, K: Weight — blank
+            ws.Cell(row, 12).Value = item.SourceUrl ?? "";   // L: SourceUrl
+            row++;
+        }
+
+        // Style SOItemId column (hidden helper)
+        ws.Column(1).Width = 10;
+        ws.Column(1).Style.Font.FontColor = XLColor.Gray;
+        ws.Column(1).Style.Protection.Locked = true;
+
+        // Auto-width other columns
+        ws.Column(2).Width = 5;
+        ws.Column(3).Width = 35;
+        ws.Column(4).Width = 15;
+        ws.Column(5).Width = 12;
+        ws.Column(6).Width = 25;
+        ws.Columns(7, 8).Width = 15;
+        ws.Column(9).Width = 12;
+        ws.Columns(10, 11).Width = 12;
+        ws.Column(12).Width = 30;
+        for (int c = 13; c <= headers.Count; c++)
+            ws.Column(c).Width = 16;
+
+        // Highlight required columns
+        ws.Column(3).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        ws.Column(4).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        ws.Column(5).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        // Reset header row background
+        for (int c = 1; c <= headers.Count; c++)
+            ws.Cell(1, c).Style.Fill.BackgroundColor = XLColor.LightSteelBlue;
+
+        // ── Sheet 2: Danh mục (reference) ──
+        var wsCat = wb.AddWorksheet("Danh mục");
+        wsCat.Cell(1, 1).Value = "Mã danh mục";
+        wsCat.Cell(1, 2).Value = "Tên danh mục";
+        wsCat.Cell(1, 3).Value = "Danh mục cha";
+        wsCat.Cell(1, 4).Value = "SKU Prefix";
+        wsCat.Cell(1, 5).Value = "Thuộc tính SKU";
+        wsCat.Row(1).Style.Font.Bold = true;
+        wsCat.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+        int catRow = 2;
+        foreach (var cat in categories)
+        {
+            wsCat.Cell(catRow, 1).Value = cat.CategoryCode;
+            wsCat.Cell(catRow, 2).Value = cat.CategoryName;
+            var parent = categories.FirstOrDefault(c => c.CategoryId == cat.ParentCategoryId);
+            wsCat.Cell(catRow, 3).Value = parent?.CategoryName ?? "";
+            wsCat.Cell(catRow, 4).Value = cat.SkuPrefix ?? "";
+
+            // List SKU attributes for this category
+            var catConfigs = skuConfigs.Where(c => c.CategoryId == cat.CategoryId).ToList();
+            if (catConfigs.Any())
+            {
+                wsCat.Cell(catRow, 5).Value = string.Join(", ",
+                    catConfigs.Select(c => $"{c.Attribute.AttrCode}{(c.IsRequired ? "*" : "")}"));
+            }
+            catRow++;
+        }
+        wsCat.Columns().AdjustToContents();
+
+        // ── Sheet 3: Đơn vị tính (reference) ──
+        var wsUnit = wb.AddWorksheet("Đơn vị tính");
+        wsUnit.Cell(1, 1).Value = "Mã ĐVT";
+        wsUnit.Cell(1, 2).Value = "Tên ĐVT";
+        wsUnit.Row(1).Style.Font.Bold = true;
+        wsUnit.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+        int unitRow = 2;
+        foreach (var u in units)
+        {
+            wsUnit.Cell(unitRow, 1).Value = u.UnitCode;
+            wsUnit.Cell(unitRow, 2).Value = u.UnitName;
+            unitRow++;
+        }
+        wsUnit.Columns().AdjustToContents();
+
+        // ── Sheet 4: Thuộc tính & Giá trị (reference) ──
+        var wsAttr = wb.AddWorksheet("Thuộc tính");
+        wsAttr.Cell(1, 1).Value = "Mã thuộc tính";
+        wsAttr.Cell(1, 2).Value = "Tên thuộc tính";
+        wsAttr.Cell(1, 3).Value = "Mã giá trị";
+        wsAttr.Cell(1, 4).Value = "Tên giá trị";
+        wsAttr.Row(1).Style.Font.Bold = true;
+        wsAttr.Row(1).Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+        int attrRow = 2;
+        foreach (var attr in attributes)
+        {
+            foreach (var val in attr.Values)
+            {
+                wsAttr.Cell(attrRow, 1).Value = attr.AttrCode;
+                wsAttr.Cell(attrRow, 2).Value = attr.AttributeName;
+                wsAttr.Cell(attrRow, 3).Value = val.SkuCode;
+                wsAttr.Cell(attrRow, 4).Value = val.ValueName;
+                attrRow++;
+            }
+        }
+        wsAttr.Columns().AdjustToContents();
+
+        // ── Sheet 5: Hướng dẫn ──
+        var wsGuide = wb.AddWorksheet("Hướng dẫn");
+        wsGuide.Cell(1, 1).Value = "HƯỚNG DẪN NHẬP SẢN PHẨM";
+        wsGuide.Cell(1, 1).Style.Font.Bold = true;
+        wsGuide.Cell(1, 1).Style.Font.FontSize = 14;
+
+        var guideLines = new[]
+        {
+            "",
+            "1. Điền thông tin vào sheet \"Sản phẩm\". Các cột có dấu (*) là bắt buộc.",
+            "2. Cột SOItemId: Không chỉnh sửa — dùng để gắn sản phẩm vào đơn hàng.",
+            "3. Cột \"Mã danh mục\": Tra cứu trong sheet \"Danh mục\", nhập đúng mã (VD: TP, NL).",
+            "4. Cột \"Mã ĐVT\": Tra cứu trong sheet \"Đơn vị tính\", nhập đúng mã (VD: CAI, KG).",
+            "5. Thuộc tính SKU:",
+            "   - Xem sheet \"Danh mục\" cột \"Thuộc tính SKU\" để biết danh mục cần thuộc tính nào.",
+            "   - Xem sheet \"Thuộc tính\" để tra mã thuộc tính và mã giá trị.",
+            "   - Nhập \"Mã TT\" (VD: ORIGIN) và \"Mã giá trị\" (VD: VN) vào các cột thuộc tính.",
+            "   - Thuộc tính có dấu * là bắt buộc.",
+            "6. Giá bán, giá mua: đã điền sẵn từ đơn hàng, có thể chỉnh sửa.",
+            "7. Sau khi điền xong, lưu file và upload lại vào hệ thống.",
+        };
+        for (int i = 0; i < guideLines.Length; i++)
+        {
+            wsGuide.Cell(i + 2, 1).Value = guideLines[i];
+        }
+        wsGuide.Column(1).Width = 80;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        var fileName = $"Template_SanPham_{so.SalesOrderNo}_{DateTime.Now:yyyyMMdd}.xlsx";
+        return (ms.ToArray(), fileName);
+    }
+
+    // ══════════════════════════════════════════════════
+    // IMPORT PRODUCTS FROM EXCEL
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage, int Created, int Mapped)> ImportProductsAsync(
+        int salesOrderId, IFormFile file, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng", 0, 0);
+        if (so.Status != "DRAFT") return (false, "Chỉ import sản phẩm ở trạng thái Nháp", 0, 0);
+
+        // Load lookup data
+        var categories = await _uow.Repository<ProductCategory>().Query()
+            .Where(c => c.IsActive)
+            .ToListAsync();
+        var catByCode = categories.ToDictionary(c => c.CategoryCode.ToUpper(), c => c);
+
+        var units = await _uow.Repository<Unit>().Query()
+            .Where(u => u.IsActive)
+            .ToListAsync();
+        var unitByCode = units.ToDictionary(u => u.UnitCode.ToUpper(), u => u);
+
+        // Load all attribute values for lookup
+        var allAttributes = await _uow.Repository<ProductAttribute>().Query()
+            .Include(a => a.Values.Where(v => v.IsActive))
+            .Where(a => a.IsActive)
+            .ToListAsync();
+        var attrByCode = allAttributes.ToDictionary(a => a.AttrCode.ToUpper(), a => a);
+
+        // Parse Excel
+        using var stream = file.OpenReadStream();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet("Sản phẩm");
+        if (ws == null) return (false, "Không tìm thấy sheet \"Sản phẩm\" trong file Excel", 0, 0);
+
+        var errors = new List<string>();
+        int created = 0;
+        int mapped = 0;
+        int lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+        // Detect how many attribute column pairs exist
+        int fixedCols = 12;
+        int lastCol = ws.LastColumnUsed()?.ColumnNumber() ?? fixedCols;
+        int attrPairCount = Math.Max(0, (lastCol - fixedCols) / 2);
+
+        for (int row = 2; row <= lastRow; row++)
+        {
+            var soItemIdStr = ws.Cell(row, 1).GetText().Trim();
+            var productName = ws.Cell(row, 3).GetText().Trim();
+
+            // Skip empty rows
+            if (string.IsNullOrEmpty(productName) && string.IsNullOrEmpty(soItemIdStr))
+                continue;
+
+            var rowLabel = $"Dòng {row}";
+
+            // Validate SOItemId
+            if (!int.TryParse(soItemIdStr, out int soItemId))
+            {
+                errors.Add($"{rowLabel}: SOItemId không hợp lệ");
+                continue;
+            }
+
+            var soItem = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+            if (soItem == null)
+            {
+                errors.Add($"{rowLabel}: Không tìm thấy dòng SO item #{soItemId}");
+                continue;
+            }
+            if (soItem.IsProductMapped)
+            {
+                errors.Add($"{rowLabel}: \"{productName}\" đã được gắn sản phẩm, bỏ qua");
+                continue;
+            }
+
+            // Validate required fields
+            if (string.IsNullOrEmpty(productName))
+            {
+                errors.Add($"{rowLabel}: Tên sản phẩm trống");
+                continue;
+            }
+
+            var categoryCode = ws.Cell(row, 4).GetText().Trim().ToUpper();
+            if (string.IsNullOrEmpty(categoryCode) || !catByCode.TryGetValue(categoryCode, out var category))
+            {
+                errors.Add($"{rowLabel}: Mã danh mục \"{ws.Cell(row, 4).GetText().Trim()}\" không hợp lệ");
+                continue;
+            }
+
+            var unitCode = ws.Cell(row, 5).GetText().Trim().ToUpper();
+            if (string.IsNullOrEmpty(unitCode) || !unitByCode.TryGetValue(unitCode, out var unit))
+            {
+                errors.Add($"{rowLabel}: Mã ĐVT \"{ws.Cell(row, 5).GetText().Trim()}\" không hợp lệ");
+                continue;
+            }
+
+            // Optional fields
+            var description = ws.Cell(row, 6).GetText().Trim();
+            decimal.TryParse(ws.Cell(row, 7).GetText().Trim(), out decimal salePrice);
+            decimal.TryParse(ws.Cell(row, 8).GetText().Trim(), out decimal purchasePrice);
+            int.TryParse(ws.Cell(row, 9).GetText().Trim(), out int minStock);
+            decimal.TryParse(ws.Cell(row, 10).GetText().Trim(), out decimal weight);
+            var weightUnit = ws.Cell(row, 11).GetText().Trim();
+            var sourceUrl = ws.Cell(row, 12).GetText().Trim();
+
+            // Parse attribute pairs
+            var attrValues = new Dictionary<int, int>(); // AttributeId → ValueId
+            bool attrError = false;
+            for (int a = 0; a < attrPairCount; a++)
+            {
+                int colAttrCode = fixedCols + 1 + (a * 2);
+                int colValCode = fixedCols + 2 + (a * 2);
+
+                var attrCode = ws.Cell(row, colAttrCode).GetText().Trim().ToUpper();
+                var valCode = ws.Cell(row, colValCode).GetText().Trim().ToUpper();
+
+                if (string.IsNullOrEmpty(attrCode) && string.IsNullOrEmpty(valCode))
+                    continue;
+
+                if (string.IsNullOrEmpty(attrCode) || !attrByCode.TryGetValue(attrCode, out var attr))
+                {
+                    errors.Add($"{rowLabel}: Mã thuộc tính \"{ws.Cell(row, colAttrCode).GetText().Trim()}\" không hợp lệ");
+                    attrError = true;
+                    break;
+                }
+
+                if (string.IsNullOrEmpty(valCode))
+                {
+                    errors.Add($"{rowLabel}: Mã giá trị trống cho thuộc tính {attrCode}");
+                    attrError = true;
+                    break;
+                }
+
+                var attrVal = attr.Values.FirstOrDefault(v => v.SkuCode.ToUpper() == valCode);
+                if (attrVal == null)
+                {
+                    errors.Add($"{rowLabel}: Giá trị \"{ws.Cell(row, colValCode).GetText().Trim()}\" không hợp lệ cho thuộc tính {attrCode}");
+                    attrError = true;
+                    break;
+                }
+
+                attrValues[attr.AttributeId] = attrVal.ValueId;
+            }
+
+            if (attrError) continue;
+
+            // Validate required SKU attributes for selected category
+            var catSkuConfigs = await _uow.Repository<SkuConfig>().Query()
+                .Where(c => c.CategoryId == category.CategoryId && c.IsActive && c.IsRequired)
+                .ToListAsync();
+
+            bool missingRequired = false;
+            foreach (var cfg in catSkuConfigs)
+            {
+                if (!attrValues.ContainsKey(cfg.AttributeId))
+                {
+                    var attrName = allAttributes.FirstOrDefault(a => a.AttributeId == cfg.AttributeId)?.AttrCode ?? "?";
+                    errors.Add($"{rowLabel}: Thiếu thuộc tính bắt buộc \"{attrName}\" cho danh mục {categoryCode}");
+                    missingRequired = true;
+                }
+            }
+            if (missingRequired) continue;
+
+            // Create product
+            var productCode = await GenerateProductCodeAsync();
+            var product = new Product
+            {
+                ProductCode = productCode,
+                ProductName = productName,
+                Description = string.IsNullOrEmpty(description) ? null : description,
+                CategoryId = category.CategoryId,
+                UnitId = unit.UnitId,
+                DefaultSalePrice = salePrice > 0 ? salePrice : null,
+                DefaultPurchasePrice = purchasePrice > 0 ? purchasePrice : null,
+                MinStockLevel = minStock,
+                Weight = weight > 0 ? weight : null,
+                WeightUnit = string.IsNullOrEmpty(weightUnit) ? null : weightUnit,
+                SourceUrl = string.IsNullOrEmpty(sourceUrl) ? null : sourceUrl,
+                IsActive = true,
+                CreatedBy = userId,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+
+            await _uow.Repository<Product>().AddAsync(product);
+            await _uow.SaveChangesAsync();
+
+            // Save attribute maps
+            if (attrValues.Count > 0)
+            {
+                var mapRepo = _uow.Repository<ProductAttributeMap>();
+                foreach (var (attrId, valueId) in attrValues)
+                {
+                    await mapRepo.AddAsync(new ProductAttributeMap
+                    {
+                        ProductId = product.ProductId,
+                        AttributeId = attrId,
+                        ValueId = valueId
+                    });
+                }
+                await _uow.SaveChangesAsync();
+
+                // Generate SKU
+                try
+                {
+                    await _attrService.GenerateSkuAsync(product.ProductId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "SKU generation failed for imported ProductId={Id}", product.ProductId);
+                }
+            }
+
+            // Auto-generate barcode
+            product.Barcode = GenerateCode128Value(product);
+            product.BarcodeType = "CODE128";
+            _uow.Repository<Product>().Update(product);
+
+            // Map to SO item
+            soItem.ProductId = product.ProductId;
+            soItem.IsProductMapped = true;
+
+            created++;
+            mapped++;
+        }
+
+        // Save all remaining changes
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        if (errors.Count > 0 && created == 0)
+            return (false, "Không tạo được sản phẩm nào.\n" + string.Join("\n", errors), 0, 0);
+
+        var message = $"Đã tạo {created} sản phẩm và gắn vào đơn hàng.";
+        if (errors.Count > 0)
+            message += $"\n\n⚠ {errors.Count} dòng lỗi:\n" + string.Join("\n", errors);
+
+        _logger.LogInformation("Imported {Count} products for SO #{Id} by UserId={UserId}", created, so.SalesOrderNo, userId);
+        return (true, message, created, mapped);
+    }
+
+    private static string GenerateCode128Value(Product product)
+    {
+        return !string.IsNullOrEmpty(product.SKU) ? product.SKU : product.ProductCode;
     }
 
 }

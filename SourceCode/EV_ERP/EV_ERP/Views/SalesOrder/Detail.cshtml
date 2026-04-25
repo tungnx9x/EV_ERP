@@ -111,11 +111,24 @@
 <!-- Unmapped products warning -->
 @if (canEdit && Model.Status == "DRAFT" && Model.HasUnmappedProducts)
 {
-    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-2 mb-3 py-2" role="alert">
-        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-        <div class="small">
-            <strong>@Model.UnmappedProductCount sản phẩm chưa được nhập vào hệ thống.</strong>
-            Nhấn nút <i class="bi bi-plus-circle"></i> <strong>Tạo SP</strong> bên cạnh từng sản phẩm để tạo mới và gắn vào hệ thống trước khi gửi DNTU.
+    <div class="alert alert-warning border-0 shadow-sm mb-3 py-2" role="alert">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            <div class="small">
+                <strong>@Model.UnmappedProductCount sản phẩm chưa được nhập vào hệ thống.</strong>
+                Tạo từng sản phẩm hoặc import hàng loạt bằng Excel.
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap ms-4">
+            <a href="/SalesOrder/ExportProductTemplate/@Model.SalesOrderId"
+               class="btn btn-sm btn-outline-success">
+                <i class="bi bi-download me-1"></i> Tải template Excel
+            </a>
+            <label class="btn btn-sm btn-outline-primary mb-0" for="importProductFile">
+                <i class="bi bi-upload me-1"></i> Import từ Excel
+            </label>
+            <input type="file" id="importProductFile" class="d-none"
+                   accept=".xlsx,.xls" onchange="importProducts(this)" />
         </div>
     </div>
 }
@@ -903,6 +916,59 @@
             else { alert(data.Message || 'Loi'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; }
         })
         .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; });
+    }
+
+    // ── Import Products from Excel ──────────────────
+    function importProducts(input) {
+        if (!input.files || input.files.length === 0) return;
+
+        var file = input.files[0];
+        if (!file.name.match(/\.xlsx?$/i)) {
+            alert('Vui lòng chọn file Excel (.xlsx)');
+            input.value = '';
+            return;
+        }
+
+        if (!confirm('Import sản phẩm từ file "' + file.name + '"?\n\nSản phẩm sẽ được tạo và gắn tự động vào đơn hàng.'))
+        {
+            input.value = '';
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('file', file);
+
+        // Show loading state on the label
+        var label = document.querySelector('label[for="importProductFile"]');
+        var origHtml = label.innerHTML;
+        label.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang import...';
+        label.classList.add('disabled');
+
+        fetch('/SalesOrder/ImportProducts/' + soId, {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? ''
+            },
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.Success) {
+                alert(data.Message || ('Đã import ' + (data.Data?.created || 0) + ' sản phẩm'));
+                location.reload();
+            } else {
+                alert(data.Message || 'Import thất bại');
+                label.innerHTML = origHtml;
+                label.classList.remove('disabled');
+            }
+            input.value = '';
+        })
+        .catch(function() {
+            alert('Lỗi hệ thống khi import');
+            label.innerHTML = origHtml;
+            label.classList.remove('disabled');
+            input.value = '';
+        });
     }
 
     // ── DRAFT → WAIT ────────────────────────────────

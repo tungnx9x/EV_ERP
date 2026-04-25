@@ -56,4 +56,9 @@ public interface ISalesOrderService
 
     // ── Export ĐNTU Excel ────────────────────────────
     Task<(byte[] FileBytes, string FileName)?> ExportDntuAsync(int salesOrderId, int userId);
+
+    // ── Product Import/Export Template ───────────────
+    Task<(byte[] FileBytes, string FileName)?> ExportProductTemplateAsync(int salesOrderId);
+    Task<(bool Success, string? ErrorMessage, int Created, int Mapped)> ImportProductsAsync(
+        int salesOrderId, IFormFile file, int userId);
 }

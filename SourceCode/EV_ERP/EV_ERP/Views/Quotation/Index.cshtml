@@ -11,9 +11,14 @@
     </div>
     @if (canEdit)
     {
-        <a href="/Quotation/Create" class="btn btn-primary">
-            <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
-        </a>
+        <div class="d-flex gap-2">
+            <a href="/Quotation/Create" class="btn btn-primary">
+                <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
+            </a>
+            <button type="button" class="btn btn-outline-success" onclick="alert('Tính năng đang chờ hoàn thiện')">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> Import báo giá
+            </button>
+        </div>
     }
 </div>
 

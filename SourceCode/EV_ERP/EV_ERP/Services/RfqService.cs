@@ -5,6 +5,8 @@ using EV_ERP.Models.Common;
 using EV_ERP.Models.ViewModels.RFQs;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
+using EV_ERP.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace EV_ERP.Services;
@@ -15,14 +17,19 @@ public class RfqService : IRfqService
     private readonly ILogger<RfqService> _logger;
     private readonly string _storageRoot;
     private readonly ISlaService _slaService;
+    private readonly INotificationService _notificationService;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
     public RfqService(IUnitOfWork uow, ILogger<RfqService> logger, IConfiguration config,
-        IWebHostEnvironment env, ISlaService slaService)
+        IWebHostEnvironment env, ISlaService slaService,
+        INotificationService notificationService, IHubContext<NotificationHub> hubContext)
     {
         _uow = uow;
         _logger = logger;
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         _slaService = slaService;
+        _notificationService = notificationService;
+        _hubContext = hubContext;
     }
 
     // ══════════════════════════════════════════════════
@@ -183,6 +190,33 @@ public class RfqService : IRfqService
 
             // SLA: start tracking INPROGRESS
             await _slaService.StartTrackingAsync("RFQ", rfq.RfqId, "INPROGRESS", rfq.AssignedTo);
+
+            // Notify assigned employee
+            if (rfq.AssignedTo.HasValue && rfq.AssignedTo.Value != createdBy)
+            {
+                var customerName = await _uow.Repository<Customer>().Query()
+                    .Where(c => c.CustomerId == rfq.CustomerId)
+                    .Select(c => c.CustomerName)
+                    .FirstOrDefaultAsync() ?? "";
+
+                var title = $"RFQ mới: {rfqNo}";
+                var message = $"Bạn được giao xử lý RFQ {rfqNo} — KH: {customerName}";
+                var actionUrl = $"/Rfq/Detail/{rfq.RfqId}";
+
+                await _notificationService.CreateAsync(
+                    rfq.AssignedTo.Value, title, message,
+                    "RFQ_ASSIGNED", "INFO", "RFQ", rfq.RfqId, actionUrl);
+
+                await _hubContext.Clients
+                    .Group($"user-{rfq.AssignedTo.Value}")
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        Title = title,
+                        Message = message,
+                        Severity = "INFO",
+                        ActionUrl = actionUrl
+                    });
+            }
 
             _logger.LogInformation("RFQ created: {No} by UserId={UserId}", rfqNo, createdBy);
             return (true, null, rfq.RfqId);

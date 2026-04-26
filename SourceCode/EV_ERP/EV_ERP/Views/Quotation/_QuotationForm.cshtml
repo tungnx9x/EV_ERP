@@ -72,9 +72,6 @@
                 <span class="badge bg-primary rounded-pill ms-1" id="itemCountBadge">0</span>
             </h6>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllInternal()">
-                    <i class="bi bi-eye me-1" id="toggleAllIcon"></i><span id="toggleAllText">Mở nội bộ</span>
-                </button>
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEmptyRow()">
                     <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
                 </button>
@@ -169,9 +166,8 @@
         gap: 6px 12px;
         align-items: end;
     }
-    .qi-grid-product { grid-template-columns: 1fr 80px 1fr; }
-    .qi-grid-pricing { grid-template-columns: 80px 120px 1fr 60px 1fr; }
-    .qi-grid-internal { grid-template-columns: 1fr 1fr 100px 80px 90px 80px; }
+    .qi-grid-row1 { grid-template-columns: 1fr 80px 1fr; }
+    .qi-grid-row2 { grid-template-columns: 1fr 1fr 1fr 1fr 80px 1fr 1fr 60px 1fr; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; }
 
     .qi-label {
         font-size: 0.68rem;
@@ -196,32 +192,6 @@
         height: auto;
     }
 
-    .qi-section-label {
-        font-size: 0.68rem;
-        color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-        font-weight: 600;
-        margin: 6px 0 4px;
-        padding-bottom: 4px;
-        border-bottom: 1px solid #f1f5f9;
-    }
-
-    .qi-internal {
-        background: #fefce8;
-        border-radius: 6px;
-        padding: 8px 12px;
-        margin-top: 6px;
-    }
-
-    .qi-toggle-internal {
-        background: none; border: none;
-        font-size: 0.72rem; color: #94a3b8;
-        cursor: pointer; padding: 2px 4px;
-        display: flex; align-items: center; gap: 4px;
-    }
-    .qi-toggle-internal:hover { color: #64748b; }
-
     .qi-img-row {
         display: flex;
         align-items: center;
@@ -232,7 +202,7 @@
         border-bottom: 1px solid #f1f5f9;
     }
     .qi-img-preview {
-        width: 120px; height: 120px;
+        width: 80px; height: 80px;
         object-fit: contain;
         border-radius: 8px;
         border: 1px solid #e2e8f0;
@@ -240,7 +210,7 @@
         flex-shrink: 0;
     }
     .qi-img-empty-lg {
-        width: 120px; height: 120px;
+        width: 80px; height: 80px;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
         background: #f8fafc; border-radius: 8px;
@@ -305,9 +275,8 @@
     .product-result-item:last-child { border-bottom: none; }
 
     @@media (max-width: 768px) {
-        .qi-grid-product { grid-template-columns: 1fr 60px; }
-        .qi-grid-pricing { grid-template-columns: 1fr 1fr; }
-        .qi-grid-internal { grid-template-columns: 1fr 1fr; }
+        .qi-grid-row1 { grid-template-columns: 1fr 60px; }
+        .qi-grid-row2 { grid-template-columns: 1fr 1fr 1fr; }
     }
 </style>
 
@@ -319,15 +288,6 @@
     var searchTimeout = null;
     var isEditMode = @(Model.IsEditMode ? "true" : "false");
     var activeSearchIdx = -1;
-    var allInternalOpen = false;
-
-    var currencyRates = {
-        'VND': 1,
-        'USD': 25000,
-        'CNY': 3500,
-        'EUR': 27000,
-        'JPY': 170
-    };
 
     // ══════════════════════════════════════════════
     // INIT
@@ -376,7 +336,7 @@
             Supplier: '',
             SourceUrl: '',
             ImportPrice: 0,
-            Currency: 'VND',
+            ExchangeRate: 0,
             Shipping: 0,
             Coefficient: globalCoeff,
             DiscountType: null,
@@ -385,8 +345,7 @@
             LineTotal: 0,
             SortOrder: items.length,
             Notes: null,
-            IsProductMapped: false,
-            _internalOpen: allInternalOpen
+            IsProductMapped: false
         });
         renderItems();
         recalcTotals();
@@ -490,34 +449,6 @@
     }
 
     // ══════════════════════════════════════════════
-    // TOGGLE INTERNAL SECTION
-    // ══════════════════════════════════════════════
-    function toggleInternal(idx) {
-        items[idx]._internalOpen = !items[idx]._internalOpen;
-        var section = document.getElementById('internal_' + idx);
-        var icon = document.getElementById('intIcon_' + idx);
-        if (section) {
-            section.style.display = items[idx]._internalOpen ? 'block' : 'none';
-            icon.className = items[idx]._internalOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
-        }
-    }
-
-    function toggleAllInternal() {
-        allInternalOpen = !allInternalOpen;
-        items.forEach(function (item, idx) {
-            item._internalOpen = allInternalOpen;
-            var section = document.getElementById('internal_' + idx);
-            var icon = document.getElementById('intIcon_' + idx);
-            if (section) {
-                section.style.display = allInternalOpen ? 'block' : 'none';
-                icon.className = allInternalOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
-            }
-        });
-        document.getElementById('toggleAllIcon').className = allInternalOpen ? 'bi bi-eye-slash me-1' : 'bi bi-eye me-1';
-        document.getElementById('toggleAllText').textContent = allInternalOpen ? 'An noi bo' : 'Mo noi bo';
-    }
-
-    // ══════════════════════════════════════════════
     // RENDER ITEMS
     // ══════════════════════════════════════════════
     function renderItems() {
@@ -535,30 +466,11 @@
         empty.style.display = 'none';
         totals.style.display = 'block';
 
-        var currencyOptions = Object.keys(currencyRates).map(function (c) {
-            return '<option value="' + c + '">{selected}' + c + '</option>';
-        }).join('');
-
         container.innerHTML = items.map(function (item, idx) {
-            var currOpts = currencyOptions.replace(
-                '{selected}' + item.Currency,
-                'selected ' + item.Currency
-            ).replace(/\{selected\}/g, '');
-
-            var imgHtml = item.ImageUrl
-                ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-thumb" alt="" />'
-                : '<div class="qi-img-empty"><i class="bi bi-image"></i></div>';
-
             var badgeClass = item.IsProductMapped ? 'qi-badge-ht' : 'qi-badge-tmp';
             var badgeText = item.IsProductMapped ? 'HT' : 'Tam';
             var badgeTitle = item.IsProductMapped ? 'SP trong he thong' : 'SP nhap tay (chua co trong he thong)';
             var showBadge = item.IsProductMapped || item.ProductName;
-
-            var internalOpen = item._internalOpen || false;
-            var intIconClass = internalOpen ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
-            var intDisplay = internalOpen ? 'block' : 'none';
-
-            var canUpload = !item.IsProductMapped;
 
             return '<div class="qi-card">' +
                 // ── HEADER: Number + Search + Badge + Delete ──
@@ -576,17 +488,15 @@
                 '</div>' +
 
                 '<div class="qi-body">' +
-                    // ── IMAGE ROW (separate, larger) ──
+                    // ── ROW 1: Image + Description + Unit + Purchase Link ──
                     '<div class="qi-img-row">' +
                         (item.IsProductMapped
-                            // System product → view only
                             ? (item.ImageUrl
                                 ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
                                 : '<div class="qi-img-empty-lg qi-img-readonly"><i class="bi bi-image" style="font-size:1.5rem;"></i><span>Khong co anh</span></div>') +
                               '<div class="qi-img-actions">' +
                                   '<div class="text-muted" style="font-size:0.68rem;"><i class="bi bi-lock me-1"></i>Anh tu he thong</div>' +
                               '</div>'
-                            // Ad-hoc product → upload allowed
                             : (item.ImageUrl
                                 ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
                                 : '<div class="qi-img-empty-lg" onclick="triggerUpload(' + idx + ')">' +
@@ -602,30 +512,48 @@
                                   '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG, WebP — toi da 5MB</div>' +
                               '</div>'
                         ) +
-                    '</div>' +
-
-                    // ── PRODUCT INFO ──
-                    '<div class="qi-grid qi-grid-product">' +
-                        '<div>' +
-                            '<div class="qi-label">Mo ta / De xuat</div>' +
-                            '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
-                                'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham..." />' +
-                        '</div>' +
-                        '<div>' +
-                            '<div class="qi-label">DVT</div>' +
-                            '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.UnitName) + '" ' +
-                                'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cai, Bo..." />' +
-                        '</div>' +
-                        '<div>' +
-                            '<div class="qi-label">Ghi chu</div>' +
-                            '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Notes || '') + '" ' +
-                                'onchange="updateField(' + idx + ', \'Notes\', this.value)" placeholder="Ghi chu..." />' +
+                        '<div class="qi-grid qi-grid-row1" style="flex:1;">' +
+                            '<div>' +
+                                '<div class="qi-label">Mo ta / De xuat</div>' +
+                                '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
+                                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham..." />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">DVT</div>' +
+                                '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.UnitName) + '" ' +
+                                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cai, Bo..." />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">Link mua hang</div>' +
+                                '<input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
+                                    'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." />' +
+                            '</div>' +
                         '</div>' +
                     '</div>' +
 
-                    // ── CUSTOMER PRICING ──
-                    '<div class="qi-section-label">Bao gia khach hang</div>' +
-                    '<div class="qi-grid qi-grid-pricing">' +
+                    // ── ROW 2: Cost Price + Exchange Rate + Shipping + Coefficient + Qty + Unit Price + Before VAT + VAT% + After VAT ──
+                    '<div class="qi-grid qi-grid-row2">' +
+                        '<div>' +
+                            '<div class="qi-label">Gia nhap</div>' +
+                            '<input type="number" class="form-control form-control-sm" ' +
+                                'value="' + item.ImportPrice + '" min="0" step="any" onchange="updateImportPrice(' + idx + ', this.value)" />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">Ty gia</div>' +
+                            '<input type="number" class="form-control form-control-sm" ' +
+                                'value="' + (item.ExchangeRate || '') + '" min="0" step="any" ' +
+                                'onchange="updateExchangeRate(' + idx + ', this.value)" placeholder="De trong = 1" />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">Van chuyen</div>' +
+                            '<input type="number" class="form-control form-control-sm" ' +
+                                'value="' + item.Shipping + '" min="0" step="any" onchange="updateShipping(' + idx + ', this.value)" />' +
+                        '</div>' +
+                        '<div>' +
+                            '<div class="qi-label">He so</div>' +
+                            '<input type="number" class="form-control form-control-sm" ' +
+                                'value="' + item.Coefficient + '" min="0.01" step="any" onchange="updateCoefficient(' + idx + ', this.value)" />' +
+                        '</div>' +
                         '<div>' +
                             '<div class="qi-label">So luong</div>' +
                             '<input type="number" class="form-control form-control-sm" id="qty_' + idx + '" ' +
@@ -648,41 +576,6 @@
                         '<div>' +
                             '<div class="qi-label">Sau VAT</div>' +
                             '<div class="qi-val qi-val-primary">' + formatNumber(item.AmountInclVat) + '</div>' +
-                        '</div>' +
-                    '</div>' +
-
-                    // ── INTERNAL TOGGLE ──
-                    '<button class="qi-toggle-internal" onclick="toggleInternal(' + idx + ')">' +
-                        '<i class="' + intIconClass + '" id="intIcon_' + idx + '" style="font-size:0.65rem;"></i> Thong tin noi bo' +
-                    '</button>' +
-
-                    // ── INTERNAL SECTION (collapsible) ──
-                    '<div class="qi-internal" id="internal_' + idx + '" style="display:' + intDisplay + ';">' +
-                        '<div class="qi-grid qi-grid-internal">' +
-                            '<div>' +
-                                '<div class="qi-label">Link mua hang</div>' +
-                                '<input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
-                                    'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." />' +
-                            '</div>' +
-                            '<div>' +
-                                '<div class="qi-label">Gia nhap</div>' +
-                                '<input type="number" class="form-control form-control-sm" ' +
-                                    'value="' + item.ImportPrice + '" min="0" step="any" onchange="updateImportPrice(' + idx + ', this.value)" />' +
-                            '</div>' +
-                            '<div>' +
-                                '<div class="qi-label">Tien te</div>' +
-                                '<select class="form-select form-select-sm" onchange="updateCurrency(' + idx + ', this.value)">' + currOpts + '</select>' +
-                            '</div>' +
-                            '<div>' +
-                                '<div class="qi-label">Van chuyen</div>' +
-                                '<input type="number" class="form-control form-control-sm" ' +
-                                    'value="' + item.Shipping + '" min="0" step="any" onchange="updateShipping(' + idx + ', this.value)" />' +
-                            '</div>' +
-                            '<div>' +
-                                '<div class="qi-label">He so</div>' +
-                                '<input type="number" class="form-control form-control-sm" ' +
-                                    'value="' + item.Coefficient + '" min="0.01" step="any" onchange="updateCoefficient(' + idx + ', this.value)" />' +
-                            '</div>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
@@ -727,8 +620,8 @@
         recalcTotals();
     }
 
-    function updateCurrency(idx, val) {
-        items[idx].Currency = val;
+    function updateExchangeRate(idx, val) {
+        items[idx].ExchangeRate = parseFloat(val) || 0;
         recalcUnitPriceFromImport(idx);
         recalcItemLine(idx);
         renderItems();
@@ -812,7 +705,8 @@
 
     function recalcUnitPriceFromImport(idx) {
         var item = items[idx];
-        var importVnd = item.ImportPrice * (currencyRates[item.Currency] || 1);
+        var rate = item.ExchangeRate > 0 ? item.ExchangeRate : 1;
+        var importVnd = item.ImportPrice * rate;
         var coeff = item.Coefficient > 0 ? item.Coefficient : 1;
         item.UnitPrice = Math.round(importVnd / coeff + item.Shipping);
     }

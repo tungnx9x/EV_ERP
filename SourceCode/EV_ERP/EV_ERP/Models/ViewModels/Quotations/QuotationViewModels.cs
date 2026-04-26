@@ -147,7 +147,7 @@ public class QuotationItemFormModel
     public string? Supplier { get; set; }
     public string? SourceUrl { get; set; }
     public decimal ImportPrice { get; set; }
-    public string Currency { get; set; } = "VND";
+    public decimal ExchangeRate { get; set; } = 1;
     public decimal Shipping { get; set; }
     public decimal Coefficient { get; set; } = 1;
 
@@ -263,7 +263,7 @@ public class QuotationItemDetailViewModel
     public string? Supplier { get; set; }
     public string? SourceUrl { get; set; }
     public decimal ImportPrice { get; set; }
-    public string Currency { get; set; } = "VND";
+    public decimal ExchangeRate { get; set; } = 1;
     public decimal Shipping { get; set; }
     public decimal Coefficient { get; set; }
     public string? DiscountType { get; set; }

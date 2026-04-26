@@ -239,7 +239,7 @@
                                 <th class="text-end">Sau VAT</th>
                                 <th>Link</th>
                                 <th class="text-end">Gia nhap</th>
-                                <th>Tien te</th>
+                                <th>Ty gia</th>
                                 <th class="text-end">Shipping</th>
                                 <th class="text-center">He so</th>
                             </tr>
@@ -288,7 +288,7 @@
                                         }
                                     </td>
                                     <td class="text-end">@item.ImportPrice.ToString("N0")</td>
-                                    <td class="text-center">@item.Currency</td>
+                                    <td class="text-center">@(item.ExchangeRate > 0 ? item.ExchangeRate.ToString("N0") : "—")</td>
                                     <td class="text-end">@item.Shipping.ToString("N0")</td>
                                     <td class="text-center">@item.Coefficient</td>
                                 </tr>

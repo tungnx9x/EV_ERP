@@ -221,7 +221,9 @@ public class SalesOrderService : ISalesOrderService
             .AnyAsync(s => s.QuotationId == quotationId);
         if (existing) return (false, "Đơn hàng đã được tạo cho báo giá này", null);
 
-        var soNo = await GenerateSalesOrderNoAsync();
+        var soNo = q.QuotationNo.StartsWith("BG-")
+            ? "SO-" + q.QuotationNo.Substring(3)
+            : await GenerateSalesOrderNoAsync();
 
         var so = new SalesOrder
         {

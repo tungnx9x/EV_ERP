@@ -1,7 +1,8 @@
 @model EV_ERP.Models.ViewModels.RFQs.RfqListViewModel
 @{
     ViewData["Title"] = "Yêu cầu báo giá";
-    bool canEdit = ViewBag.CanEdit == true;
+    bool canCreate = ViewBag.CanCreate == true;
+    int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
     var p = Model.Paged;
 }
 
@@ -9,7 +10,7 @@
     <div>
         <p class="text-muted small mb-0">Tổng cộng @p.TotalCount yêu cầu báo giá</p>
     </div>
-    @if (canEdit)
+    @if (canCreate)
     {
         <a href="/Rfq/Create" class="btn btn-primary">
             <i class="bi bi-file-earmark-plus me-1"></i> Tạo yêu cầu báo giá
@@ -151,7 +152,7 @@
                                            class="btn btn-sm btn-outline-secondary" title="Xem">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        @if (canEdit && r.Status == "INPROGRESS")
+                                        @if (r.CreatedBy == currentUserId && r.Status == "INPROGRESS")
                                         {
                                             <a href="/Rfq/Edit/@r.RfqId"
                                                class="btn btn-sm btn-outline-primary" title="Sửa">

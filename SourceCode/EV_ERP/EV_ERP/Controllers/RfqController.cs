@@ -23,7 +23,9 @@ public class RfqController : Controller
     private string CurrentRoleCode =>
         HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.RoleCode;
 
-    private bool CanEdit => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
+    private bool CanCreate => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
+
+    private bool IsOwner(int createdBy) => createdBy == CurrentUserId;
 
     // ── Index ────────────────────────────────────────
     public async Task<IActionResult> Index(
@@ -31,7 +33,8 @@ public class RfqController : Controller
         int? assignedTo, int? customerId, int page = 1)
     {
         var vm = await _rfqService.GetListAsync(keyword, status, priority, assignedTo, customerId, page);
-        ViewBag.CanEdit = CanEdit;
+        ViewBag.CanCreate = CanCreate;
+        ViewBag.CurrentUserId = CurrentUserId;
         return View(vm);
     }
 
@@ -39,7 +42,7 @@ public class RfqController : Controller
     [HttpGet]
     public async Task<IActionResult> Create()
     {
-        if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
+        if (!CanCreate) return RedirectToAction("AccessDenied", "Auth");
 
         var vm = await _rfqService.GetFormAsync();
         return View(vm);
@@ -49,7 +52,7 @@ public class RfqController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create([FromBody] RfqFormViewModel model)
     {
-        if (!CanEdit)
+        if (!CanCreate)
             return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
 
         var (success, error, rfqId) = await _rfqService.CreateAsync(model, CurrentUserId);
@@ -63,13 +66,16 @@ public class RfqController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
-        if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
-
         var vm = await _rfqService.GetFormAsync(id);
         if (!vm.IsEditMode)
         {
             TempData["ErrorMessage"] = "Không tìm thấy yêu cầu báo giá";
             return RedirectToAction("Index");
+        }
+        if (!IsOwner(vm.CreatedBy ?? 0))
+        {
+            TempData["ErrorMessage"] = "Bạn chỉ có thể sửa RFQ do mình tạo";
+            return RedirectToAction("Detail", new { id });
         }
         if (vm.CurrentStatus != "INPROGRESS")
         {
@@ -83,8 +89,12 @@ public class RfqController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit([FromBody] RfqFormViewModel model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
+        if (model.RfqId.HasValue)
+        {
+            var existing = await _rfqService.GetFormAsync(model.RfqId.Value);
+            if (!IsOwner(existing.CreatedBy ?? 0))
+                return Json(ApiResult<object>.Fail("Bạn chỉ có thể sửa RFQ do mình tạo"));
+        }
 
         var (success, error) = await _rfqService.UpdateAsync(model, CurrentUserId);
         if (!success)
@@ -103,7 +113,8 @@ public class RfqController : Controller
             TempData["ErrorMessage"] = "Không tìm thấy yêu cầu báo giá";
             return RedirectToAction("Index");
         }
-        ViewBag.CanEdit = CanEdit;
+        ViewBag.CanCreate = CanCreate;
+        ViewBag.CurrentUserId = CurrentUserId;
         return View(vm);
     }
 
@@ -111,7 +122,7 @@ public class RfqController : Controller
     [HttpPost]
     public async Task<IActionResult> UploadImage(IFormFile file)
     {
-        if (!CanEdit)
+        if (!CanCreate)
             return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
         var url = await _rfqService.UploadImageAsync(file);
@@ -125,8 +136,11 @@ public class RfqController : Controller
     [HttpPost]
     public async Task<IActionResult> Cancel(int id, [FromBody] ReasonRequest? model)
     {
-        if (!CanEdit)
-            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+        var existing = await _rfqService.GetDetailAsync(id);
+        if (existing == null)
+            return Json(ApiResult<object>.Fail("Không tìm thấy RFQ"));
+        if (!IsOwner(existing.CreatedBy))
+            return Json(ApiResult<object>.Fail("Bạn chỉ có thể hủy RFQ do mình tạo"));
 
         var (success, error) = await _rfqService.CancelAsync(id, CurrentUserId, model?.Reason);
         return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy RFQ" : error });

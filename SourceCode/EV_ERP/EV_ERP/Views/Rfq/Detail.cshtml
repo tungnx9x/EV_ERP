@@ -1,7 +1,9 @@
 @model EV_ERP.Models.ViewModels.RFQs.RfqDetailViewModel
 @{
     ViewData["Title"] = Model.RfqNo;
-    bool canEdit = ViewBag.CanEdit == true;
+    bool canCreate = ViewBag.CanCreate == true;
+    int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
+    bool isOwner = Model.CreatedBy == currentUserId;
 }
 
 <!-- Header -->
@@ -24,20 +26,23 @@
         </div>
     </div>
 
-    @if (canEdit)
+    @if (Model.Status == "INPROGRESS")
     {
         <div class="d-flex gap-1 flex-wrap">
-            @if (Model.Status == "INPROGRESS")
+            @if (isOwner)
             {
                 <a href="/Rfq/Edit/@Model.RfqId" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-pencil me-1"></i> Sửa
                 </a>
-                if (Model.Quotations.Count == 0)
-                {
-                    <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-primary">
-                        <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
-                    </a>
-                }
+            }
+            @if (canCreate && Model.Quotations.Count == 0)
+            {
+                <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-primary">
+                    <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
+                </a>
+            }
+            @if (isOwner)
+            {
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
                     <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>

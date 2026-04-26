@@ -88,6 +88,7 @@ public class RfqService : IRfqService
                 AssignedToName = r.AssignedToUser != null ? r.AssignedToUser.FullName : null,
                 Description = r.Description,
                 QuotationCount = r.Quotations.Count,
+                CreatedBy = r.CreatedBy,
                 CreatedByName = r.CreatedByUser.FullName,
                 CreatedAt = r.CreatedAt
             })
@@ -150,6 +151,7 @@ public class RfqService : IRfqService
             AssignedTo = r.AssignedTo,
             Notes = r.Notes,
             CurrentStatus = r.Status,
+            CreatedBy = r.CreatedBy,
             Customers = customers,
             Users = users
         };
@@ -298,6 +300,7 @@ public class RfqService : IRfqService
             Notes = r.Notes,
             CompletedAt = r.CompletedAt,
             CancelledAt = r.CancelledAt,
+            CreatedBy = r.CreatedBy,
             CreatedByName = r.CreatedByUser.FullName,
             CreatedAt = r.CreatedAt,
             UpdatedAt = r.UpdatedAt,

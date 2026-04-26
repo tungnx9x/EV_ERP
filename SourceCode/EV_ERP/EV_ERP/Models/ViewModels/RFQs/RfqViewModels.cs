@@ -30,6 +30,7 @@ public class RfqRowViewModel
     public string? AssignedToName { get; set; }
     public string? Description { get; set; }
     public int QuotationCount { get; set; }
+    public int CreatedBy { get; set; }
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 
@@ -93,6 +94,8 @@ public class RfqFormViewModel
 
     public string? CurrentStatus { get; set; }
 
+    public int? CreatedBy { get; set; }
+
     // ── Dropdown data ────────────────────────────────
     public List<CustomerOption> Customers { get; set; } = [];
     public List<UserOption> Users { get; set; } = [];
@@ -124,6 +127,7 @@ public class RfqDetailViewModel
     public string? Notes { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public int CreatedBy { get; set; }
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

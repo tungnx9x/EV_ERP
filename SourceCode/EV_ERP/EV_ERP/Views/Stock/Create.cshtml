@@ -194,6 +194,24 @@
             </table>
         </div>
 
+        <!-- Image gallery -->
+        <div class="mb-4">
+            <h6 class="fw-semibold small text-uppercase mb-2">
+                <i class="bi bi-images me-1"></i> Ảnh chứng từ
+                <span class="badge bg-secondary rounded-pill ms-1" id="imgCountBadge">0</span>
+                <span class="text-muted fw-normal" style="font-size:0.7rem;"> (tối đa 10 ảnh, 5MB/ảnh)</span>
+            </h6>
+            <div id="imgDropZone" class="border rounded-3 p-3 text-center"
+                 style="border-style:dashed !important; border-color:#94a3b8; background:#f8fafc; cursor:pointer; transition:all .15s;">
+                <i class="bi bi-cloud-arrow-up text-muted" style="font-size:1.5rem;"></i>
+                <p class="small text-muted mb-1">Kéo thả ảnh vào đây hoặc <span class="text-primary fw-semibold">chọn file</span></p>
+                <p class="text-muted mb-0" style="font-size:0.68rem;">JPG, PNG, WebP — tối đa 5MB mỗi ảnh</p>
+                <input type="file" id="imgFileInput" accept="image/jpeg,image/png,image/webp,image/gif"
+                       multiple style="display:none;" />
+            </div>
+            <div id="imgGallery" class="d-flex flex-wrap gap-3 mt-3"></div>
+        </div>
+
         <div id="saveError" class="alert alert-danger py-2 small" style="display:none;"></div>
 
         <hr class="my-3" />
@@ -212,16 +230,50 @@
     #itemsBody tr td { vertical-align: middle; }
     #itemsBody input, #itemsBody select { font-size: 0.82rem; }
     #barcodeInput:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.25); border-color: #3b82f6; }
+
+    #imgDropZone.drag-over { border-color: #3b82f6; background: #eff6ff; }
+    .img-gallery-item {
+        position: relative;
+        width: 140px;
+    }
+    .img-gallery-item img {
+        width: 140px; height: 100px;
+        object-fit: cover; border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        cursor: pointer;
+    }
+    .img-gallery-item .img-remove {
+        position: absolute; top: 4px; right: 4px;
+        width: 22px; height: 22px;
+        border-radius: 50%; border: none;
+        background: rgba(0,0,0,.5); color: #fff;
+        font-size: 0.65rem; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background .15s;
+    }
+    .img-gallery-item .img-remove:hover { background: #dc2626; }
+    .img-gallery-item .img-caption {
+        font-size: 0.72rem; margin-top: 4px;
+    }
+    .img-gallery-item .img-uploading {
+        position: absolute; inset: 0;
+        background: rgba(255,255,255,.7);
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 8px;
+    }
 </style>
 
 <script>
     // ── State ────────────────────────────────────────────
     var items = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items));
     var locations = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Locations));
+    var attachments = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Attachments));
 
     // ── Init ─────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
         renderItems();
+        renderGallery();
+        initImageUpload();
 
         // Barcode input: Enter key triggers lookup
         document.getElementById('barcodeInput').addEventListener('keydown', function (e) {
@@ -579,7 +631,9 @@
                     UnitName: it.UnitName,
                     Notes: it.Notes || null
                 };
-            })
+            }),
+            AttachmentIds: attachments.filter(function (a) { return a.AttachmentId > 0; })
+                .map(function (a) { return a.AttachmentId; })
         };
 
         var isEdit = !!transIdVal;
@@ -636,6 +690,141 @@
     function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function getAntiForgeryToken() {
         return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+
+    // ── Image Gallery ───────────────────────────────────
+    function initImageUpload() {
+        var dropZone = document.getElementById('imgDropZone');
+        var fileInput = document.getElementById('imgFileInput');
+
+        dropZone.addEventListener('click', function () { fileInput.click(); });
+        fileInput.addEventListener('change', function () {
+            handleFiles(this.files);
+            this.value = '';
+        });
+
+        dropZone.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', function () {
+            this.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            handleFiles(e.dataTransfer.files);
+        });
+    }
+
+    function handleFiles(files) {
+        if (attachments.length >= 10) {
+            alert('Tối đa 10 ảnh'); return;
+        }
+        var remaining = 10 - attachments.length;
+        var toUpload = Array.from(files).slice(0, remaining);
+        toUpload.forEach(function (file) { uploadImage(file); });
+    }
+
+    function uploadImage(file) {
+        if (file.size > 5 * 1024 * 1024) {
+            alert(file.name + ' vượt quá 5MB'); return;
+        }
+
+        var transIdVal = document.getElementById('frm_transactionId').value;
+        var formData = new FormData();
+        formData.append('file', file);
+
+        var url;
+        if (transIdVal) {
+            formData.append('transactionId', transIdVal);
+            url = '/Stock/UploadImage';
+        } else {
+            url = '/Stock/UploadTempImage';
+        }
+
+        // Add temp placeholder
+        var tempId = 'temp_' + Date.now() + '_' + Math.random();
+        attachments.push({ AttachmentId: 0, FileUrl: '', FileName: file.name, Description: '', _tempId: tempId, _uploading: true });
+        renderGallery();
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': getAntiForgeryToken() },
+            body: formData
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            var idx = attachments.findIndex(function (a) { return a._tempId === tempId; });
+            if (idx < 0) return;
+
+            if (res.Success && res.Data) {
+                attachments[idx].AttachmentId = res.Data.AttachmentId;
+                attachments[idx].FileUrl = res.Data.FileUrl;
+                attachments[idx].FileName = res.Data.FileName;
+                attachments[idx]._uploading = false;
+            } else {
+                attachments.splice(idx, 1);
+                alert(res.Message || 'Upload thất bại');
+            }
+            renderGallery();
+        })
+        .catch(function () {
+            var idx = attachments.findIndex(function (a) { return a._tempId === tempId; });
+            if (idx >= 0) attachments.splice(idx, 1);
+            renderGallery();
+            alert('Lỗi kết nối khi upload');
+        });
+    }
+
+    function removeAttachment(idx) {
+        var att = attachments[idx];
+        if (att.AttachmentId > 0) {
+            fetch('/Stock/DeleteImage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: JSON.stringify({ attachmentId: att.AttachmentId })
+            });
+        }
+        attachments.splice(idx, 1);
+        renderGallery();
+    }
+
+    function updateCaption(idx, val) {
+        attachments[idx].Description = val;
+    }
+
+    function renderGallery() {
+        var gallery = document.getElementById('imgGallery');
+        document.getElementById('imgCountBadge').textContent = attachments.length;
+
+        if (attachments.length === 0) {
+            gallery.innerHTML = '';
+            return;
+        }
+
+        gallery.innerHTML = attachments.map(function (att, idx) {
+            if (att._uploading) {
+                return '<div class="img-gallery-item">' +
+                    '<div style="width:140px;height:100px;border-radius:8px;border:1px solid #e2e8f0;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">' +
+                        '<div class="spinner-border spinner-border-sm text-primary"></div>' +
+                    '</div>' +
+                    '<div class="text-muted img-caption text-truncate">' + escHtml(att.FileName) + '</div>' +
+                '</div>';
+            }
+            return '<div class="img-gallery-item">' +
+                '<img src="' + escAttr(att.FileUrl) + '" alt="" onclick="window.open(\'' + escAttr(att.FileUrl) + '\', \'_blank\')" title="Nhấn để xem ảnh gốc" />' +
+                '<button type="button" class="img-remove" onclick="removeAttachment(' + idx + ')" title="Xóa ảnh">' +
+                    '<i class="bi bi-x"></i>' +
+                '</button>' +
+                '<input type="text" class="form-control form-control-sm img-caption" ' +
+                    'value="' + escAttr(att.Description || '') + '" placeholder="Ghi chú ảnh..." ' +
+                    'onchange="updateCaption(' + idx + ', this.value)" />' +
+            '</div>';
+        }).join('');
     }
 
     // ── Camera Barcode Scanner ──────────────────────────

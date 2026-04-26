@@ -99,6 +99,7 @@ namespace EV_ERP.Models.ViewModels.Stock
         public DateTime CreatedAt { get; set; }
 
         public List<StockTransactionItemViewModel> Items { get; set; } = [];
+        public List<StockAttachmentViewModel> Attachments { get; set; } = [];
 
         // Status helpers
         public string TypeText => TransactionType switch
@@ -166,6 +167,8 @@ namespace EV_ERP.Models.ViewModels.Stock
         public string? ReceiverPhone { get; set; }
 
         public List<StockTransactionItemFormModel> Items { get; set; } = [];
+        public List<StockAttachmentViewModel> Attachments { get; set; } = [];
+        public List<int> AttachmentIds { get; set; } = [];
 
         public bool IsEditMode => TransactionId.HasValue && TransactionId > 0;
 
@@ -217,5 +220,16 @@ namespace EV_ERP.Models.ViewModels.Stock
         public int LocationId { get; set; }
         public string LocationCode { get; set; } = string.Empty;
         public string LocationName { get; set; } = string.Empty;
+    }
+
+    // ── Attachment (image gallery) ──────────────────────
+    public class StockAttachmentViewModel
+    {
+        public int AttachmentId { get; set; }
+        public string FileUrl { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime UploadedAt { get; set; }
+        public string UploadedByName { get; set; } = string.Empty;
     }
 }

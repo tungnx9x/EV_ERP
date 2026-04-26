@@ -2,6 +2,7 @@ using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Sales;
+using EV_ERP.Models.Entities.System;
 using EV_ERP.Models.ViewModels.Stock;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
@@ -105,6 +106,20 @@ namespace EV_ERP.Services
 
             if (t == null) return null;
 
+            var attachments = await _uow.Repository<Attachment>().Query()
+                .Where(a => a.ReferenceType == "STOCK_TRANSACTION"
+                    && a.ReferenceId == (int)t.TransactionId && a.IsActive)
+                .OrderBy(a => a.UploadedAt)
+                .Select(a => new StockAttachmentViewModel
+                {
+                    AttachmentId = a.AttachmentId,
+                    FileUrl = a.FileUrl,
+                    FileName = a.FileName,
+                    Description = a.Description,
+                    UploadedAt = a.UploadedAt,
+                    UploadedByName = a.UploadedByUser.FullName
+                }).ToListAsync();
+
             return new StockTransactionDetailViewModel
             {
                 TransactionId = t.TransactionId,
@@ -144,7 +159,8 @@ namespace EV_ERP.Services
                     Quantity = i.Quantity,
                     UnitName = i.UnitName,
                     Notes = i.Notes
-                }).ToList()
+                }).ToList(),
+                Attachments = attachments
             };
         }
 
@@ -185,6 +201,20 @@ namespace EV_ERP.Services
                 if (t != null)
                 {
                     var locations = await GetLocationOptionsAsync(t.WarehouseId);
+                    var attachments = await _uow.Repository<Attachment>().Query()
+                        .Where(a => a.ReferenceType == "STOCK_TRANSACTION"
+                            && a.ReferenceId == (int)t.TransactionId && a.IsActive)
+                        .OrderBy(a => a.UploadedAt)
+                        .Select(a => new StockAttachmentViewModel
+                        {
+                            AttachmentId = a.AttachmentId,
+                            FileUrl = a.FileUrl,
+                            FileName = a.FileName,
+                            Description = a.Description,
+                            UploadedAt = a.UploadedAt,
+                            UploadedByName = a.UploadedByUser.FullName
+                        }).ToListAsync();
+
                     return new StockTransactionFormViewModel
                     {
                         TransactionId = t.TransactionId,
@@ -212,6 +242,7 @@ namespace EV_ERP.Services
                             UnitName = i.UnitName,
                             Notes = i.Notes
                         }).ToList(),
+                        Attachments = attachments,
                         Warehouses = warehouses,
                         Locations = locations,
                         DeliveryPersons = deliveryPersons
@@ -308,6 +339,21 @@ namespace EV_ERP.Services
                         });
                     }
 
+                    // Sync attachments: deactivate removed ones
+                    if (model.AttachmentIds.Any())
+                    {
+                        var existingAtts = await _uow.Repository<Attachment>().Query()
+                            .Where(a => a.ReferenceType == "STOCK_TRANSACTION"
+                                && a.ReferenceId == (int)entity.TransactionId && a.IsActive)
+                            .ToListAsync();
+
+                        foreach (var att in existingAtts)
+                        {
+                            if (!model.AttachmentIds.Contains(att.AttachmentId))
+                                att.IsActive = false;
+                        }
+                    }
+
                     _uow.Repository<StockTransaction>().Update(entity);
                     await _uow.SaveChangesAsync();
                     return (true, null, entity.TransactionId);
@@ -349,6 +395,22 @@ namespace EV_ERP.Services
 
                     await _uow.Repository<StockTransaction>().AddAsync(entity);
                     await _uow.SaveChangesAsync();
+
+                    // Link temp attachments (ReferenceId=0) to the new transaction
+                    if (model.AttachmentIds.Any())
+                    {
+                        var tempAtts = await _uow.Repository<Attachment>().Query()
+                            .Where(a => model.AttachmentIds.Contains(a.AttachmentId)
+                                && a.ReferenceType == "STOCK_TRANSACTION"
+                                && a.ReferenceId == 0 && a.IsActive)
+                            .ToListAsync();
+
+                        foreach (var att in tempAtts)
+                            att.ReferenceId = (int)entity.TransactionId;
+
+                        await _uow.SaveChangesAsync();
+                    }
+
                     return (true, null, entity.TransactionId);
                 }
             }

@@ -251,6 +251,38 @@
                 </div>
             </div>
         </div>
+
+        @if (Model.Attachments.Any())
+        {
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="bi bi-images me-1"></i> Ảnh chứng từ
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Attachments.Count</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var att in Model.Attachments)
+                        {
+                            <div class="text-center" style="width:160px;">
+                                <a href="@att.FileUrl" target="_blank" title="Nhấn để xem ảnh gốc">
+                                    <img src="@att.FileUrl" alt="@att.FileName"
+                                         style="width:160px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" />
+                                </a>
+                                @if (!string.IsNullOrEmpty(att.Description))
+                                {
+                                    <div class="small text-muted mt-1 text-truncate" title="@att.Description">@att.Description</div>
+                                }
+                                <div class="text-muted" style="font-size:0.65rem;">
+                                    @att.UploadedByName — @att.UploadedAt.ToString("dd/MM HH:mm")
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </div>
 

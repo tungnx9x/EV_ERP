@@ -13,12 +13,15 @@ namespace EV_ERP.Controllers
         private readonly IStockService _stockService;
         private readonly IWarehouseService _warehouseService;
         private readonly ISalesOrderService _salesOrderService;
+        private readonly IAttachmentService _attachmentService;
 
-        public StockController(IStockService stockService, IWarehouseService warehouseService, ISalesOrderService salesOrderService)
+        public StockController(IStockService stockService, IWarehouseService warehouseService,
+            ISalesOrderService salesOrderService, IAttachmentService attachmentService)
         {
             _stockService = stockService;
             _warehouseService = warehouseService;
             _salesOrderService = salesOrderService;
+            _attachmentService = attachmentService;
         }
 
         private int CurrentUserId =>
@@ -165,6 +168,60 @@ namespace EV_ERP.Controllers
                 return Json(ApiResult<object>.Fail("Không tìm thấy đơn hàng với mã này"));
 
             return Json(ApiResult<object>.Ok(result));
+        }
+
+        // ── Upload Image (Ajax) ─────────────────────────
+        [HttpPost]
+        public async Task<IActionResult> UploadImage(IFormFile file, long transactionId, string? description)
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            var result = await _attachmentService.UploadImageAsync(
+                file, "STOCK_TRANSACTION", (int)transactionId,
+                "STOCK_PHOTO", description, CurrentUserId);
+
+            if (result == null)
+                return Json(ApiResult<object>.Fail("Upload thất bại — chỉ hỗ trợ JPG/PNG/GIF/WEBP, tối đa 5MB"));
+
+            return Json(ApiResult<object>.Ok(result));
+        }
+
+        // ── Upload Image (temp, before transaction saved) ─
+        [HttpPost]
+        public async Task<IActionResult> UploadTempImage(IFormFile file, string? description)
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            // Use 0 as placeholder referenceId — will be updated after save
+            var result = await _attachmentService.UploadImageAsync(
+                file, "STOCK_TRANSACTION", 0,
+                "STOCK_PHOTO", description, CurrentUserId);
+
+            if (result == null)
+                return Json(ApiResult<object>.Fail("Upload thất bại — chỉ hỗ trợ JPG/PNG/GIF/WEBP, tối đa 5MB"));
+
+            return Json(ApiResult<object>.Ok(result));
+        }
+
+        // ── Delete Image (Ajax) ─────────────────────────
+        [HttpPost]
+        public async Task<IActionResult> DeleteImage(int attachmentId)
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            var ok = await _attachmentService.DeleteAsync(attachmentId, CurrentUserId);
+            return Json(new ApiResult<object> { Success = ok, Message = ok ? "Đã xóa" : "Không tìm thấy ảnh" });
+        }
+
+        // ── Get Images (Ajax) ───────────────────────────
+        [HttpGet]
+        public async Task<IActionResult> GetImages(long transactionId)
+        {
+            var images = await _attachmentService.GetListAsync("STOCK_TRANSACTION", (int)transactionId);
+            return Json(ApiResult<object>.Ok(images));
         }
     }
 }

@@ -222,6 +222,32 @@ public class QuotationController : Controller
         }
     }
 
+    // ── Import from Excel ─────────────────────────────
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImportFromExcel(IFormFile file, int customerId, int salesPersonId, DateTime? deadline, int? rfqId = null)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
+
+            var (success, message, quotationId) = await _quotationService.ImportFromExcelAsync(
+                file, customerId, salesPersonId, deadline, CurrentUserId, rfqId);
+
+            if (!success)
+                return Json(ApiResult<object>.Fail(message ?? "Import thất bại"));
+
+            return Json(ApiResult<object>.Ok(new { QuotationId = quotationId }, message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ImportFromExcel failed");
+            var innerMsg = ex.InnerException?.Message ?? ex.Message;
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + innerMsg));
+        }
+    }
+
     // ── Export Excel from Detail (by ID) ───────────────
     [HttpGet]
     public async Task<IActionResult> ExportExcelById(int id)

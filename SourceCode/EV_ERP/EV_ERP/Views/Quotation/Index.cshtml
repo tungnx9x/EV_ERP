@@ -15,7 +15,7 @@
             <a href="/Quotation/Create" class="btn btn-primary">
                 <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
             </a>
-            <button type="button" class="btn btn-outline-success" onclick="alert('Tính năng đang chờ hoàn thiện')">
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
                 <i class="bi bi-file-earmark-arrow-up me-1"></i> Import báo giá
             </button>
         </div>
@@ -201,6 +201,129 @@
         return "/Quotation?" + string.Join("&", qs.Where(kv => kv.Value != null).Select(kv => $"{kv.Key}={kv.Value}"));
     }
 }
+
+@if (canEdit)
+{
+    <!-- Import Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importModalLabel">
+                        <i class="bi bi-file-earmark-arrow-up me-2"></i>Import báo giá từ Excel
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="importForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Khách hàng <span class="text-danger">*</span></label>
+                            <select id="importCustomerId" class="form-select" required>
+                                <option value="">-- Chọn khách hàng --</option>
+                                @foreach (var c in Model.Customers)
+                                {
+                                    <option value="@c.CustomerId">@c.CustomerName (@c.CustomerCode)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Nhân viên phụ trách <span class="text-danger">*</span></label>
+                            <select id="importSalesPersonId" class="form-select" required>
+                                <option value="">-- Chọn nhân viên --</option>
+                                @foreach (var s in Model.SalesPersons)
+                                {
+                                    <option value="@s.UserId">@s.FullName (@s.UserCode)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
+                            <input type="datetime-local" id="importDeadline" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">File Excel <span class="text-danger">*</span></label>
+                            <input type="file" id="importFile" class="form-control" accept=".xlsx,.xls" required />
+                            <div class="form-text">File Excel cùng định dạng với file xuất báo giá (Export)</div>
+                        </div>
+                    </form>
+                    <div id="importResult" class="d-none mt-3"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-success" id="btnDoImport" onclick="doImport()">
+                        <i class="bi bi-upload me-1"></i> Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+    function doImport() {
+        var customerId = document.getElementById('importCustomerId').value;
+        var salesPersonId = document.getElementById('importSalesPersonId').value;
+        var deadline = document.getElementById('importDeadline').value;
+        var fileInput = document.getElementById('importFile');
+        var resultDiv = document.getElementById('importResult');
+
+        if (!customerId) { alert('Vui lòng chọn khách hàng'); return; }
+        if (!salesPersonId) { alert('Vui lòng chọn nhân viên phụ trách'); return; }
+        if (!deadline) { alert('Vui lòng chọn hạn xử lý'); return; }
+        if (!fileInput.files.length) { alert('Vui lòng chọn file Excel'); return; }
+
+        var formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('customerId', customerId);
+        formData.append('salesPersonId', salesPersonId);
+        formData.append('deadline', deadline);
+
+        var btn = document.getElementById('btnDoImport');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xử lý...';
+        resultDiv.classList.add('d-none');
+
+        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        if (!token) {
+            // Find token in cookie or meta
+            var cookieToken = document.cookie.split(';').find(c => c.trim().startsWith('.AspNetCore.Antiforgery'));
+        }
+
+        fetch('/Quotation/ImportFromExcel', {
+            method: 'POST',
+            headers: {
+                'RequestVerificationToken': token || ''
+            },
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+
+            resultDiv.classList.remove('d-none');
+            if (res.Success) {
+                var msg = (res.Message || 'Import thành công').replace(/\n/g, '<br/>');
+                resultDiv.className = 'alert alert-success mt-3';
+                resultDiv.innerHTML = msg + '<br/><a href="/Quotation/Detail/' + res.Data.QuotationId +
+                    '" class="btn btn-sm btn-primary mt-2"><i class="bi bi-eye me-1"></i>Xem báo giá</a>';
+            } else {
+                var msg = (res.Message || 'Import thất bại').replace(/\n/g, '<br/>');
+                resultDiv.className = 'alert alert-danger mt-3';
+                resultDiv.innerHTML = msg;
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+            resultDiv.classList.remove('d-none');
+            resultDiv.className = 'alert alert-danger mt-3';
+            resultDiv.innerHTML = 'Lỗi: ' + err.message;
+        });
+    }
+</script>
+
+@Html.AntiForgeryToken()
 
 <style>
     .link-hover:hover { color: #2563eb !important; }

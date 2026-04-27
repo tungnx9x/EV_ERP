@@ -30,6 +30,10 @@ public interface IQuotationService
     Task<(bool Success, string? ErrorMessage)> ExpireAsync(int quotationId, int userId);
     Task<(bool Success, string? ErrorMessage)> CancelAsync(int quotationId, int userId, string? reason);
 
+    // ── Import from Excel ─────────────────────────────
+    Task<(bool Success, string? ErrorMessage, int? QuotationId)> ImportFromExcelAsync(
+        IFormFile file, int customerId, int salesPersonId, DateTime? deadline, int createdBy, int? rfqId = null);
+
     // ── Export Excel ───────────────────────────────────
     Task<(byte[] FileBytes, string FileName)?> ExportExcelAsync(QuotationExportRequest request);
     Task<(byte[] FileBytes, string FileName)?> ExportExcelByIdAsync(int quotationId);

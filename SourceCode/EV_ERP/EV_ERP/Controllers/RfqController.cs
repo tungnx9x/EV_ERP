@@ -11,10 +11,12 @@ namespace EV_ERP.Controllers;
 public class RfqController : Controller
 {
     private readonly IRfqService _rfqService;
+    private readonly IQuotationService _quotationService;
 
-    public RfqController(IRfqService rfqService)
+    public RfqController(IRfqService rfqService, IQuotationService quotationService)
     {
         _rfqService = rfqService;
+        _quotationService = quotationService;
     }
 
     private int CurrentUserId =>
@@ -115,6 +117,11 @@ public class RfqController : Controller
         }
         ViewBag.CanCreate = CanCreate;
         ViewBag.CurrentUserId = CurrentUserId;
+
+        // SalesPersons for import quotation modal
+        var formVm = await _quotationService.GetFormAsync();
+        ViewBag.SalesPersons = formVm.SalesPersons;
+
         return View(vm);
     }
 

@@ -930,6 +930,206 @@ public class QuotationService : IQuotationService
     }
 
     // ══════════════════════════════════════════════════
+    // IMPORT FROM EXCEL
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage, int? QuotationId)> ImportFromExcelAsync(
+        IFormFile file, int customerId, int salesPersonId, DateTime? deadline, int createdBy, int? rfqId = null)
+    {
+        if (file == null || file.Length == 0)
+            return (false, "File không hợp lệ", null);
+
+        // Validate customer
+        var customer = await _uow.Repository<Customer>().GetByIdAsync(customerId);
+        if (customer == null)
+            return (false, "Khách hàng không tồn tại", null);
+
+        if (!deadline.HasValue)
+            return (false, "Hạn xử lý nội bộ là bắt buộc", null);
+
+        using var stream = file.OpenReadStream();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet(1);
+        if (ws == null)
+            return (false, "Không đọc được sheet đầu tiên", null);
+
+        // Detect data rows: scan from row 2 downward looking for the first row
+        // that has a numeric STT in column A (skip header/customer info rows)
+        int dataStartRow = 0;
+        int lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+        for (int r = 2; r <= lastRow; r++)
+        {
+            var cellA = ws.Cell(r, 1).GetString().Trim();
+            // Header row detection: "STT" or "No" → data starts next row
+            if (cellA.Equals("STT", StringComparison.OrdinalIgnoreCase) ||
+                cellA.Equals("No", StringComparison.OrdinalIgnoreCase) ||
+                cellA.Equals("No.", StringComparison.OrdinalIgnoreCase))
+            {
+                dataStartRow = r + 1;
+                break;
+            }
+        }
+
+        if (dataStartRow == 0)
+        {
+            // Fallback: look for first row with numeric col A
+            for (int r = 2; r <= lastRow; r++)
+            {
+                if (int.TryParse(ws.Cell(r, 1).GetString().Trim(), out _))
+                {
+                    dataStartRow = r;
+                    break;
+                }
+            }
+        }
+
+        if (dataStartRow == 0)
+            return (false, "Không tìm thấy dữ liệu sản phẩm trong file", null);
+
+        // Parse items
+        var items = new List<QuotationItem>();
+        var errors = new List<string>();
+        int sortOrder = 0;
+
+        for (int r = dataStartRow; r <= lastRow; r++)
+        {
+            var sttText = ws.Cell(r, 1).GetString().Trim();
+            // B-C merged = product name
+            var productName = ws.Cell(r, 2).GetString().Trim();
+
+            // Stop at total row or empty
+            if (string.IsNullOrEmpty(productName) && string.IsNullOrEmpty(sttText))
+                continue;
+            // Normalize Vietnamese diacritics for TỔNG detection
+            var sttNorm = sttText.Normalize(System.Text.NormalizationForm.FormD);
+            var nameNorm = productName.Normalize(System.Text.NormalizationForm.FormD);
+            if (sttNorm.Contains("TONG", StringComparison.OrdinalIgnoreCase) ||
+                nameNorm.Contains("TONG", StringComparison.OrdinalIgnoreCase) ||
+                sttText.Contains("TỔNG", StringComparison.OrdinalIgnoreCase) ||
+                productName.Contains("TỔNG", StringComparison.OrdinalIgnoreCase))
+                break;
+            if (!int.TryParse(sttText, out _) && string.IsNullOrEmpty(productName))
+                continue;
+
+            var rowLabel = $"Dòng {r}";
+
+            if (string.IsNullOrEmpty(productName))
+            {
+                errors.Add($"{rowLabel}: Tên sản phẩm trống");
+                continue;
+            }
+
+            // Parse fields
+            var proposal = ws.Cell(r, 4).GetString().Trim();
+            var unitName = ws.Cell(r, 6).GetString().Trim();
+            if (string.IsNullOrEmpty(unitName)) unitName = "Cái";
+
+            decimal.TryParse(ws.Cell(r, 7).GetString().Trim().Replace(",", ""), out decimal qty);
+            if (qty <= 0) qty = 1;
+
+            decimal.TryParse(ws.Cell(r, 8).GetString().Trim().Replace(",", ""), out decimal unitPrice);
+
+            // VAT - parse from col J, e.g. "8%", "10", "10%", or 0.08 (fraction)
+            var vatText = ws.Cell(r, 10).GetString().Trim().Replace("%", "");
+            if (!decimal.TryParse(vatText, out decimal vatRate))
+                vatRate = 10;
+            // If value < 1, it's a fraction (e.g. 0.08 = 8%)
+            if (vatRate > 0 && vatRate < 1)
+                vatRate = vatRate * 100;
+
+            var notes = ws.Cell(r, 12).GetString().Trim();
+            var supplierRaw = ws.Cell(r, 14).GetString().Trim();
+            // If NCC column contains a URL, put it in SourceUrl instead of SourceName
+            string? supplier = null;
+            string? sourceUrl = null;
+            if (supplierRaw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                supplierRaw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                sourceUrl = supplierRaw;
+            else
+                supplier = supplierRaw;
+
+            decimal.TryParse(ws.Cell(r, 15).GetString().Trim().Replace(",", ""), out decimal importPrice);
+            decimal.TryParse(ws.Cell(r, 16).GetString().Trim().Replace(",", ""), out decimal shipping);
+
+            var coeffText = ws.Cell(r, 17).GetString().Trim().Replace(",", "");
+            if (!decimal.TryParse(coeffText, out decimal coefficient) || coefficient <= 0)
+                coefficient = 1;
+
+            // Calculate line totals
+            var lineTotal = qty * unitPrice;
+            var taxAmount = Math.Round(lineTotal * vatRate / 100m, 0);
+            var lineTotalWithTax = lineTotal + taxAmount;
+
+            items.Add(new QuotationItem
+            {
+                ProductName = productName,
+                ProductDescription = string.IsNullOrEmpty(proposal) ? null : proposal,
+                UnitName = unitName,
+                Quantity = qty,
+                UnitPrice = unitPrice,
+                PurchasePrice = importPrice > 0 ? importPrice : null,
+                ShippingFee = shipping > 0 ? shipping : null,
+                Coefficient = coefficient,
+                LineTotal = lineTotal,
+                TaxRate = vatRate,
+                TaxAmount = taxAmount,
+                LineTotalWithTax = lineTotalWithTax,
+                SourceName = string.IsNullOrEmpty(supplier) ? null : supplier,
+                SourceUrl = sourceUrl,
+                Notes = string.IsNullOrEmpty(notes) ? null : notes,
+                SortOrder = sortOrder++,
+                IsProductMapped = false
+            });
+        }
+
+        if (items.Count == 0)
+            return (false, "Không tìm thấy sản phẩm nào trong file" +
+                (errors.Count > 0 ? "\n" + string.Join("\n", errors) : ""), null);
+
+        // Create quotation
+        var code = await GenerateQuotationNoAsync();
+        decimal subTotal = items.Sum(i => i.LineTotal);
+        decimal totalTax = items.Sum(i => i.TaxAmount ?? 0);
+
+        var quotation = new Quotation
+        {
+            QuotationNo = code,
+            RfqId = rfqId,
+            CustomerId = customerId,
+            QuotationDate = DateTime.Today,
+            Deadline = deadline.Value,
+            Status = "DRAFT",
+            SalesPersonId = salesPersonId,
+            TaxRate = items.First().TaxRate ?? 10,
+            SubTotal = subTotal,
+            TaxAmount = totalTax,
+            TotalAmount = subTotal + totalTax,
+            Notes = errors.Count > 0 ? $"Import cảnh báo: {errors.Count} dòng lỗi" : null,
+            CreatedBy = createdBy,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        foreach (var item in items)
+            quotation.Items.Add(item);
+
+        await _uow.Repository<Quotation>().AddAsync(quotation);
+        await _uow.SaveChangesAsync();
+
+        // SLA: start tracking
+        await _slaService.StartTrackingAsync("QUOTATION", quotation.QuotationId, "DRAFT", quotation.SalesPersonId);
+
+        _logger.LogInformation("Quotation imported from Excel: {No}, {Count} items, by UserId={UserId}",
+            code, items.Count, createdBy);
+
+        var message = $"Đã tạo báo giá {code} với {items.Count} sản phẩm.";
+        if (errors.Count > 0)
+            message += $"\n\n⚠ {errors.Count} dòng cảnh báo:\n" + string.Join("\n", errors);
+
+        return (true, message, quotation.QuotationId);
+    }
+
+    // ══════════════════════════════════════════════════
     // IMAGE UPLOAD (for ad-hoc quotation items)
     // ══════════════════════════════════════════════════
     public async Task<string?> UploadItemImageAsync(IFormFile file)

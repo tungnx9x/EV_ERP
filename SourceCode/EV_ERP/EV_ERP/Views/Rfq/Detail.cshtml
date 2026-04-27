@@ -1,9 +1,11 @@
 @model EV_ERP.Models.ViewModels.RFQs.RfqDetailViewModel
+@using EV_ERP.Models.ViewModels.Quotations
 @{
     ViewData["Title"] = Model.RfqNo;
     bool canCreate = ViewBag.CanCreate == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
     bool isOwner = Model.CreatedBy == currentUserId;
+    var salesPersons = (List<SalesPersonOptionViewModel>?)ViewBag.SalesPersons ?? new();
 }
 
 <!-- Header -->
@@ -40,6 +42,9 @@
                 <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-primary">
                     <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
                 </a>
+                <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#importQuotationModal">
+                    <i class="bi bi-file-earmark-arrow-up me-1"></i> Import báo giá
+                </button>
             }
             @if (isOwner)
             {
@@ -220,6 +225,64 @@
     </div>
 </div>
 
+<!-- Import Quotation Modal -->
+@if (canCreate)
+{
+    <div class="modal fade" id="importQuotationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-earmark-arrow-up me-2"></i>Import báo giá từ Excel
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="importQuotationForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Khách hàng</label>
+                            <input type="text" class="form-control" value="@Model.CustomerName (@Model.CustomerCode)" disabled />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Nhân viên phụ trách <span class="text-danger">*</span></label>
+                            <select id="rfqImportSalesPersonId" class="form-select" required>
+                                <option value="">-- Chọn nhân viên --</option>
+                                @foreach (var s in salesPersons)
+                                {
+                                    @if (s.UserId == currentUserId)
+                                    {
+                                        <option value="@s.UserId" selected>@s.FullName (@s.UserCode)</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@s.UserId">@s.FullName (@s.UserCode)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
+                            <input type="datetime-local" id="rfqImportDeadline" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">File Excel <span class="text-danger">*</span></label>
+                            <input type="file" id="rfqImportFile" class="form-control" accept=".xlsx,.xls" required />
+                            <div class="form-text">File Excel cùng định dạng với file xuất báo giá (Export)</div>
+                        </div>
+                    </form>
+                    <div id="rfqImportResult" class="d-none mt-3"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-success" id="btnRfqImport" onclick="doRfqImport()">
+                        <i class="bi bi-upload me-1"></i> Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Cancel Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -271,6 +334,60 @@
         function doCancel() {
             document.getElementById('cancelReason').value = '';
             new bootstrap.Modal(document.getElementById('cancelModal')).show();
+        }
+
+        function doRfqImport() {
+            var salesPersonId = document.getElementById('rfqImportSalesPersonId').value;
+            var deadline = document.getElementById('rfqImportDeadline').value;
+            var fileInput = document.getElementById('rfqImportFile');
+            var resultDiv = document.getElementById('rfqImportResult');
+
+            if (!salesPersonId) { alert('Vui lòng chọn nhân viên phụ trách'); return; }
+            if (!deadline) { alert('Vui lòng chọn hạn xử lý'); return; }
+            if (!fileInput.files.length) { alert('Vui lòng chọn file Excel'); return; }
+
+            var formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('customerId', '@Model.CustomerId');
+            formData.append('salesPersonId', salesPersonId);
+            formData.append('deadline', deadline);
+            formData.append('rfqId', '@Model.RfqId');
+
+            var btn = document.getElementById('btnRfqImport');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xử lý...';
+            resultDiv.classList.add('d-none');
+
+            var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+            fetch('/Quotation/ImportFromExcel', {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': token || '' },
+                body: formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+                resultDiv.classList.remove('d-none');
+                if (res.Success) {
+                    var msg = (res.Message || 'Import thành công').replace(/\n/g, '<br/>');
+                    resultDiv.className = 'alert alert-success mt-3';
+                    resultDiv.innerHTML = msg + '<br/><a href="/Quotation/Detail/' + res.Data.QuotationId +
+                        '" class="btn btn-sm btn-primary mt-2"><i class="bi bi-eye me-1"></i>Xem báo giá</a>';
+                } else {
+                    var msg = (res.Message || 'Import thất bại').replace(/\n/g, '<br/>');
+                    resultDiv.className = 'alert alert-danger mt-3';
+                    resultDiv.innerHTML = msg;
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+                resultDiv.classList.remove('d-none');
+                resultDiv.className = 'alert alert-danger mt-3';
+                resultDiv.innerHTML = 'Lỗi: ' + err.message;
+            });
         }
 
         function confirmCancel() {

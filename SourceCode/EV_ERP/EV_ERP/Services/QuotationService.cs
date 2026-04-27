@@ -706,14 +706,19 @@ public class QuotationService : IQuotationService
             Items = q.Items.Select(i => new QuotationItemFormModel
             {
                 ProductName = i.ProductName,
+                Proposal = i.ProductDescription,
+                ImageUrl = i.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
                 AmountExclVat = i.LineTotal,
-                VatRate = q.TaxRate,
-                AmountInclVat = Math.Round(i.LineTotal * (1 + q.TaxRate / 100m), 0),
+                VatRate = i.TaxRate ?? q.TaxRate,
+                AmountInclVat = i.LineTotalWithTax ?? Math.Round(i.LineTotal * (1 + q.TaxRate / 100m), 0),
                 Supplier = i.SourceName,
                 SourceUrl = i.SourceUrl,
+                ImportPrice = i.PurchasePrice ?? 0,
+                Shipping = i.ShippingFee ?? 0,
+                Coefficient = i.Coefficient ?? 1,
                 Notes = i.Notes
             }).ToList()
         };
@@ -769,7 +774,34 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 1).Value = i + 1;                                     // STT
             ws.Cell(row, 2).Value = item.ProductName;                           // Request
             ws.Cell(row, 4).Value = item.Proposal ?? "";                        // Proposal
-            // Column 5 = Image (skip for Excel export)
+            ws.Cell(row, 4).Style.Alignment.WrapText = true;
+            ws.Cell(row, 4).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+            // Column 5 = Image — embed product image if available
+            if (!string.IsNullOrEmpty(item.ImageUrl))
+            {
+                var imgPath = ResolveImagePath(item.ImageUrl);
+                if (imgPath != null && File.Exists(imgPath))
+                {
+                    try
+                    {
+                        var pic = ws.AddPicture(imgPath);
+                        pic.MoveTo(ws.Cell(row, 5));
+                        // Scale to fit cell (~80x80 px)
+                        const int maxSize = 80;
+                        double scaleW = (double)maxSize / pic.Width;
+                        double scaleH = (double)maxSize / pic.Height;
+                        double scale = Math.Min(scaleW, scaleH);
+                        pic.WithSize((int)(pic.Width * scale), (int)(pic.Height * scale));
+                        ws.Row(row).Height = 65;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to embed image {Url} in Excel export", item.ImageUrl);
+                    }
+                }
+            }
+
             ws.Cell(row, 6).Value = item.UnitName;                              // Unit
             ws.Cell(row, 7).Value = item.Quantity;                              // Quantity
             ws.Cell(row, 8).Value = item.UnitPrice;                             // Unit Price
@@ -840,6 +872,26 @@ public class QuotationService : IQuotationService
     {
         var invalid = Path.GetInvalidFileNameChars();
         return string.Join("", name.Where(c => !invalid.Contains(c))).Trim();
+    }
+
+    /// <summary>
+    /// Resolves an ImageUrl (e.g. /uploads/Quotation/Images/file.jpg) to a physical file path.
+    /// </summary>
+    private string? ResolveImagePath(string imageUrl)
+    {
+        // ImageUrl format: /uploads/Module/SubFolder/file.ext → stored at _storageRoot/Module/SubFolder/file.ext
+        if (imageUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            var relativePath = imageUrl["/uploads/".Length..].Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.Combine(_storageRoot, relativePath);
+            if (File.Exists(fullPath)) return fullPath;
+        }
+
+        // Fallback: try as wwwroot-relative path
+        var wwwrootPath = Path.Combine(_env.WebRootPath, imageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        if (File.Exists(wwwrootPath)) return wwwrootPath;
+
+        return null;
     }
 
     // ══════════════════════════════════════════════════

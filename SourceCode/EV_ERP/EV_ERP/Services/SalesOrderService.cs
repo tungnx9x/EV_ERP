@@ -1053,7 +1053,81 @@ public class SalesOrderService : ISalesOrderService
                 attrRow++;
             }
         }
-        wsAttr.Columns().AdjustToContents();
+        wsAttr.Columns(1, 4).AdjustToContents();
+
+        // ── Per-attribute value columns (for INDIRECT dropdown) ──
+        int perAttrCol = 6; // Column F onwards (leave col E empty as separator)
+        foreach (var attr in attributes)
+        {
+            var colHeader = wsAttr.Cell(1, perAttrCol);
+            colHeader.Value = attr.AttrCode;
+            colHeader.Style.Font.Bold = true;
+            colHeader.Style.Font.FontColor = XLColor.Gray;
+
+            int vr = 2;
+            foreach (var val in attr.Values)
+            {
+                wsAttr.Cell(vr, perAttrCol).Value = val.SkuCode;
+                vr++;
+            }
+
+            // Define named range matching AttrCode (for INDIRECT lookup)
+            if (vr > 2)
+            {
+                try
+                {
+                    wb.DefinedNames.Add(attr.AttrCode,
+                        wsAttr.Range(2, perAttrCol, vr - 1, perAttrCol));
+                }
+                catch { /* skip if name is invalid for Excel */ }
+            }
+            perAttrCol++;
+        }
+
+        // Unique attribute codes list column (source for attr-code dropdowns)
+        int attrListCol = perAttrCol;
+        wsAttr.Cell(1, attrListCol).Value = "_Mã_TT";
+        wsAttr.Cell(1, attrListCol).Style.Font.Bold = true;
+        wsAttr.Cell(1, attrListCol).Style.Font.FontColor = XLColor.Gray;
+        int uaIdx = 2;
+        foreach (var attr in attributes)
+        {
+            wsAttr.Cell(uaIdx, attrListCol).Value = attr.AttrCode;
+            uaIdx++;
+        }
+
+        // ── Data Validation dropdowns on "Sản phẩm" sheet ──
+        int valLastRow = Math.Max(row - 1, 2) + 20; // buffer extra rows
+
+        // Category dropdown (col D → Danh mục!A)
+        if (catRow > 2)
+            ws.Range(2, 4, valLastRow, 4).CreateDataValidation()
+                .List(wsCat.Range(2, 1, catRow - 1, 1), true);
+
+        // UOM dropdown (col E → Đơn vị tính!A)
+        if (unitRow > 2)
+            ws.Range(2, 5, valLastRow, 5).CreateDataValidation()
+                .List(wsUnit.Range(2, 1, unitRow - 1, 1), true);
+
+        // Attribute code & value dropdowns
+        if (maxAttrCount > 0 && uaIdx > 2)
+        {
+            var attrCodesRange = wsAttr.Range(2, attrListCol, uaIdx - 1, attrListCol);
+            for (int a = 0; a < maxAttrCount; a++)
+            {
+                int colCode = 13 + (a * 2);  // Attribute code column
+                int colVal  = 14 + (a * 2);  // Attribute value column
+
+                // Attribute code → dropdown of all attribute codes
+                ws.Range(2, colCode, valLastRow, colCode).CreateDataValidation()
+                    .List(attrCodesRange, true);
+
+                // Attribute value → INDIRECT dropdown (resolves named range from attr code cell)
+                var codeColLetter = ws.Cell(2, colCode).Address.ColumnLetter;
+                ws.Range(2, colVal, valLastRow, colVal).CreateDataValidation()
+                    .List($"INDIRECT({codeColLetter}2)", true);
+            }
+        }
 
         // ── Sheet 5: Hướng dẫn ──
         var wsGuide = wb.AddWorksheet("Hướng dẫn");
@@ -1066,13 +1140,13 @@ public class SalesOrderService : ISalesOrderService
             "",
             "1. Điền thông tin vào sheet \"Sản phẩm\". Các cột có dấu (*) là bắt buộc.",
             "2. Cột SOItemId: Không chỉnh sửa — dùng để gắn sản phẩm vào đơn hàng.",
-            "3. Cột \"Mã danh mục\": Tra cứu trong sheet \"Danh mục\", nhập đúng mã (VD: TP, NL).",
-            "4. Cột \"Mã ĐVT\": Tra cứu trong sheet \"Đơn vị tính\", nhập đúng mã (VD: CAI, KG).",
+            "3. Cột \"Mã danh mục\": Chọn từ dropdown (dữ liệu từ sheet \"Danh mục\").",
+            "4. Cột \"Mã ĐVT\": Chọn từ dropdown (dữ liệu từ sheet \"Đơn vị tính\").",
             "5. Thuộc tính SKU:",
             "   - Xem sheet \"Danh mục\" cột \"Thuộc tính SKU\" để biết danh mục cần thuộc tính nào.",
-            "   - Xem sheet \"Thuộc tính\" để tra mã thuộc tính và mã giá trị.",
-            "   - Nhập \"Mã TT\" (VD: ORIGIN) và \"Mã giá trị\" (VD: VN) vào các cột thuộc tính.",
-            "   - Thuộc tính có dấu * là bắt buộc.",
+            "   - Cột \"Mã TT\": Chọn mã thuộc tính từ dropdown (VD: ORIGIN, COLOR).",
+            "   - Cột \"Mã giá trị\": Sau khi chọn Mã TT, dropdown sẽ hiển thị các giá trị tương ứng.",
+            "   - Thuộc tính có dấu * trong sheet \"Danh mục\" là bắt buộc.",
             "6. Giá bán, giá mua: đã điền sẵn từ đơn hàng, có thể chỉnh sửa.",
             "7. Sau khi điền xong, lưu file và upload lại vào hệ thống.",
         };

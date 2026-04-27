@@ -1,4 +1,6 @@
+using ClosedXML.Excel;
 using EV_ERP.Models.Entities.Auth;
+using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Sales;
@@ -14,11 +16,13 @@ namespace EV_ERP.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly ILogger<StockService> _logger;
+        private readonly IWebHostEnvironment _env;
 
-        public StockService(IUnitOfWork uow, ILogger<StockService> logger)
+        public StockService(IUnitOfWork uow, ILogger<StockService> logger, IWebHostEnvironment env)
         {
             _uow = uow;
             _logger = logger;
+            _env = env;
         }
 
         // ── List ─────────────────────────────────────────
@@ -751,6 +755,195 @@ namespace EV_ERP.Services
                         UnitName = i.UnitName
                     }).ToList()
             };
+        }
+
+        // ══════════════════════════════════════════════════
+        // EXPORT DELIVERY RECEIPT (BBGN)
+        // ══════════════════════════════════════════════════
+        public async Task<(byte[] FileBytes, string FileName)?> ExportDeliveryReceiptAsync(long transactionId)
+        {
+            var txn = await _uow.Repository<StockTransaction>().Query()
+                .Include(t => t.Warehouse)
+                .Include(t => t.SalesOrder!)
+                    .ThenInclude(so => so.Customer)
+                .Include(t => t.SalesOrder!)
+                    .ThenInclude(so => so.Items.OrderBy(i => i.SortOrder))
+                .Include(t => t.Items.OrderBy(i => i.TransItemId))
+                    .ThenInclude(i => i.Product)
+                .Include(t => t.DeliveryPerson)
+                .Include(t => t.CreatedByUser)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (txn == null || txn.TransactionType != "OUTBOUND") return null;
+
+            var templatePath = Path.Combine(_env.WebRootPath, "templates", "BBGN-template.xlsx");
+            if (!File.Exists(templatePath)) return null;
+
+            using var wb = new XLWorkbook(templatePath);
+            var ws = wb.Worksheet(1);
+
+            var so = txn.SalesOrder;
+            var customer = so?.Customer;
+
+            // ── Header info ──
+            // R8: Customer PO reference
+            ws.Cell("D8").Value = so?.CustomerPoNo ?? "";
+            ws.Cell("F8").Value = customer?.CustomerName ?? "";
+
+            // R11: BBGN number
+            ws.Cell("I11").Value = txn.TransactionNo;
+            // R12: Date
+            ws.Cell("I12").Value = txn.TransactionDate;
+            ws.Cell("I12").Style.DateFormat.Format = "dd/MM/yyyy";
+            // R13: PXK number (same as transaction no)
+            ws.Cell("I13").Value = txn.TransactionNo;
+
+            // ── Bên A (Receiver) ──
+            // R17: Receiver representative
+            // R18: Contact person
+            ws.Cell("C18").Value = txn.ReceiverName ?? "";
+            // R19: Receiver rep for delivery
+            // R20: Shipping address
+            ws.Cell("C20").Value = so?.ShippingAddress ?? customer?.Address ?? "";
+
+            // ── Bên B (Sender - EVH) ──
+            // R18: Person in charge (sales person)
+            if (so != null)
+            {
+                var salesPerson = await _uow.Repository<User>().GetByIdAsync(so.SalesPersonId);
+                ws.Cell("G18").Value = salesPerson?.FullName ?? "";
+            }
+            // R19: Delivery person
+            ws.Cell("G19").Value = txn.DeliveryPerson?.FullName ?? "";
+
+            // ── Items ──
+            int dataStartRow = 23; // Template data row
+            int itemCount = txn.Items.Count;
+
+            // Use SO items for price info if available, map by ProductId
+            var soItemMap = so?.Items.ToDictionary(i => i.ProductId ?? 0, i => i) ?? new();
+
+            // Insert extra rows if more than 2 items (template has 2 data rows: 23, 24)
+            int templateDataRows = 2;
+            if (itemCount > templateDataRows)
+            {
+                ws.Row(dataStartRow).InsertRowsBelow(itemCount - templateDataRows);
+            }
+
+            int totalQtyPo = 0;
+            int totalQtyDelivered = 0;
+
+            for (int i = 0; i < itemCount; i++)
+            {
+                var item = txn.Items.ElementAt(i);
+                var row = dataStartRow + i;
+
+                // Try to get SO item for price/description
+                soItemMap.TryGetValue(item.ProductId, out var soItem);
+
+                ws.Cell(row, 1).Value = i + 1;                                          // A: STT
+                ws.Cell(row, 2).Value = item.Product?.ProductCode ?? "";                 // B: Mã SP
+                ws.Cell(row, 3).Value = item.Product?.ProductName ?? "";                 // C: Tên sản phẩm
+                ws.Cell(row, 4).Value = soItem?.ProductDescription ?? item.Product?.Description ?? ""; // D: Quy cách
+                ws.Cell(row, 5).Value = "";                                              // E: Thương hiệu/Xuất xứ
+                // F: Hình ảnh — skip (complex to embed)
+                ws.Cell(row, 7).Value = item.UnitName;                                   // G: ĐVT
+                ws.Cell(row, 8).Value = soItem?.UnitPrice ?? item.Product?.DefaultSalePrice ?? 0;  // H: Đơn giá
+                ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
+
+                var lineTotal = (soItem?.UnitPrice ?? 0) * item.Quantity;
+                ws.Cell(row, 9).Value = lineTotal;                                       // I: Thành tiền
+                ws.Cell(row, 9).Style.NumberFormat.Format = "#,##0";
+
+                var qtyPo = (int)(soItem?.Quantity ?? item.Quantity);
+                ws.Cell(row, 10).Value = qtyPo;                                         // J: SL PO/Hợp đồng
+                ws.Cell(row, 11).Value = (int)item.Quantity;                             // K: SL thực giao
+                ws.Cell(row, 12).Value = (int)item.Quantity;                             // L: SL thực nhận (= giao by default)
+                ws.Cell(row, 13).Value = item.Notes ?? soItem?.Notes ?? "";              // M: Ghi chú
+
+                totalQtyPo += qtyPo;
+                totalQtyDelivered += (int)item.Quantity;
+
+                // Apply borders to data row
+                ws.Range(row, 1, row, 13).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                ws.Range(row, 1, row, 13).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                ws.Range(row, 1, row, 13).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            }
+
+            // ── Total row ──
+            int totalRow = dataStartRow + itemCount;
+            // Merge A:I for "TỔNG SỐ LƯỢNG"
+            ws.Range(totalRow, 1, totalRow, 9).Merge();
+            ws.Cell(totalRow, 1).Value = "TỔNG SỐ LƯỢNG";
+            ws.Cell(totalRow, 1).Style.Font.Bold = true;
+            ws.Cell(totalRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            ws.Cell(totalRow, 10).Value = totalQtyPo;
+            ws.Cell(totalRow, 11).Value = totalQtyDelivered;
+            ws.Range(totalRow, 1, totalRow, 13).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            ws.Range(totalRow, 1, totalRow, 13).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            ws.Cell(totalRow, 1).Style.Font.Bold = true;
+
+            // ── Summary row (TỔNG SL KIỆN, KG/CBM, dates) ──
+            int summaryRow = totalRow + 1;
+            ws.Range(summaryRow, 1, summaryRow, 3).Merge();
+            ws.Cell(summaryRow, 1).Value = "TỔNG SL KIỆN";
+            ws.Range(summaryRow, 4, summaryRow, 5).Merge();
+            ws.Cell(summaryRow, 4).Value = "TỔNG KG/ CBM";
+            ws.Range(summaryRow, 6, summaryRow, 9).Merge();
+            ws.Cell(summaryRow, 6).Value = "NGÀY DỰ KIẾN GIAO HÀNG";
+            ws.Range(summaryRow, 10, summaryRow, 13).Merge();
+            ws.Cell(summaryRow, 10).Value = "NGÀY NHẬN HÀNG";
+            ws.Range(summaryRow, 1, summaryRow, 13).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            ws.Range(summaryRow, 1, summaryRow, 13).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            ws.Cell(summaryRow, 1).Style.Font.Bold = true;
+            ws.Cell(summaryRow, 4).Style.Font.Bold = true;
+            ws.Cell(summaryRow, 6).Style.Font.Bold = true;
+            ws.Cell(summaryRow, 10).Style.Font.Bold = true;
+
+            // Summary values row
+            int summaryValRow = summaryRow + 1;
+            ws.Range(summaryValRow, 1, summaryValRow, 3).Merge();
+            ws.Range(summaryValRow, 4, summaryValRow, 5).Merge();
+            ws.Range(summaryValRow, 6, summaryValRow, 9).Merge();
+            ws.Cell(summaryValRow, 6).Value = so?.ExpectedDeliveryDate?.ToString("dd/MM/yyyy") ?? "";
+            ws.Range(summaryValRow, 10, summaryValRow, 13).Merge();
+            ws.Cell(summaryValRow, 10).Value = txn.DeliveredAt?.ToString("dd/MM/yyyy") ?? "";
+            ws.Range(summaryValRow, 1, summaryValRow, 13).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            ws.Range(summaryValRow, 1, summaryValRow, 13).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            // ── Confirmation text ──
+            int textRow = summaryValRow + 1;
+            ws.Range(textRow, 1, textRow, 13).Merge();
+            ws.Cell(textRow, 1).Value = "Bên A xác nhận rằng Bên B đã giao cho Bên A đầy đủ số lượng hàng hóa, đúng quy cách và chất lượng theo như quy định trong Đơn hàng/ Hợp đồng giữa 02 bên. \nHai bên đồng ý và thống nhất ký xác nhận Biên bản giao nhận hàng hóa này. Biên bản này được lập thành 02 bản, mỗi bên giữ 01 bản có giá trị pháp lý như nhau.";
+            ws.Cell(textRow, 1).Style.Alignment.WrapText = true;
+            ws.Cell(textRow, 1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+            ws.Row(textRow).Height = 45;
+
+            // ── Signatures ──
+            int signRow = textRow + 2;
+            ws.Range(signRow, 1, signRow, 5).Merge();
+            ws.Cell(signRow, 1).Value = "ĐẠI DIỆN BÊN NHẬN";
+            ws.Cell(signRow, 1).Style.Font.Bold = true;
+            ws.Cell(signRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Range(signRow, 6, signRow, 13).Merge();
+            ws.Cell(signRow, 6).Value = "ĐẠI DIỆN BÊN GIAO";
+            ws.Cell(signRow, 6).Style.Font.Bold = true;
+            ws.Cell(signRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            // ── Generate filename ──
+            var safeCustomer = SanitizeFileName(customer?.CustomerName ?? "NA");
+            var safePoNo = SanitizeFileName(so?.CustomerPoNo ?? txn.TransactionNo);
+            var fileName = $"{txn.TransactionDate:yyyy.MM.dd}_EVH-{safeCustomer}-{safePoNo}_BBGN.xlsx";
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return (ms.ToArray(), fileName);
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            return string.Join("", name.Where(c => !invalid.Contains(c))).Trim();
         }
 
         // ══ Private helpers ══════════════════════════════

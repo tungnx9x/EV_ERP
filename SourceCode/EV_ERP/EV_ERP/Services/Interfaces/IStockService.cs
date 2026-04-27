@@ -44,5 +44,8 @@ namespace EV_ERP.Services.Interfaces
 
         // ── Sales Order lookup (for OUTBOUND linking) ───
         Task<object?> LookupSalesOrderAsync(string? soCode);
+
+        // ── Export Delivery Receipt (BBGN) ──────────────
+        Task<(byte[] FileBytes, string FileName)?> ExportDeliveryReceiptAsync(long transactionId);
     }
 }

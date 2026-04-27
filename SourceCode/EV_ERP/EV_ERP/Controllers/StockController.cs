@@ -140,6 +140,19 @@ namespace EV_ERP.Controllers
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đ�� hủy phiếu" : error });
         }
 
+        // ── Export Delivery Receipt (BBGN) ──────────────
+        [HttpGet]
+        public async Task<IActionResult> ExportDeliveryReceipt(long id)
+        {
+            var result = await _stockService.ExportDeliveryReceiptAsync(id);
+            if (result == null)
+                return BadRequest("Không thể xuất biên bản giao nhận");
+
+            return File(result.Value.FileBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                result.Value.FileName);
+        }
+
         // ── Barcode Lookup (Ajax) ────────────────────────
         [HttpGet]
         public async Task<IActionResult> LookupBarcode(string barcode, int? warehouseId)

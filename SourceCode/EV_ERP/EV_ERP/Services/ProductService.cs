@@ -23,7 +23,8 @@ namespace EV_ERP.Services
         }
 
         // ── List ─────────────────────────────────────────
-        public async Task<ProductListViewModel> GetListAsync(string? keyword, int? categoryId, string? status)
+        public async Task<ProductListViewModel> GetListAsync(string? keyword, int? categoryId, string? status,
+            int pageIndex = 1, int pageSize = 20)
         {
             var query = _uow.Repository<Product>().Query()
                 .Include(p => p.Category).ThenInclude(c => c!.ParentCategory)
@@ -43,31 +44,45 @@ namespace EV_ERP.Services
             if (categoryId.HasValue && categoryId > 0)
                 query = query.Where(p => p.CategoryId == categoryId);
 
-            var products = await query.OrderBy(p => p.ProductCode).ToListAsync();
+            var totalCount = await query.CountAsync();
+
+            var products = await query
+                .OrderBy(p => p.ProductCode)
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
             var categories = await GetCategoryOptionsAsync();
+
+            var rows = products.Select(p => new ProductRowViewModel
+            {
+                ProductId = p.ProductId,
+                ProductCode = p.ProductCode,
+                SKU = p.SKU,
+                ProductName = p.ProductName,
+                CategoryName = p.Category == null ? null
+                    : p.Category.ParentCategory != null
+                        ? $"{p.Category.ParentCategory.CategoryName}/{p.Category.CategoryName}"
+                        : p.Category.CategoryName,
+                ImageUrl = p.ImageUrl,
+                DefaultSalePrice = p.DefaultSalePrice,
+                DefaultPurchasePrice = p.DefaultPurchasePrice,
+                IsActive = p.IsActive,
+                CreatedAt = p.CreatedAt
+            }).ToList();
 
             return new ProductListViewModel
             {
-                Products = products.Select(p => new ProductRowViewModel
+                Paged = new Models.Common.PagedResult<ProductRowViewModel>
                 {
-                    ProductId = p.ProductId,
-                    ProductCode = p.ProductCode,
-                    SKU = p.SKU,
-                    ProductName = p.ProductName,
-                    CategoryName = p.Category == null ? null
-                        : p.Category.ParentCategory != null
-                            ? $"{p.Category.ParentCategory.CategoryName}/{p.Category.CategoryName}"
-                            : p.Category.CategoryName,
-                    ImageUrl = p.ImageUrl,
-                    DefaultSalePrice = p.DefaultSalePrice,
-                    DefaultPurchasePrice = p.DefaultPurchasePrice,
-                    IsActive = p.IsActive,
-                    CreatedAt = p.CreatedAt
-                }).ToList(),
+                    Items = rows,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                },
                 SearchKeyword = keyword,
                 FilterCategoryId = categoryId,
                 FilterStatus = status,
-                TotalCount = products.Count,
                 Categories = categories
             };
         }

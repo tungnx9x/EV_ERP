@@ -6,11 +6,10 @@ namespace EV_ERP.Models.ViewModels.Products
     // ── List ─────────────────────────────────────────────
     public class ProductListViewModel
     {
-        public List<ProductRowViewModel> Products { get; set; } = [];
+        public Models.Common.PagedResult<ProductRowViewModel> Paged { get; set; } = new();
         public string? SearchKeyword { get; set; }
         public int? FilterCategoryId { get; set; }
         public string? FilterStatus { get; set; }
-        public int TotalCount { get; set; }
         public List<CategoryOptionViewModel> Categories { get; set; } = [];
     }
 

@@ -5,8 +5,8 @@ namespace EV_ERP.Services.Interfaces;
 public interface IRfqService
 {
     Task<RfqListViewModel> GetListAsync(
-        string? keyword, string? status, string? priority,
-        int? assignedTo, int? customerId,
+        string? keyword, string? priority,
+        int? assignedTo, int? createdBy, int? customerId,
         int pageIndex = 1, int pageSize = 20);
 
     Task<RfqFormViewModel> GetFormAsync(int? rfqId = null);

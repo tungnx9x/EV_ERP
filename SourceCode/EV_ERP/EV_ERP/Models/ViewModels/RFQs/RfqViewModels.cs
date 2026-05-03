@@ -9,12 +9,13 @@ public class RfqListViewModel
 {
     public Models.Common.PagedResult<RfqRowViewModel> Paged { get; set; } = new();
     public string? SearchKeyword { get; set; }
-    public string? FilterStatus { get; set; }
     public string? FilterPriority { get; set; }
     public int? FilterAssignedTo { get; set; }
+    public int? FilterCreatedBy { get; set; }
     public int? FilterCustomerId { get; set; }
     public List<CustomerOption> Customers { get; set; } = [];
     public List<UserOption> Users { get; set; } = [];
+    public List<UserOption> Creators { get; set; } = [];
 }
 
 public class RfqRowViewModel

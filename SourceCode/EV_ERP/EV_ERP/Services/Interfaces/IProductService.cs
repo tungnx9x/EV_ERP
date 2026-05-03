@@ -5,7 +5,8 @@ namespace EV_ERP.Services.Interfaces
 {
     public interface IProductService
     {
-        Task<ProductListViewModel> GetListAsync(string? keyword, int? categoryId, string? status);
+        Task<ProductListViewModel> GetListAsync(string? keyword, int? categoryId, string? status,
+            int pageIndex = 1, int pageSize = 20);
         Task<ProductFormViewModel> GetFormAsync(int? productId = null);
         Task<(bool Success, string? ErrorMessage, int? ProductId)> CreateAsync(ProductFormViewModel model, int createdBy);
         Task<(bool Success, string? ErrorMessage)> UpdateAsync(ProductFormViewModel model, int updatedBy);

@@ -28,15 +28,16 @@
                     <!-- Khách hàng -->
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
-                        <select id="frm_customerId" class="form-select form-select-sm">
-                            <option value="">-- Chọn khách hàng --</option>
-                            @foreach (var c in Model.Customers)
-                            {
-                                <option value="@c.CustomerId" selected="@(Model.CustomerId == c.CustomerId)">
-                                    @c.CustomerName (@c.CustomerCode)
-                                </option>
-                            }
-                        </select>
+                        <div class="position-relative" id="customerWrapper">
+                            <input type="hidden" id="frm_customerId" value="@Model.CustomerId" />
+                            <input type="text" class="form-control form-control-sm" id="customerSearchInput"
+                                   placeholder="Tìm khách hàng..."
+                                   autocomplete="off"
+                                   value="@(Model.CustomerId > 0 ? Model.Customers.FirstOrDefault(c => c.CustomerId == Model.CustomerId)?.CustomerName : "")" />
+                            <div id="customerDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none"
+                                 style="z-index:1050;max-height:200px;overflow-y:auto;top:100%;left:0;">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Ưu tiên -->
@@ -248,6 +249,54 @@
 
         document.addEventListener('click', function (e) {
             if (!document.getElementById('assignedToWrapper').contains(e.target))
+                dd.classList.add('d-none');
+        });
+    })();
+
+    // ── Searchable customer dropdown ────────────────────
+    (function () {
+        var customers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Customers.Select(c => new { c.CustomerId, c.CustomerName, c.CustomerCode })));
+        var input = document.getElementById('customerSearchInput');
+        var hidden = document.getElementById('frm_customerId');
+        var dd = document.getElementById('customerDropdown');
+
+        function render(filter) {
+            var kw = (filter || '').toLowerCase();
+            var items = customers.filter(function (c) {
+                return !kw || c.CustomerName.toLowerCase().indexOf(kw) >= 0 || c.CustomerCode.toLowerCase().indexOf(kw) >= 0;
+            });
+            var html = '';
+            if (items.length === 0) {
+                html = '<div class="text-muted small text-center py-2">Không tìm thấy khách hàng</div>';
+            } else {
+                items.forEach(function (c) {
+                    html += '<div class="cs-item" data-id="' + c.CustomerId + '" style="padding:6px 10px;cursor:pointer;font-size:0.82rem;">'
+                        + c.CustomerName + ' <span class="text-muted">(' + c.CustomerCode + ')</span></div>';
+                });
+            }
+            dd.innerHTML = html;
+            dd.classList.remove('d-none');
+        }
+
+        input.addEventListener('focus', function () { render(input.value); });
+        input.addEventListener('input', function () { hidden.value = ''; render(input.value); });
+
+        dd.addEventListener('mouseover', function (e) {
+            dd.querySelectorAll('.cs-item').forEach(function (el) { el.style.background = ''; });
+            var item = e.target.closest('.cs-item');
+            if (item) item.style.background = '#e0f2fe';
+        });
+        dd.addEventListener('click', function (e) {
+            var item = e.target.closest('.cs-item');
+            if (!item) return;
+            var id = item.getAttribute('data-id');
+            hidden.value = id;
+            input.value = item.textContent.trim();
+            dd.classList.add('d-none');
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!document.getElementById('customerWrapper').contains(e.target))
                 dd.classList.add('d-none');
         });
     })();

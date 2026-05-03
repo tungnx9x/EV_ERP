@@ -24,7 +24,8 @@ namespace EV_ERP.Services
         // ATTRIBUTE CRUD
         // ═══════════════════════════════════════════════
 
-        public async Task<ProductAttributeListViewModel> GetAttributeListAsync(string? keyword)
+        public async Task<ProductAttributeListViewModel> GetAttributeListAsync(string? keyword,
+            int pageIndex = 1, int pageSize = 20)
         {
             var baseQuery = _uow.Repository<ProductAttribute>().Query()
                 .Include(a => a.Values)
@@ -38,27 +39,38 @@ namespace EV_ERP.Services
                     a.AttrCode.ToLower().Contains(kw));
             }
 
+            var totalCount = await baseQuery.CountAsync();
+
             var attributes = await baseQuery
                 .OrderBy(a => a.DisplayOrder).ThenBy(a => a.AttributeName)
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+
+            var rows = attributes.Select(a => new ProductAttributeRowViewModel
+            {
+                AttributeId = a.AttributeId,
+                AttrCode = a.AttrCode,
+                AttributeName = a.AttributeName,
+                DataType = a.DataType,
+                IncludeInSku = a.IncludeInSku,
+                SkuPosition = a.SkuPosition,
+                IsRequired = a.IsRequired,
+                DisplayOrder = a.DisplayOrder,
+                IsActive = a.IsActive,
+                ValueCount = a.Values.Count(v => v.IsActive)
+            }).ToList();
 
             return new ProductAttributeListViewModel
             {
-                Attributes = attributes.Select(a => new ProductAttributeRowViewModel
+                Paged = new Models.Common.PagedResult<ProductAttributeRowViewModel>
                 {
-                    AttributeId = a.AttributeId,
-                    AttrCode = a.AttrCode,
-                    AttributeName = a.AttributeName,
-                    DataType = a.DataType,
-                    IncludeInSku = a.IncludeInSku,
-                    SkuPosition = a.SkuPosition,
-                    IsRequired = a.IsRequired,
-                    DisplayOrder = a.DisplayOrder,
-                    IsActive = a.IsActive,
-                    ValueCount = a.Values.Count(v => v.IsActive)
-                }).ToList(),
-                SearchKeyword = keyword,
-                TotalCount = attributes.Count
+                    Items = rows,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                },
+                SearchKeyword = keyword
             };
         }
 

@@ -1,12 +1,13 @@
 @model EV_ERP.Models.ViewModels.Products.ProductAttributeListViewModel
 @{
     ViewData["Title"] = "Thuộc tính sản phẩm";
+    var paged = Model.Paged;
 }
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h5 class="mb-0 fw-bold">
         <i class="bi bi-tags me-2"></i>Thuộc tính sản phẩm
-        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size:0.7rem;">@Model.TotalCount</span>
+        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size:0.7rem;">@paged.TotalCount</span>
     </h5>
     <a href="/ProductAttribute/Create" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-lg me-1"></i> Thêm thuộc tính
@@ -48,7 +49,7 @@
                 </tr>
             </thead>
             <tbody>
-                @if (!Model.Attributes.Any())
+                @if (!paged.Items.Any())
                 {
                     <tr>
                         <td colspan="8" class="text-center py-4 text-muted">
@@ -57,7 +58,7 @@
                         </td>
                     </tr>
                 }
-                @foreach (var attr in Model.Attributes)
+                @foreach (var attr in paged.Items)
                 {
                     <tr id="attr-row-@attr.AttributeId">
                         <td><span class="font-monospace fw-semibold">@attr.AttrCode</span></td>
@@ -90,7 +91,48 @@
             </tbody>
         </table>
     </div>
+
+    @if (paged.TotalPages > 1)
+    {
+        <nav class="d-flex justify-content-center py-3 border-top">
+            <ul class="pagination pagination-sm mb-0">
+                @if (paged.HasPrevious)
+                {
+                    <li class="page-item">
+                        <a class="page-link" href="@BuildPageUrl(paged.PageIndex - 1)">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                }
+                @for (int pg = 1; pg <= paged.TotalPages; pg++)
+                {
+                    <li class="page-item @(pg == paged.PageIndex ? "active" : "")">
+                        <a class="page-link" href="@BuildPageUrl(pg)">@pg</a>
+                    </li>
+                }
+                @if (paged.HasNext)
+                {
+                    <li class="page-item">
+                        <a class="page-link" href="@BuildPageUrl(paged.PageIndex + 1)">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
 </div>
+
+@functions {
+    string BuildPageUrl(int page)
+    {
+        var qs = new Dictionary<string, string?> {
+            ["keyword"] = Model.SearchKeyword,
+            ["page"] = page.ToString()
+        };
+        return "/ProductAttribute?" + string.Join("&", qs.Where(kv => kv.Value != null).Select(kv => $"{kv.Key}={kv.Value}"));
+    }
+}
 
 @* <script>
     function toggleAttrActive(id) {

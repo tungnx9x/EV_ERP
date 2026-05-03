@@ -5,7 +5,8 @@ namespace EV_ERP.Services.Interfaces
     public interface IProductAttributeService
     {
         // Attribute CRUD
-        Task<ProductAttributeListViewModel> GetAttributeListAsync(string? keyword);
+        Task<ProductAttributeListViewModel> GetAttributeListAsync(string? keyword,
+            int pageIndex = 1, int pageSize = 20);
         Task<ProductAttributeFormViewModel> GetAttributeFormAsync(int? attributeId = null);
         Task<(bool Success, string? ErrorMessage)> CreateAttributeAsync(ProductAttributeFormViewModel model);
         Task<(bool Success, string? ErrorMessage)> UpdateAttributeAsync(ProductAttributeFormViewModel model);

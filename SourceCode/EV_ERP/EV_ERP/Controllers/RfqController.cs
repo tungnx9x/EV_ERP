@@ -31,10 +31,16 @@ public class RfqController : Controller
 
     // ── Index ────────────────────────────────────────
     public async Task<IActionResult> Index(
-        string? keyword, string? status, string? priority,
-        int? assignedTo, int? customerId, int page = 1)
+        string? keyword, string? priority,
+        int? assignedTo, int? createdBy, int? customerId, int page = 1)
     {
-        var vm = await _rfqService.GetListAsync(keyword, status, priority, assignedTo, customerId, page);
+        // First visit (no querystring) defaults to "filter by me as creator".
+        // Once the user submits the form or paginates, the querystring is present
+        // and the actual createdBy value (including null = "Tất cả") is respected.
+        if (!Request.Query.Any())
+            createdBy = CurrentUserId;
+
+        var vm = await _rfqService.GetListAsync(keyword, priority, assignedTo, createdBy, customerId, page);
         ViewBag.CanCreate = CanCreate;
         ViewBag.CurrentUserId = CurrentUserId;
         return View(vm);

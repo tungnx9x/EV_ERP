@@ -27,9 +27,9 @@ namespace EV_ERP.Controllers
         private bool CanDelete => CurrentRoleCode is "ADMIN" or "MANAGER";
 
         // ── Index ────────────────────────────────────────
-        public async Task<IActionResult> Index(string? keyword, int? categoryId, string? status)
+        public async Task<IActionResult> Index(string? keyword, int? categoryId, string? status, int page = 1)
         {
-            var vm = await _productService.GetListAsync(keyword, categoryId, status);
+            var vm = await _productService.GetListAsync(keyword, categoryId, status, page);
             ViewBag.CanEdit = CanEdit;
             ViewBag.CanDelete = CanDelete;
             return View(vm);

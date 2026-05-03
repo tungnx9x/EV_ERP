@@ -19,9 +19,9 @@ namespace EV_ERP.Controllers
         }
 
         // ── Attribute List ──────────────────────────────
-        public async Task<IActionResult> Index(string? keyword)
+        public async Task<IActionResult> Index(string? keyword, int page = 1)
         {
-            var vm = await _attrService.GetAttributeListAsync(keyword);
+            var vm = await _attrService.GetAttributeListAsync(keyword, page);
             return View(vm);
         }
 

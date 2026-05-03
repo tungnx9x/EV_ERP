@@ -36,8 +36,8 @@ public class RfqService : IRfqService
     // LIST
     // ══════════════════════════════════════════════════
     public async Task<RfqListViewModel> GetListAsync(
-        string? keyword, string? status, string? priority,
-        int? assignedTo, int? customerId,
+        string? keyword, string? priority,
+        int? assignedTo, int? createdBy, int? customerId,
         int pageIndex = 1, int pageSize = 20)
     {
         var query = _uow.Repository<RFQ>().Query()
@@ -57,14 +57,14 @@ public class RfqService : IRfqService
                 (r.Description != null && r.Description.ToLower().Contains(kw)));
         }
 
-        if (!string.IsNullOrWhiteSpace(status))
-            query = query.Where(r => r.Status == status);
-
         if (!string.IsNullOrWhiteSpace(priority))
             query = query.Where(r => r.Priority == priority);
 
         if (assignedTo.HasValue && assignedTo > 0)
             query = query.Where(r => r.AssignedTo == assignedTo);
+
+        if (createdBy.HasValue && createdBy > 0)
+            query = query.Where(r => r.CreatedBy == createdBy);
 
         if (customerId.HasValue && customerId > 0)
             query = query.Where(r => r.CustomerId == customerId);
@@ -104,12 +104,13 @@ public class RfqService : IRfqService
                 PageSize = pageSize
             },
             SearchKeyword = keyword,
-            FilterStatus = status,
             FilterPriority = priority,
             FilterAssignedTo = assignedTo,
+            FilterCreatedBy = createdBy,
             FilterCustomerId = customerId,
             Customers = await GetCustomerOptionsAsync(),
-            Users = await GetUserOptionsAsync()
+            Users = await GetUserOptionsAsync(),
+            Creators = await GetCreatorOptionsAsync()
         };
     }
 
@@ -394,6 +395,20 @@ public class RfqService : IRfqService
         return await _uow.Repository<User>().Query()
             .Include(u => u.Role)
             .Where(u => u.IsActive && u.Role.RoleCode == "SALES")
+            .OrderBy(u => u.FullName)
+            .Select(u => new UserOption
+            {
+                UserId = u.UserId,
+                UserCode = u.UserCode,
+                FullName = u.FullName
+            }).ToListAsync();
+    }
+
+    private async Task<List<UserOption>> GetCreatorOptionsAsync()
+    {
+        return await _uow.Repository<User>().Query()
+            .Include(u => u.Role)
+            .Where(u => u.IsActive && u.Role.RoleCode != "ADMIN")
             .OrderBy(u => u.FullName)
             .Select(u => new UserOption
             {

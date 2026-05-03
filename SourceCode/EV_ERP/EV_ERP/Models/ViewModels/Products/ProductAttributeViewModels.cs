@@ -5,9 +5,8 @@ namespace EV_ERP.Models.ViewModels.Products
     // ── Attribute List ──────────────────────────────────
     public class ProductAttributeListViewModel
     {
-        public List<ProductAttributeRowViewModel> Attributes { get; set; } = [];
+        public Models.Common.PagedResult<ProductAttributeRowViewModel> Paged { get; set; } = new();
         public string? SearchKeyword { get; set; }
-        public int TotalCount { get; set; }
     }
 
     public class ProductAttributeRowViewModel

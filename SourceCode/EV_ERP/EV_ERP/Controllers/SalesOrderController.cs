@@ -34,6 +34,12 @@ public class SalesOrderController : Controller
     public async Task<IActionResult> Index(
         string? keyword, string? status, int? customerId, int? salesPersonId, int page = 1)
     {
+        // First visit (no querystring) defaults to "filter by me as assignee".
+        // Once the user submits the form or paginates, the querystring is present
+        // and the actual salesPersonId value (including null = "Tất cả") is respected.
+        if (!Request.Query.Any())
+            salesPersonId = CurrentUserId;
+
         var vm = await _salesOrderService.GetListAsync(keyword, status, customerId, salesPersonId, page);
         ViewBag.CanEdit = CanEdit;
         return View(vm);

@@ -64,7 +64,7 @@
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
                     <i class="bi bi-funnel me-1"></i> Lọc
                 </button>
-                <a href="/SalesOrder" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                <a href="/SalesOrder" class="btn btn-outline-secondary btn-sm" title="Reset (mặc định: do tôi phụ trách)">
                     <i class="bi bi-x-lg"></i>
                 </a>
             </div>
@@ -185,11 +185,13 @@
 @functions {
     string BuildPageUrl(int page)
     {
+        // Always emit salesPersonId (even when empty) so the controller's "no querystring → default to me"
+        // logic doesn't re-apply on pagination after the user clears the assignee filter.
         var qs = new Dictionary<string, string?> {
             ["keyword"] = Model.SearchKeyword,
             ["status"] = Model.FilterStatus,
             ["customerId"] = Model.FilterCustomerId?.ToString(),
-            ["salesPersonId"] = Model.FilterSalesPersonId?.ToString(),
+            ["salesPersonId"] = Model.FilterSalesPersonId?.ToString() ?? "",
             ["page"] = page.ToString()
         };
         return "/SalesOrder?" + string.Join("&", qs.Where(kv => kv.Value != null).Select(kv => $"{kv.Key}={kv.Value}"));

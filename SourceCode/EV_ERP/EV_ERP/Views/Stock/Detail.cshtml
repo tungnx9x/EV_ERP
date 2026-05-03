@@ -258,16 +258,16 @@
             </div>
         </div>
 
-        @if (Model.Attachments.Any())
-        {
-            <div class="card border-0 shadow-sm mt-3">
-                <div class="card-header bg-white border-bottom">
-                    <h6 class="mb-0 fw-semibold">
-                        <i class="bi bi-images me-1"></i> Ảnh chứng từ
-                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Attachments.Count</span>
-                    </h6>
-                </div>
-                <div class="card-body">
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white border-bottom">
+                <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-images me-1"></i> Ảnh chứng từ
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">@Model.Attachments.Count</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                @if (Model.Attachments.Any())
+                {
                     <div class="d-flex flex-wrap gap-3">
                         @foreach (var att in Model.Attachments)
                         {
@@ -286,9 +286,16 @@
                             </div>
                         }
                     </div>
-                </div>
+                }
+                else
+                {
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-images" style="font-size:2.2rem;opacity:.3;"></i>
+                        <div class="small mt-2">Chưa có ảnh chứng từ nào</div>
+                    </div>
+                }
             </div>
-        }
+        </div>
     </div>
 </div>
 

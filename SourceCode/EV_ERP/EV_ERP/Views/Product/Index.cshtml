@@ -92,8 +92,7 @@
                             <th style="width:80px;">Ảnh</th>
                             <th>Sản phẩm</th>
                             <th class="d-none d-md-table-cell">Danh mục</th>
-                            <th class="d-none d-md-table-cell text-end">Giá bán</th>
-                            <th class="d-none d-lg-table-cell text-end">Giá mua</th>
+                            <th class="d-none d-md-table-cell">SKU</th>
                             <th>Trạng thái</th>
                             <th style="width:120px;">Thao tác</th>
                         </tr>
@@ -125,10 +124,10 @@
                                         </a>
                                         <div class="text-muted small">
                                             @p.ProductCode
-                                            @if (!string.IsNullOrEmpty(p.SKU))
+@*                                             @if (!string.IsNullOrEmpty(p.SKU))
                                             {
                                                 <span class="ms-1 font-monospace text-primary-emphasis">@p.SKU</span>
-                                            }
+                                            } *@
                                         </div>
                                     </div>
                                 </td>
@@ -140,20 +139,10 @@
                                         </span>
                                     }
                                 </td>
-                                <td class="d-none d-md-table-cell text-end small">
-                                    @if (p.DefaultSalePrice.HasValue)
+                                <td class="d-none d-md-table-cell">
+                                    @if (!string.IsNullOrEmpty(p.SKU))
                                     {
-                                        @p.DefaultSalePrice.Value.ToString("N0")
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
-                                <td class="d-none d-lg-table-cell text-end small">
-                                    @if (p.DefaultPurchasePrice.HasValue)
-                                    {
-                                        @p.DefaultPurchasePrice.Value.ToString("N0")
+                                        @p.SKU
                                     }
                                     else
                                     {

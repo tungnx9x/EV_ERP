@@ -48,15 +48,16 @@
             </div>
             <div class="col-6 col-sm-3 col-lg-3">
                 <label class="form-label small fw-semibold mb-1">Khách hàng</label>
-                <select name="customerId" class="form-select form-select-sm">
-                    <option value="">Tất cả KH</option>
-                    @foreach (var c in Model.Customers)
-                    {
-                        <option value="@c.CustomerId" selected="@(Model.FilterCustomerId == c.CustomerId)">
-                            @c.CustomerName
-                        </option>
-                    }
-                </select>
+                <div class="position-relative" id="customerFilterWrapper">
+                    <input type="hidden" name="customerId" id="filterCustomerId" value="@Model.FilterCustomerId" />
+                    <input type="text" class="form-control form-control-sm" id="customerSearchInput"
+                           placeholder="Tìm khách hàng..."
+                           autocomplete="off"
+                           value="@(Model.FilterCustomerId.HasValue ? Model.Customers.FirstOrDefault(c => c.CustomerId == Model.FilterCustomerId)?.CustomerName : "")" />
+                    <div id="customerDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none"
+                         style="z-index:1050;max-height:200px;overflow-y:auto;top:100%;left:0;">
+                    </div>
+                </div>
             </div>
             <div class="col-12 col-sm-2 col-lg-2 d-flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
@@ -218,13 +219,14 @@
                     <form id="importForm">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Khách hàng <span class="text-danger">*</span></label>
-                            <select id="importCustomerId" class="form-select" required>
-                                <option value="">-- Chọn khách hàng --</option>
-                                @foreach (var c in Model.Customers)
-                                {
-                                    <option value="@c.CustomerId">@c.CustomerName (@c.CustomerCode)</option>
-                                }
-                            </select>
+                            <div class="position-relative" id="importCustomerWrapper">
+                                <input type="hidden" id="importCustomerId" />
+                                <input type="text" class="form-control" id="importCustomerSearchInput"
+                                       placeholder="Tìm khách hàng..." autocomplete="off" required />
+                                <div id="importCustomerDropdown" class="position-absolute w-100 bg-white border rounded shadow-sm d-none"
+                                     style="z-index:1060;max-height:240px;overflow-y:auto;top:100%;left:0;">
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Nhân viên phụ trách <span class="text-danger">*</span></label>
@@ -321,6 +323,88 @@
             resultDiv.innerHTML = 'Lỗi: ' + err.message;
         });
     }
+
+    // ── Searchable customer filter dropdown ─────────────
+    (function () {
+        var customers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Customers.Select(c => new { c.CustomerId, c.CustomerName, c.CustomerCode })));
+        var input = document.getElementById('customerSearchInput');
+        var hidden = document.getElementById('filterCustomerId');
+        var dd = document.getElementById('customerDropdown');
+
+        function render(filter) {
+            var kw = (filter || '').toLowerCase();
+            var items = customers.filter(function (c) {
+                return !kw || c.CustomerName.toLowerCase().indexOf(kw) >= 0 || c.CustomerCode.toLowerCase().indexOf(kw) >= 0;
+            });
+            var html = '<div class="cs-item" data-id="">Tất cả KH</div>';
+            items.forEach(function (c) {
+                html += '<div class="cs-item" data-id="' + c.CustomerId + '">' + c.CustomerName + ' <span class="text-muted">(' + c.CustomerCode + ')</span></div>';
+            });
+            dd.innerHTML = html;
+            dd.classList.remove('d-none');
+        }
+
+        input.addEventListener('focus', function () { render(input.value); });
+        input.addEventListener('input', function () { hidden.value = ''; render(input.value); });
+
+        dd.addEventListener('click', function (e) {
+            var item = e.target.closest('.cs-item');
+            if (!item) return;
+            var id = item.getAttribute('data-id');
+            hidden.value = id;
+            input.value = id ? item.textContent.trim() : '';
+            dd.classList.add('d-none');
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!document.getElementById('customerFilterWrapper').contains(e.target))
+                dd.classList.add('d-none');
+        });
+    })();
+
+    // ── Searchable customer in import modal ─────────────
+    (function () {
+        var wrapper = document.getElementById('importCustomerWrapper');
+        if (!wrapper) return; // import modal only rendered for canEdit
+
+        var customers = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Customers.Select(c => new { c.CustomerId, c.CustomerName, c.CustomerCode })));
+        var input = document.getElementById('importCustomerSearchInput');
+        var hidden = document.getElementById('importCustomerId');
+        var dd = document.getElementById('importCustomerDropdown');
+
+        function render(filter) {
+            var kw = (filter || '').toLowerCase();
+            var items = customers.filter(function (c) {
+                return !kw || c.CustomerName.toLowerCase().indexOf(kw) >= 0 || c.CustomerCode.toLowerCase().indexOf(kw) >= 0;
+            });
+            var html = '';
+            if (items.length === 0) {
+                html = '<div class="text-muted small text-center py-2">Không tìm thấy khách hàng</div>';
+            } else {
+                items.forEach(function (c) {
+                    html += '<div class="cs-item" data-id="' + c.CustomerId + '">' + c.CustomerName + ' <span class="text-muted">(' + c.CustomerCode + ')</span></div>';
+                });
+            }
+            dd.innerHTML = html;
+            dd.classList.remove('d-none');
+        }
+
+        input.addEventListener('focus', function () { render(input.value); });
+        input.addEventListener('input', function () { hidden.value = ''; render(input.value); });
+
+        dd.addEventListener('click', function (e) {
+            var item = e.target.closest('.cs-item');
+            if (!item) return;
+            var id = item.getAttribute('data-id');
+            hidden.value = id;
+            input.value = item.textContent.trim();
+            dd.classList.add('d-none');
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!wrapper.contains(e.target)) dd.classList.add('d-none');
+        });
+    })();
 </script>
 
 @Html.AntiForgeryToken()
@@ -339,4 +423,6 @@
     .text-warning-emphasis { color: #854d0e !important; }
     .bg-dark-subtle { background-color: #e2e8f0 !important; }
     .text-dark-emphasis { color: #1e293b !important; }
+    .cs-item { padding: 6px 10px; cursor: pointer; font-size: 0.82rem; }
+    .cs-item:hover, .cs-item.active { background: #e0f2fe; }
 </style>

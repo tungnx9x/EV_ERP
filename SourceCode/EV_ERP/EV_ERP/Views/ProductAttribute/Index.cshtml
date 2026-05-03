@@ -80,10 +80,10 @@
                             <a href="/ProductAttribute/Edit/@attr.AttributeId" class="btn btn-sm btn-outline-primary me-1" title="Chỉnh sửa">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <button class="btn btn-sm @(attr.IsActive ? "btn-outline-secondary" : "btn-outline-success")"
+                            @* <button class="btn btn-sm @(attr.IsActive ? "btn-outline-secondary" : "btn-outline-success")"
                                     onclick="toggleAttrActive(@attr.AttributeId)" title="@(attr.IsActive ? "Vô hiệu hóa" : "Kích hoạt")">
                                 <i class="bi @(attr.IsActive ? "bi-toggle-on" : "bi-toggle-off")"></i>
-                            </button>
+                            </button> *@
                         </td>
                     </tr>
                 }
@@ -92,7 +92,7 @@
     </div>
 </div>
 
-<script>
+@* <script>
     function toggleAttrActive(id) {
         if (!confirm('Đổi trạng thái thuộc tính này?')) return;
         fetch('/ProductAttribute/ToggleActive/' + id, {
@@ -105,4 +105,4 @@
             else alert(data.Message);
         });
     }
-</script>
+</script> *@

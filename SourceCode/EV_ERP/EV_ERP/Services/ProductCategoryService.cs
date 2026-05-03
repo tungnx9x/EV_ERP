@@ -260,12 +260,15 @@ namespace EV_ERP.Services
                 foreach (var c in lookup[parentId].OrderBy(c => c.DisplayOrder).ThenBy(c => c.CategoryName))
                 {
                     if (excludedIds.Contains(c.CategoryId)) continue;
-                    var prefix = depth == 0 ? "" : new string('-', depth * 3) + "└ ";
+                    var visibleChildren = lookup[c.CategoryId].Any(child => !excludedIds.Contains(child.CategoryId));
                     result.Add(new ParentCategoryOptionViewModel
                     {
                         CategoryId = c.CategoryId,
                         CategoryCode = c.CategoryCode,
-                        DisplayName = prefix + c.CategoryName
+                        CategoryName = c.CategoryName,
+                        ParentCategoryId = c.ParentCategoryId,
+                        Level = depth,
+                        HasChildren = visibleChildren
                     });
                     Flatten(c.CategoryId, depth + 1);
                 }

@@ -24,13 +24,23 @@
     <!-- Parent Category -->
     <div class="col-12">
         <label asp-for="ParentCategoryId" class="form-label fw-semibold small"></label>
-        <select asp-for="ParentCategoryId" class="form-select">
-            <option value="">— Không có (danh mục gốc) —</option>
-            @foreach (var opt in Model.ParentOptions)
-            {
-                <option value="@opt.CategoryId">@opt.DisplayName (@opt.CategoryCode)</option>
-            }
-        </select>
+        <input type="hidden" asp-for="ParentCategoryId" id="ParentCategoryId" />
+        <div class="ts-wrap position-relative" id="treeSelectWrap">
+            <div class="ts-trigger form-select d-flex align-items-center" onclick="tsToggle()" id="tsTrigger">
+                <span class="ts-selected-text flex-grow-1 ts-placeholder" id="tsSelectedText">— Không có (danh mục gốc) —</span>
+                <i class="bi bi-chevron-down ts-arrow" id="tsArrow" style="font-size:0.7rem;transition:transform .2s;"></i>
+            </div>
+            <div class="ts-dropdown" id="tsDropdown" style="display:none;">
+                <div class="ts-search-box">
+                    <input type="text" class="form-control form-control-sm" id="tsSearch"
+                           placeholder="Tìm danh mục..." autocomplete="off" />
+                </div>
+                <div class="ts-tree" id="tsTree"></div>
+                <div class="ts-empty text-muted text-center py-2 small" id="tsEmpty" style="display:none;">
+                    Không tìm thấy danh mục
+                </div>
+            </div>
+        </div>
         <div class="form-text small">Để trống nếu đây là danh mục cấp cao nhất</div>
     </div>
 
@@ -55,3 +65,303 @@
         </div>
     </div>
 </div>
+
+<!-- TreeSelect Styles -->
+<style>
+    .ts-wrap { position: relative; }
+    .ts-trigger {
+        cursor: pointer;
+        background: #fff;
+        min-height: 38px;
+        font-size: 0.875rem;
+        user-select: none;
+    }
+    .ts-trigger:hover { border-color: #86b7fe; }
+    .ts-trigger.ts-open { border-color: #86b7fe; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
+    .ts-trigger.ts-open .ts-arrow { transform: rotate(180deg); }
+    .ts-selected-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ts-selected-text.ts-placeholder { color: #6c757d; }
+    .ts-dropdown {
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: #fff; border: 1px solid #dee2e6;
+        border-radius: 0 0 8px 8px; box-shadow: 0 6px 16px rgba(0,0,0,.12);
+        z-index: 1060; margin-top: -1px;
+    }
+    .ts-search-box { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+    .ts-search-box input { border-radius: 6px; }
+    .ts-tree {
+        max-height: 280px; overflow-y: auto; padding: 4px 0;
+    }
+    .ts-node {
+        display: flex; align-items: center; padding: 6px 12px;
+        cursor: pointer; font-size: 0.84rem; color: #1c1e21;
+        transition: background .1s;
+    }
+    .ts-node:hover { background: #f5f5f5; }
+    .ts-node.ts-active { background: #e6f4ff; color: #1677ff; }
+    .ts-node.ts-highlighted { background: #f0f0f0; }
+    .ts-node.ts-clear-node { color: #6c757d; font-style: italic; border-bottom: 1px solid #f0f0f0; }
+    .ts-node.ts-clear-node.ts-active { background: #e6f4ff; color: #1677ff; font-style: normal; }
+    .ts-node-indent { display: inline-block; width: 20px; flex-shrink: 0; }
+    .ts-node-toggle {
+        width: 20px; height: 20px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; border-radius: 4px; font-size: 0.65rem; color: #8c8c8c;
+        transition: background .1s;
+    }
+    .ts-node-toggle:hover { background: #e0e0e0; }
+    .ts-node-toggle.ts-expanded i { transform: rotate(90deg); }
+    .ts-node-toggle i { transition: transform .2s; }
+    .ts-node-leaf { width: 20px; flex-shrink: 0; }
+    .ts-node-icon { margin-right: 6px; color: #faad14; font-size: 0.8rem; }
+    .ts-node-icon.ts-folder { color: #faad14; }
+    .ts-node-icon.ts-leaf-icon { color: #1677ff; }
+    .ts-node-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ts-node-code {
+        font-size: 0.7rem; color: #8c8c8c; margin-left: 6px;
+        font-family: monospace; flex-shrink: 0;
+    }
+    .ts-highlight { background: #fff3cd; border-radius: 2px; padding: 0 1px; }
+</style>
+
+<script>
+(function () {
+    var tsData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ParentOptions, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null }));
+    var tsSelectedId = @(Model.ParentCategoryId.HasValue ? Model.ParentCategoryId.Value.ToString() : "null");
+    var tsOpen = false;
+    var tsExpandedIds = {};
+    var tsHighlightIdx = -1;
+    var tsVisibleNodes = [];
+    var tsPlaceholder = '— Không có (danh mục gốc) —';
+
+    var tsChildrenMap = {};
+    tsData.forEach(function (n) {
+        var pid = n.ParentCategoryId || 0;
+        if (!tsChildrenMap[pid]) tsChildrenMap[pid] = [];
+        tsChildrenMap[pid].push(n);
+    });
+
+    if (tsSelectedId) {
+        var sel = tsData.find(function (n) { return n.CategoryId === tsSelectedId; });
+        if (sel) {
+            expandPathTo(sel);
+            updateTriggerText(sel);
+        }
+    }
+
+    function expandPathTo(node) {
+        var cur = node;
+        while (cur && cur.ParentCategoryId) {
+            tsExpandedIds[cur.ParentCategoryId] = true;
+            cur = tsData.find(function (n) { return n.CategoryId === cur.ParentCategoryId; });
+        }
+    }
+
+    function updateTriggerText(node) {
+        var textEl = document.getElementById('tsSelectedText');
+        if (node) {
+            var path = [];
+            var cur = node;
+            while (cur) {
+                path.unshift(cur.CategoryName);
+                cur = cur.ParentCategoryId ? tsData.find(function (n) { return n.CategoryId === cur.ParentCategoryId; }) : null;
+            }
+            textEl.textContent = path.join(' / ');
+            textEl.classList.remove('ts-placeholder');
+        } else {
+            textEl.textContent = tsPlaceholder;
+            textEl.classList.add('ts-placeholder');
+        }
+    }
+
+    function renderTree(searchQuery) {
+        var tree = document.getElementById('tsTree');
+        var empty = document.getElementById('tsEmpty');
+        var q = (searchQuery || '').trim().toLowerCase();
+
+        var matchIds = {};
+        var visibleIds = {};
+
+        if (q) {
+            tsData.forEach(function (n) {
+                var nameMatch = n.CategoryName.toLowerCase().indexOf(q) >= 0;
+                var codeMatch = n.CategoryCode.toLowerCase().indexOf(q) >= 0;
+                if (nameMatch || codeMatch) {
+                    matchIds[n.CategoryId] = true;
+                    var cur = n;
+                    while (cur) {
+                        visibleIds[cur.CategoryId] = true;
+                        cur = cur.ParentCategoryId ? tsData.find(function (x) { return x.CategoryId === cur.ParentCategoryId; }) : null;
+                    }
+                }
+            });
+        }
+
+        tsVisibleNodes = [];
+        var html = '';
+
+        // "No parent" clear option — only when not searching
+        if (!q) {
+            var clearActive = tsSelectedId === null || tsSelectedId === undefined;
+            tsVisibleNodes.push({ CategoryId: null, isClear: true });
+            html += '<div class="ts-node ts-clear-node' + (clearActive ? ' ts-active' : '') + '" data-clear="1">';
+            html += '<i class="bi bi-dash-circle ts-node-icon"></i>';
+            html += '<span class="ts-node-label">— Không có (danh mục gốc) —</span>';
+            html += '</div>';
+        }
+
+        function renderNode(node, depth) {
+            if (q && !visibleIds[node.CategoryId]) return;
+
+            tsVisibleNodes.push(node);
+            var isActive = node.CategoryId === tsSelectedId;
+            var isMatch = matchIds[node.CategoryId];
+            var isExpanded = q ? true : !!tsExpandedIds[node.CategoryId];
+            var children = tsChildrenMap[node.CategoryId] || [];
+            var hasVisibleChildren = q ? children.some(function (c) { return visibleIds[c.CategoryId]; }) : children.length > 0;
+
+            html += '<div class="ts-node' + (isActive ? ' ts-active' : '') + '" data-id="' + node.CategoryId + '">';
+
+            for (var i = 0; i < depth; i++) {
+                html += '<span class="ts-node-indent"></span>';
+            }
+
+            if (hasVisibleChildren) {
+                html += '<span class="ts-node-toggle' + (isExpanded ? ' ts-expanded' : '') + '" data-toggle="' + node.CategoryId + '">';
+                html += '<i class="bi bi-caret-right-fill"></i>';
+                html += '</span>';
+            } else {
+                html += '<span class="ts-node-leaf"></span>';
+            }
+
+            if (node.HasChildren) {
+                html += '<i class="bi bi-folder-fill ts-node-icon ts-folder"></i>';
+            } else {
+                html += '<i class="bi bi-tag-fill ts-node-icon ts-leaf-icon"></i>';
+            }
+
+            var label = node.CategoryName;
+            if (q && isMatch) {
+                var regex = new RegExp('(' + escapeRegex(q) + ')', 'gi');
+                label = label.replace(regex, '<span class="ts-highlight">$1</span>');
+            }
+            html += '<span class="ts-node-label">' + label + '</span>';
+            html += '<span class="ts-node-code">' + node.CategoryCode + '</span>';
+            html += '</div>';
+
+            if (isExpanded && hasVisibleChildren) {
+                children.forEach(function (child) {
+                    renderNode(child, depth + 1);
+                });
+            }
+        }
+
+        (tsChildrenMap[0] || []).forEach(function (root) {
+            renderNode(root, 0);
+        });
+
+        tree.innerHTML = html;
+        empty.style.display = tsVisibleNodes.length === 0 ? '' : 'none';
+        tsHighlightIdx = -1;
+
+        tree.querySelectorAll('.ts-node').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                if (e.target.closest('.ts-node-toggle')) return;
+                if (el.dataset.clear) {
+                    tsSelect(null);
+                } else {
+                    var id = parseInt(el.dataset.id);
+                    tsSelect(id);
+                }
+            });
+        });
+        tree.querySelectorAll('.ts-node-toggle').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var id = parseInt(el.dataset.toggle);
+                tsExpandedIds[id] = !tsExpandedIds[id];
+                renderTree(searchQuery);
+            });
+        });
+    }
+
+    function tsSelect(id) {
+        tsSelectedId = id;
+        document.getElementById('ParentCategoryId').value = id === null ? '' : id;
+        var node = id === null ? null : tsData.find(function (n) { return n.CategoryId === id; });
+        updateTriggerText(node);
+        tsClose();
+    }
+
+    window.tsToggle = function () {
+        if (tsOpen) tsClose();
+        else tsOpenDropdown();
+    };
+
+    function tsOpenDropdown() {
+        tsOpen = true;
+        document.getElementById('tsDropdown').style.display = '';
+        document.getElementById('tsTrigger').classList.add('ts-open');
+        var searchInput = document.getElementById('tsSearch');
+        searchInput.value = '';
+        renderTree('');
+        setTimeout(function () { searchInput.focus(); }, 50);
+        setTimeout(function () {
+            var active = document.querySelector('.ts-node.ts-active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        }, 60);
+    }
+
+    function tsClose() {
+        tsOpen = false;
+        document.getElementById('tsDropdown').style.display = 'none';
+        document.getElementById('tsTrigger').classList.remove('ts-open');
+    }
+
+    document.addEventListener('mousedown', function (e) {
+        if (tsOpen && !e.target.closest('#treeSelectWrap')) {
+            tsClose();
+        }
+    });
+
+    document.getElementById('tsSearch').addEventListener('input', function () {
+        renderTree(this.value);
+    });
+
+    document.getElementById('tsSearch').addEventListener('keydown', function (e) {
+        if (!tsOpen) return;
+        var nodes = document.querySelectorAll('.ts-node');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            tsHighlightIdx = Math.min(tsHighlightIdx + 1, nodes.length - 1);
+            updateHighlight(nodes);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            tsHighlightIdx = Math.max(tsHighlightIdx - 1, 0);
+            updateHighlight(nodes);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (tsHighlightIdx >= 0 && tsHighlightIdx < tsVisibleNodes.length) {
+                var node = tsVisibleNodes[tsHighlightIdx];
+                if (node.isClear) tsSelect(null);
+                else tsSelect(node.CategoryId);
+            }
+        } else if (e.key === 'Escape') {
+            tsClose();
+        }
+    });
+
+    function updateHighlight(nodes) {
+        nodes.forEach(function (n) { n.classList.remove('ts-highlighted'); });
+        if (tsHighlightIdx >= 0 && tsHighlightIdx < nodes.length) {
+            nodes[tsHighlightIdx].classList.add('ts-highlighted');
+            nodes[tsHighlightIdx].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+})();
+</script>

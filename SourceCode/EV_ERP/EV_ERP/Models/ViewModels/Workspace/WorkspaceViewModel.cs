@@ -47,7 +47,7 @@ public class WorkspaceTaskItem
     public string? SalesOrderNo { get; set; }
     public string CustomerName { get; set; } = string.Empty;
     public string DetailUrl { get; set; } = string.Empty;
-    public string? ExtraInfo { get; set; }
+    public List<TaskExtraInfo> ExtraInfos { get; set; } = [];
 
     // SLA
     public string? SlaSeverity { get; set; }          // NORMAL, WARNING, DANGER
@@ -62,4 +62,13 @@ public class WorkspaceTaskItem
     // Entity info for SLA lookup
     public string? EntityType { get; set; }
     public int EntityId { get; set; }
+    // Show Elapsed time instead of SLA time
+    public bool IsShowElapsed { get; set; } = false;
+}
+
+public class TaskExtraInfo
+{
+    public string? Title { get; set; }
+    public string Value { get; set; } = string.Empty;
+    public string CssClass { get; set; } = "bg-light text-muted border";
 }

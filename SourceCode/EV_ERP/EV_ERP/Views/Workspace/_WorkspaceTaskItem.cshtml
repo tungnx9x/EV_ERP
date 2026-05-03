@@ -6,7 +6,7 @@
         "WARNING" => "sla-warning",
         _ => ""
     };
-    var showElapsed = Model.CreatedAt.HasValue;
+    var showElapsed = Model.IsShowElapsed;
 }
 <div class="task-item @(showElapsed ? "" : slaClass)">
     <div class="d-flex align-items-start justify-content-between">
@@ -61,12 +61,22 @@
                     <i class="bi bi-clock me-1"></i>@Model.SlaTimeRemaining
                 </span>
             }
-            @if (Model.ExtraInfo != null)
+        </div>
+    </div>
+    @if (Model.ExtraInfos != null && Model.ExtraInfos.Any())
+    {
+        <div class="mt-1 d-flex flex-wrap gap-1">
+            @foreach (var info in Model.ExtraInfos)
             {
-                <span class="badge bg-light text-muted border" style="font-size:0.68rem;">
-                    @Model.ExtraInfo
+                <span class="badge @info.CssClass" style="font-size:0.68rem;"
+                      title="@info.Title">
+                    @if (!string.IsNullOrEmpty(info.Title))
+                    {
+                        <span class="fw-normal me-1">@info.Title:</span>
+                    }
+                    @info.Value
                 </span>
             }
         </div>
-    </div>
+    }
 </div>

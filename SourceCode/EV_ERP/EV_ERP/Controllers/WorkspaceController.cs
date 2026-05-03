@@ -101,18 +101,20 @@ public class WorkspaceController : Controller
                      && r.Status == "INPROGRESS"
                      && !r.Quotations.Any())
             .OrderByDescending(r => r.RequestDate)
-            .Select(r => new WorkspaceTaskItem
-            {
-                RfqNo = r.RfqNo,
-                CustomerName = r.Customer.CustomerName,
-                DetailUrl = $"/Rfq/Detail/{r.RfqId}",
-                //ExtraInfo = r.Deadline.ToString("yyyy-MM-dd HH:mm:ss"),
-                EntityType = "RFQ",
-                EntityId = r.RfqId,
-                Notes = r.Notes,
-                CreatedAt = r.CreatedAt
-            })
+            .Select(r => new { r.RfqNo, r.Customer.CustomerName, r.RfqId, r.Notes, r.Deadline, r.CreatedAt })
             .ToListAsync();
+        var rfqTaskItems = rfqTasks.Select(r => new WorkspaceTaskItem
+        {
+            RfqNo = r.RfqNo,
+            CustomerName = r.CustomerName,
+            DetailUrl = $"/Rfq/Detail/{r.RfqId}",
+            EntityType = "RFQ",
+            EntityId = r.RfqId,
+            Notes = r.Notes,
+            IsShowElapsed = true,
+            ExtraInfos = [new TaskExtraInfo { Title = "Deadline", Value = r.Deadline.ToString("dd/MM/yyyy HH:mm"), CssClass = "bg-danger text-white" }],
+            CreatedAt = r.CreatedAt
+        }).ToList();
 
         vm.Cards.Add(new WorkspaceCard
         {
@@ -120,26 +122,29 @@ public class WorkspaceController : Controller
             Title = "Yêu cầu báo giá",
             Icon = "bi-clipboard-check",
             BadgeColor = "info",
-            Tasks = rfqTasks
+            Tasks = rfqTaskItems
         });
 
         // ── 2. Quotations DRAFT (pending to send) ──
-        var quotDraftTasks = await _uow.Repository<Quotation>().Query()
+        var quotDraftRaw = await _uow.Repository<Quotation>().Query()
             .Include(q => q.Customer)
             .Include(q => q.Rfq)
             .Where(q => q.SalesPersonId == userId && q.Status == "DRAFT")
             .OrderByDescending(q => q.QuotationDate)
-            .Select(q => new WorkspaceTaskItem
-            {
-                RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
-                CustomerName = q.Customer.CustomerName,
-                DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                EntityType = "QUOTATION",
-                EntityId = q.QuotationId,
-                Notes = q.Notes,
-                CreatedAt = q.CreatedAt
-            })
+            .Select(q => new { RfqNo = q.Rfq != null ? q.Rfq.RfqNo + "/" + q.QuotationNo : q.QuotationNo, q.Customer.CustomerName, q.QuotationId, q.Notes, q.Deadline, q.CreatedAt })
             .ToListAsync();
+        var quotDraftTasks = quotDraftRaw.Select(q => new WorkspaceTaskItem
+        {
+            RfqNo = q.RfqNo,
+            CustomerName = q.CustomerName,
+            DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
+            EntityType = "QUOTATION",
+            EntityId = q.QuotationId,
+            Notes = q.Notes,
+            IsShowElapsed = true,
+            ExtraInfos = [new TaskExtraInfo { Title = "Deadline", Value = q.Deadline.ToString("dd/MM/yyyy HH:mm"), CssClass = "bg-danger text-white" }],
+            CreatedAt = q.CreatedAt
+        }).ToList();
 
         vm.Cards.Add(new WorkspaceCard
         {
@@ -158,7 +163,7 @@ public class WorkspaceController : Controller
             .OrderByDescending(q => q.SentAt)
             .Select(q => new WorkspaceTaskItem
             {
-                RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
+                RfqNo = q.Rfq != null ? q.Rfq.RfqNo + "/" + q.QuotationNo : q.QuotationNo,
                 CustomerName = q.Customer.CustomerName,
                 DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
                 EntityType = "QUOTATION",
@@ -177,42 +182,69 @@ public class WorkspaceController : Controller
         });
 
         // ── 4. Quotations APPROVED ──
-        var quotApprovedTasks = await _uow.Repository<Quotation>().Query()
-            .Include(q => q.Customer)
-            .Include(q => q.Rfq)
-            .Include(q => q.SalesOrder)
-            .Where(q => q.SalesPersonId == userId && q.Status == "APPROVED")
-            .OrderByDescending(q => q.ApprovedAt)
-            .Select(q => new WorkspaceTaskItem
+        //var quotApprovedTasks = await _uow.Repository<Quotation>().Query()
+        //    .Include(q => q.Customer)
+        //    .Include(q => q.Rfq)
+        //    .Include(q => q.SalesOrder)
+        //    .Where(q => q.SalesPersonId == userId && q.Status == "APPROVED")
+        //    .OrderByDescending(q => q.ApprovedAt)
+        //    .Select(q => new WorkspaceTaskItem
+        //    {
+        //        RfqNo = q.Rfq != null ? q.Rfq.RfqNo + "/" + q.QuotationNo : q.QuotationNo,
+        //        SalesOrderNo = q.SalesOrder != null ? q.SalesOrder.SalesOrderNo : null,
+        //        CustomerName = q.Customer.CustomerName,
+        //        DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
+        //        EntityType = "QUOTATION",
+        //        EntityId = q.QuotationId,
+        //        Notes = q.Notes
+        //    })
+        //    .ToListAsync();
+
+        //vm.Cards.Add(new WorkspaceCard
+        //{
+        //    StepNumber = 4,
+        //    Title = "Báo giá đã duyệt",
+        //    Icon = "bi-check-circle",
+        //    BadgeColor = "success",
+        //    Tasks = quotApprovedTasks
+        //});
+
+        // ── 4. SOs DRAFT (requiring advance payment input) ──
+        var soDraftTasks = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Customer)
+            .Include(s => s.Quotation)
+            .Where(s => s.CreatedBy == userId && s.Status == "DRAFT")
+            .OrderByDescending(s => s.OrderDate)
+            .Select(s => new WorkspaceTaskItem
             {
-                RfqNo = q.Rfq != null ? q.Rfq.RfqNo : q.QuotationNo,
-                SalesOrderNo = q.SalesOrder != null ? q.SalesOrder.SalesOrderNo : null,
-                CustomerName = q.Customer.CustomerName,
-                DetailUrl = $"/Quotation/Detail/{q.QuotationId}",
-                EntityType = "QUOTATION",
-                EntityId = q.QuotationId,
-                Notes = q.Notes
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
+                SalesOrderNo = s.SalesOrderNo,
+                CustomerName = s.Customer.CustomerName,
+                DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
             })
             .ToListAsync();
 
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 4,
-            Title = "Báo giá đã duyệt",
-            Icon = "bi-check-circle",
-            BadgeColor = "success",
-            Tasks = quotApprovedTasks
+            Title = "Đơn hàng cần lập ĐNTU",
+            Icon = "bi-file-earmark-excel",
+            BadgeColor = "primary",
+            Tasks = soDraftTasks
         });
 
-        // ── 5. SOs DRAFT (requiring advance payment input) ──
-        var soDraftTasks = await _uow.Repository<SalesOrder>().Query()
+        // ── 5. SOs WAIT (awaiting advance payment) ──
+        var soWaitTasks = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
             .Include(s => s.Rfq)
-            .Where(s => s.CreatedBy == userId && s.Status == "DRAFT")
-            .OrderByDescending(s => s.OrderDate)
+            .Where(s => s.CreatedBy == userId && s.Status == "WAIT")
+            .OrderByDescending(s => s.UpdatedAt)
             .Select(s => new WorkspaceTaskItem
             {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
@@ -225,33 +257,6 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 5,
-            Title = "Đơn hàng cần lập ĐNTU",
-            Icon = "bi-file-earmark-excel",
-            BadgeColor = "primary",
-            Tasks = soDraftTasks
-        });
-
-        // ── 6. SOs WAIT (awaiting advance payment) ──
-        var soWaitTasks = await _uow.Repository<SalesOrder>().Query()
-            .Include(s => s.Customer)
-            .Include(s => s.Rfq)
-            .Where(s => s.CreatedBy == userId && s.Status == "WAIT")
-            .OrderByDescending(s => s.UpdatedAt)
-            .Select(s => new WorkspaceTaskItem
-            {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
-                SalesOrderNo = s.SalesOrderNo,
-                CustomerName = s.Customer.CustomerName,
-                DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                EntityType = "SALES_ORDER",
-                EntityId = s.SalesOrderId,
-                Notes = s.Notes
-            })
-            .ToListAsync();
-
-        vm.Cards.Add(new WorkspaceCard
-        {
-            StepNumber = 6,
             Title = "Đơn hàng chờ tạm ứng",
             Icon = "bi-cash-stack",
             BadgeColor = "warning",
@@ -271,7 +276,7 @@ public class WorkspaceController : Controller
             .Distinct()
             .ToListAsync();
 
-        // ── 7. SOs BUYING (no StockTransaction yet) ──
+        // ── 6. SOs BUYING (no StockTransaction yet) ──
         var soBuyingTasks = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
             .Include(s => s.Rfq)
@@ -281,7 +286,37 @@ public class WorkspaceController : Controller
             .OrderByDescending(s => s.BuyingAt)
             .Select(s => new WorkspaceTaskItem
             {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
+                SalesOrderNo = s.SalesOrderNo,
+                CustomerName = s.Customer.CustomerName,
+                DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
+                EntityType = "SALES_ORDER",
+                EntityId = s.SalesOrderId,
+                Notes = s.Notes
+            })
+            .ToListAsync();
+
+        vm.Cards.Add(new WorkspaceCard
+        {
+            StepNumber = 6,
+            Title = "Đơn hàng đang mua",
+            Icon = "bi-cart3",
+            BadgeColor = "info",
+            Tasks = soBuyingTasks
+        });
+
+        // ── 7. SOs with StockTransaction INBOUND (received in warehouse) ──
+        var soReceivedTasks = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Customer)
+            .Include(s => s.Rfq)
+            .Where(s => s.CreatedBy == userId
+                     && soIdsWithInbound.Contains(s.SalesOrderId)
+                     && !soIdsWithOutbound.Contains(s.SalesOrderId)
+                     && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
+            .OrderByDescending(s => s.ReceivedAt)
+            .Select(s => new WorkspaceTaskItem
+            {
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
@@ -294,24 +329,23 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 7,
-            Title = "Đơn hàng đang mua",
-            Icon = "bi-cart3",
-            BadgeColor = "info",
-            Tasks = soBuyingTasks
+            Title = "Đơn hàng đã nhập kho",
+            Icon = "bi-box-seam",
+            BadgeColor = "primary",
+            Tasks = soReceivedTasks
         });
 
-        // ── 8. SOs with StockTransaction INBOUND (received in warehouse) ──
-        var soReceivedTasks = await _uow.Repository<SalesOrder>().Query()
+        // ── 8. SOs with StockTransaction OUTBOUND (being delivered) ──
+        var soDeliveringTasks = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
             .Include(s => s.Rfq)
             .Where(s => s.CreatedBy == userId
-                     && soIdsWithInbound.Contains(s.SalesOrderId)
-                     && !soIdsWithOutbound.Contains(s.SalesOrderId)
-                     && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
-            .OrderByDescending(s => s.ReceivedAt)
+                     && soIdsWithOutbound.Contains(s.SalesOrderId)
+                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
+            .OrderByDescending(s => s.DeliveringAt)
             .Select(s => new WorkspaceTaskItem
             {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
@@ -324,23 +358,21 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 8,
-            Title = "Đơn hàng đã nhập kho",
-            Icon = "bi-box-seam",
-            BadgeColor = "primary",
-            Tasks = soReceivedTasks
+            Title = "Đơn hàng đã giao",
+            Icon = "bi-truck",
+            BadgeColor = "info",
+            Tasks = soDeliveringTasks
         });
 
-        // ── 9. SOs with StockTransaction OUTBOUND (being delivered) ──
-        var soDeliveringTasks = await _uow.Repository<SalesOrder>().Query()
+        // ── 9. SOs DELIVERED (not yet settled) ──
+        var soDeliveredTasks = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
             .Include(s => s.Rfq)
-            .Where(s => s.CreatedBy == userId
-                     && soIdsWithOutbound.Contains(s.SalesOrderId)
-                     && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
-            .OrderByDescending(s => s.DeliveringAt)
+            .Where(s => s.CreatedBy == userId && s.Status == "DELIVERED")
+            .OrderByDescending(s => s.DeliveredAt)
             .Select(s => new WorkspaceTaskItem
             {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
@@ -353,21 +385,21 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 9,
-            Title = "Đơn hàng đã giao",
-            Icon = "bi-truck",
-            BadgeColor = "info",
-            Tasks = soDeliveringTasks
+            Title = "Đơn hàng chờ quyết toán",
+            Icon = "bi-calculator",
+            BadgeColor = "success",
+            Tasks = soDeliveredTasks
         });
 
-        // ── 10. SOs DELIVERED (not yet settled) ──
-        var soDeliveredTasks = await _uow.Repository<SalesOrder>().Query()
+        // ── 10. SOs COMPLETED (pending KQKD report) ──
+        var soCompletedTasks = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
             .Include(s => s.Rfq)
-            .Where(s => s.CreatedBy == userId && s.Status == "DELIVERED")
-            .OrderByDescending(s => s.DeliveredAt)
+            .Where(s => s.CreatedBy == userId && s.Status == "COMPLETED")
+            .OrderByDescending(s => s.CompletedAt)
             .Select(s => new WorkspaceTaskItem
             {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
+                RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
                 SalesOrderNo = s.SalesOrderNo,
                 CustomerName = s.Customer.CustomerName,
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
@@ -380,33 +412,6 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 10,
-            Title = "Đơn hàng chờ quyết toán",
-            Icon = "bi-calculator",
-            BadgeColor = "success",
-            Tasks = soDeliveredTasks
-        });
-
-        // ── 11. SOs COMPLETED (pending KQKD report) ──
-        var soCompletedTasks = await _uow.Repository<SalesOrder>().Query()
-            .Include(s => s.Customer)
-            .Include(s => s.Rfq)
-            .Where(s => s.CreatedBy == userId && s.Status == "COMPLETED")
-            .OrderByDescending(s => s.CompletedAt)
-            .Select(s => new WorkspaceTaskItem
-            {
-                RfqNo = s.Rfq != null ? s.Rfq.RfqNo : s.SalesOrderNo,
-                SalesOrderNo = s.SalesOrderNo,
-                CustomerName = s.Customer.CustomerName,
-                DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
-                EntityType = "SALES_ORDER",
-                EntityId = s.SalesOrderId,
-                Notes = s.Notes
-            })
-            .ToListAsync();
-
-        vm.Cards.Add(new WorkspaceCard
-        {
-            StepNumber = 11,
             Title = "Chờ báo cáo KQKD",
             Icon = "bi-file-earmark-bar-graph",
             BadgeColor = "primary",
@@ -541,36 +546,36 @@ public class WorkspaceController : Controller
         });
 
         // ── 4. Quotations APPROVED ──
-        var step4 = await _uow.Repository<Quotation>().Query()
-            .Where(q => q.Status == "APPROVED")
-            .Select(q => new { UserId = q.SalesPersonId, q.QuotationId })
-            .ToListAsync();
-        vm.Cards.Add(new WorkspaceCard
-        {
-            StepNumber = 4, Title = "Báo giá đã duyệt", Icon = "bi-check-circle", BadgeColor = "success",
-            EmployeeSummaries = BuildSummaries(step4.Select(x => (x.UserId, "QUOTATION", x.QuotationId)).ToList())
-        });
+        //var step4 = await _uow.Repository<Quotation>().Query()
+        //    .Where(q => q.Status == "APPROVED")
+        //    .Select(q => new { UserId = q.SalesPersonId, q.QuotationId })
+        //    .ToListAsync();
+        //vm.Cards.Add(new WorkspaceCard
+        //{
+        //    StepNumber = 4, Title = "Báo giá đã duyệt", Icon = "bi-check-circle", BadgeColor = "success",
+        //    EmployeeSummaries = BuildSummaries(step4.Select(x => (x.UserId, "QUOTATION", x.QuotationId)).ToList())
+        //});
 
-        // ── 5. SOs DRAFT ──
-        var step5 = await _uow.Repository<SalesOrder>().Query()
+        // ── 4. SOs DRAFT ──
+        var step4 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.Status == "DRAFT" && s.CreatedBy != null)
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 5, Title = "Đơn hàng cần lập ĐNTU", Icon = "bi-file-earmark-excel", BadgeColor = "primary",
-            EmployeeSummaries = BuildSummaries(step5.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 4, Title = "Đơn hàng cần lập ĐNTU", Icon = "bi-file-earmark-excel", BadgeColor = "primary",
+            EmployeeSummaries = BuildSummaries(step4.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
-        // ── 6. SOs WAIT ──
-        var step6 = await _uow.Repository<SalesOrder>().Query()
+        // ── 5. SOs WAIT ──
+        var step5 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.Status == "WAIT" && s.CreatedBy != null)
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 6, Title = "Đơn hàng chờ tạm ứng", Icon = "bi-cash-stack", BadgeColor = "warning",
-            EmployeeSummaries = BuildSummaries(step6.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 5, Title = "Đơn hàng chờ tạm ứng", Icon = "bi-cash-stack", BadgeColor = "warning",
+            EmployeeSummaries = BuildSummaries(step5.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
         // Pre-load stock transaction SO IDs
@@ -582,19 +587,19 @@ public class WorkspaceController : Controller
             .Where(st => st.SalesOrderId != null && st.TransactionType == "OUTBOUND")
             .Select(st => st.SalesOrderId!.Value).Distinct().ToListAsync();
 
-        // ── 7. SOs BUYING, no INBOUND yet ──
-        var step7 = await _uow.Repository<SalesOrder>().Query()
+        // ── 6. SOs BUYING, no INBOUND yet ──
+        var step6 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.Status == "BUYING" && s.CreatedBy != null && !soIdsWithInbound.Contains(s.SalesOrderId))
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 7, Title = "Đơn hàng đang mua", Icon = "bi-cart3", BadgeColor = "info",
-            EmployeeSummaries = BuildSummaries(step7.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 6, Title = "Đơn hàng đang mua", Icon = "bi-cart3", BadgeColor = "info",
+            EmployeeSummaries = BuildSummaries(step6.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
-        // ── 8. SOs received (INBOUND, no OUTBOUND) ──
-        var step8 = await _uow.Repository<SalesOrder>().Query()
+        // ── 7. SOs received (INBOUND, no OUTBOUND) ──
+        var step7 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.CreatedBy != null
                      && soIdsWithInbound.Contains(s.SalesOrderId)
                      && !soIdsWithOutbound.Contains(s.SalesOrderId)
@@ -603,12 +608,12 @@ public class WorkspaceController : Controller
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 8, Title = "Đơn hàng đã nhập kho", Icon = "bi-box-seam", BadgeColor = "primary",
-            EmployeeSummaries = BuildSummaries(step8.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 7, Title = "Đơn hàng đã nhập kho", Icon = "bi-box-seam", BadgeColor = "primary",
+            EmployeeSummaries = BuildSummaries(step7.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
-        // ── 9. SOs delivering (OUTBOUND, not DELIVERED) ──
-        var step9 = await _uow.Repository<SalesOrder>().Query()
+        // ── 8. SOs delivering (OUTBOUND, not DELIVERED) ──
+        var step8 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.CreatedBy != null
                      && soIdsWithOutbound.Contains(s.SalesOrderId)
                      && s.Status != "DELIVERED" && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
@@ -616,30 +621,30 @@ public class WorkspaceController : Controller
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 9, Title = "Đơn hàng đã giao", Icon = "bi-truck", BadgeColor = "info",
-            EmployeeSummaries = BuildSummaries(step9.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 8, Title = "Đơn hàng đã giao", Icon = "bi-truck", BadgeColor = "info",
+            EmployeeSummaries = BuildSummaries(step8.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
-        // ── 10. SOs DELIVERED (pending settlement) ──
-        var step10 = await _uow.Repository<SalesOrder>().Query()
+        // ── 9. SOs DELIVERED (pending settlement) ──
+        var step9 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.Status == "DELIVERED" && s.CreatedBy != null)
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 10, Title = "Đơn hàng chờ quyết toán", Icon = "bi-calculator", BadgeColor = "success",
-            EmployeeSummaries = BuildSummaries(step10.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 9, Title = "Đơn hàng chờ quyết toán", Icon = "bi-calculator", BadgeColor = "success",
+            EmployeeSummaries = BuildSummaries(step9.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
-        // ── 11. SOs COMPLETED (pending KQKD report) ──
-        var step11 = await _uow.Repository<SalesOrder>().Query()
+        // ── 10. SOs COMPLETED (pending KQKD report) ──
+        var step10 = await _uow.Repository<SalesOrder>().Query()
             .Where(s => s.Status == "COMPLETED" && s.CreatedBy != null)
             .Select(s => new { UserId = s.CreatedBy!.Value, s.SalesOrderId })
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 11, Title = "Chờ báo cáo KQKD", Icon = "bi-file-earmark-bar-graph", BadgeColor = "primary",
-            EmployeeSummaries = BuildSummaries(step11.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
+            StepNumber = 10, Title = "Chờ báo cáo KQKD", Icon = "bi-file-earmark-bar-graph", BadgeColor = "primary",
+            EmployeeSummaries = BuildSummaries(step10.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
     }
 
@@ -678,8 +683,8 @@ public class WorkspaceController : Controller
             string? entityType = card.StepNumber switch
             {
                 1 => "RFQ",
-                2 or 3 or 4 => "QUOTATION",
-                >= 5 and <= 11 => "SALES_ORDER",
+                2 or 3 => "QUOTATION",
+                >= 4 and <= 11 => "SALES_ORDER",
                 _ => null
             };
 

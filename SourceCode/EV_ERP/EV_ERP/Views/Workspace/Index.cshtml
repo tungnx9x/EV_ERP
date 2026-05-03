@@ -143,8 +143,8 @@
                 </div>
             </div>
 
-            <!-- Arrow connector (not on last item, not on 5th which ends a row) -->
-            @if (card.StepNumber < Model.Cards.Count && card.StepNumber % 5 != 0)
+            <!-- Arrow connector (not on last item, not on 4th which ends a row) -->
+            @if (card.StepNumber < Model.Cards.Count && card.StepNumber % 4 != 0)
             {
                 <div class="step-arrow d-none d-xl-flex">
                     <span class="arrow-line"></span>
@@ -198,7 +198,7 @@
                             @:slaClass: '@slaClass',
                             @:slaTimeRemaining: @(task.SlaTimeRemaining != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.SlaTimeRemaining)}'" : "null"),
                             @:slaBadge: '@slaBadge',
-                            @:extraInfo: @(task.ExtraInfo != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.ExtraInfo)}'" : "null"),
+                            @:extraInfos: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(task.ExtraInfos.Select(ei => new { title = ei.Title ?? "", value = ei.Value, cssClass = ei.CssClass }))),
                             @:createdAt: @(task.CreatedAt.HasValue ? $"'{task.CreatedAt.Value.ToString("o")}'" : "null")
                         @:},
                     }
@@ -235,7 +235,7 @@
 <style>
     .workspace-flow {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 0.75rem 2rem;
         align-items: stretch;
     }
@@ -371,10 +371,10 @@
         .step-arrow { display: none !important; }
     }
 
-    @@media (max-width: 767.98px) {
+    @@media (max-width: 991.98px) {
         .workspace-flow {
             grid-template-columns: repeat(2, 1fr);
-            gap: 0.5rem;
+            gap: 0.75rem 1rem;
         }
     }
 
@@ -425,9 +425,14 @@
             }
 
             var extraHtml = '';
-            if (t.extraInfo) {
-                extraHtml = '<span class="badge bg-light text-muted border" style="font-size:0.68rem;">' +
-                    escHtml(t.extraInfo) + '</span>';
+            if (t.extraInfos && t.extraInfos.length > 0) {
+                extraHtml = '<div class="mt-1 d-flex flex-wrap gap-1">';
+                t.extraInfos.forEach(function (ei) {
+                    var titleHtml = ei.title ? '<span class="fw-normal me-1">' + escHtml(ei.title) + ':</span>' : '';
+                    extraHtml += '<span class="badge ' + ei.cssClass + '" style="font-size:0.68rem;" title="' + escAttr(ei.title || '') + '">' +
+                        titleHtml + escHtml(ei.value) + '</span>';
+                });
+                extraHtml += '</div>';
             }
 
             var soHtml = t.soNo ? ' <span class="text-muted fw-normal">/ ' + escHtml(t.soNo) + '</span>' : '';
@@ -439,9 +444,10 @@
                         '<div class="text-muted text-truncate" style="font-size:0.75rem;">' + escHtml(t.customerName) + '</div>' +
                     '</a>' +
                     '<div class="d-flex align-items-center gap-1 flex-shrink-0 ms-2">' +
-                        noteHtml + slaHtml + extraHtml +
+                        noteHtml + slaHtml +
                     '</div>' +
                 '</div>' +
+                extraHtml +
             '</div>';
         });
         html += '</div>';

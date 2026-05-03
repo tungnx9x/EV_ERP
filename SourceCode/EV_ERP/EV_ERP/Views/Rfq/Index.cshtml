@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Yêu cầu báo giá";
     bool canCreate = ViewBag.CanCreate == true;
+    bool isManager = ViewBag.IsManager == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
     var p = Model.Paged;
 }
@@ -162,7 +163,7 @@
                                            class="btn btn-sm btn-outline-secondary" title="Xem">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        @if (r.CreatedBy == currentUserId && r.Status == "INPROGRESS")
+                                        @if ((r.CreatedBy == currentUserId || isManager) && r.Status == "INPROGRESS")
                                         {
                                             <a href="/Rfq/Edit/@r.RfqId"
                                                class="btn btn-sm btn-outline-primary" title="Sửa">

@@ -13,8 +13,11 @@ public class QuotationListViewModel
     public string? FilterStatus { get; set; }
     public int? FilterCustomerId { get; set; }
     public int? FilterSalesPersonId { get; set; }
+    public int? FilterCreatedBy { get; set; }
     public List<CustomerOptionViewModel> Customers { get; set; } = [];
     public List<SalesPersonOptionViewModel> SalesPersons { get; set; } = [];
+    /// <summary>MANAGER + SALES users — used by both creator and assignee filter dropdowns</summary>
+    public List<SalesPersonOptionViewModel> Users { get; set; } = [];
 }
 
 public class QuotationRowViewModel
@@ -31,6 +34,7 @@ public class QuotationRowViewModel
     public decimal TotalAmount { get; set; }
     public string Currency { get; set; } = "VND";
     public int ItemCount { get; set; }
+    public int? CreatedBy { get; set; }
 
     public string StatusBadge => Status switch
     {
@@ -117,6 +121,7 @@ public class QuotationFormViewModel
     // Helpers
     public bool IsEditMode => QuotationId.HasValue && QuotationId > 0;
     public string? CurrentStatus { get; set; }
+    public int? CreatedBy { get; set; }
 }
 
 public class QuotationItemFormModel
@@ -237,6 +242,7 @@ public class QuotationDetailViewModel
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string? CreatedByName { get; set; }
+    public int? CreatedBy { get; set; }
 
     // Items
     public List<QuotationItemDetailViewModel> Items { get; set; } = [];

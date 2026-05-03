@@ -27,12 +27,26 @@ public class QuotationController : Controller
 
     private bool CanEdit => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
 
+    /// <summary>ADMIN/MANAGER can edit any quotation regardless of ownership.</summary>
+    private bool IsManager => CurrentRoleCode is "ADMIN" or "MANAGER";
+
+    private bool CanManage(int? createdBy) =>
+        IsManager || (createdBy.HasValue && createdBy.Value == CurrentUserId);
+
     // ── Index ────────────────────────────────────────
     public async Task<IActionResult> Index(
-        string? keyword, string? status, int? customerId, int? salesPersonId, int page = 1)
+        string? keyword, string? status, int? customerId, int? salesPersonId, int? createdBy, int page = 1)
     {
-        var vm = await _quotationService.GetListAsync(keyword, status, customerId, salesPersonId, page);
+        // First visit (no querystring) defaults to "filter by me as creator".
+        // Once the user submits the form or paginates, the querystring is present
+        // and the actual createdBy value (including null = "Tất cả") is respected.
+        if (!Request.Query.Any())
+            createdBy = CurrentUserId;
+
+        var vm = await _quotationService.GetListAsync(keyword, status, customerId, salesPersonId, createdBy, page);
         ViewBag.CanEdit = CanEdit;
+        ViewBag.IsManager = IsManager;
+        ViewBag.CurrentUserId = CurrentUserId;
         return View(vm);
     }
 
@@ -74,6 +88,11 @@ public class QuotationController : Controller
             TempData["ErrorMessage"] = "Không tìm thấy báo giá";
             return RedirectToAction("Index");
         }
+        if (!CanManage(vm.CreatedBy))
+        {
+            TempData["ErrorMessage"] = "Bạn không có quyền sửa báo giá này";
+            return RedirectToAction("Detail", new { id });
+        }
         if (vm.CurrentStatus != "DRAFT")
         {
             TempData["ErrorMessage"] = "Chỉ có thể sửa báo giá ở trạng thái Nháp";
@@ -88,6 +107,13 @@ public class QuotationController : Controller
     {
         if (!CanEdit)
             return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
+
+        if (model.QuotationId.HasValue)
+        {
+            var existing = await _quotationService.GetFormAsync(model.QuotationId.Value);
+            if (!CanManage(existing.CreatedBy))
+                return Json(ApiResult<object>.Fail("Bạn không có quyền sửa báo giá này"));
+        }
 
         var (success, error) = await _quotationService.UpdateAsync(model, CurrentUserId);
         if (!success)
@@ -107,6 +133,8 @@ public class QuotationController : Controller
             return RedirectToAction("Index");
         }
         ViewBag.CanEdit = CanEdit;
+        ViewBag.IsManager = IsManager;
+        ViewBag.CurrentUserId = CurrentUserId;
         return View(vm);
     }
 

@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = "Báo giá";
     bool canEdit = ViewBag.CanEdit == true;
+    bool isManager = ViewBag.IsManager == true;
+    int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
     var p = Model.Paged;
 }
 
@@ -46,7 +48,7 @@
                     }
                 </select>
             </div>
-            <div class="col-6 col-sm-3 col-lg-3">
+            <div class="col-6 col-sm-3 col-lg-2">
                 <label class="form-label small fw-semibold mb-1">Khách hàng</label>
                 <div class="position-relative" id="customerFilterWrapper">
                     <input type="hidden" name="customerId" id="filterCustomerId" value="@Model.FilterCustomerId" />
@@ -59,11 +61,31 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-sm-2 col-lg-2 d-flex gap-1">
+            <div class="col-6 col-sm-3 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Người tạo</label>
+                <select name="createdBy" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    @foreach (var u in Model.Users)
+                    {
+                        <option value="@u.UserId" selected="@(Model.FilterCreatedBy == u.UserId)">@u.FullName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-lg-2">
+                <label class="form-label small fw-semibold mb-1">Phụ trách</label>
+                <select name="salesPersonId" class="form-select form-select-sm">
+                    <option value="">Tất cả</option>
+                    @foreach (var u in Model.Users)
+                    {
+                        <option value="@u.UserId" selected="@(Model.FilterSalesPersonId == u.UserId)">@u.FullName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-12 col-sm-2 col-lg-1 d-flex gap-1">
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
                     <i class="bi bi-funnel me-1"></i> Lọc
                 </button>
-                <a href="/Quotation" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                <a href="/Quotation" class="btn btn-outline-secondary btn-sm" title="Reset (mặc định: do tôi tạo)">
                     <i class="bi bi-x-lg"></i>
                 </a>
             </div>
@@ -92,9 +114,9 @@
                             <th>Khách hàng</th>
                             <th class="d-none d-md-table-cell">Ngày BG</th>
                             <th class="d-none d-lg-table-cell">SP</th>
-                            <th class="text-end">Tổng tiền</th>
                             <th class="d-none d-md-table-cell">Phụ trách</th>
                             <th>Trạng thái</th>
+                            <th class="text-end">Tổng tiền</th>
                             <th style="width:90px;">Thao tác</th>
                         </tr>
                     </thead>
@@ -123,11 +145,7 @@
                                         </div>
                                     }
                                 </td>
-                                <td class="d-none d-lg-table-cell text-muted small">@q.ItemCount</td>
-                                <td class="text-end fw-semibold">
-                                    @q.TotalAmount.ToString("N0")
-                                    <span class="text-muted small">@q.Currency</span>
-                                </td>
+                                <td class="d-none d-lg-table-cell text-muted small">@q.ItemCount</td>                              
                                 <td class="d-none d-md-table-cell text-muted small">@q.SalesPersonName</td>
                                 <td>
                                     <span class="badge bg-@(q.StatusBadge)-subtle text-@(q.StatusBadge)-emphasis rounded-pill">
@@ -135,13 +153,17 @@
                                         @q.StatusText
                                     </span>
                                 </td>
+                                <td class="text-end fw-semibold">
+                                    @q.TotalAmount.ToString("N0")
+                                    <span class="text-muted small">@q.Currency</span>
+                                </td>
                                 <td>
                                     <div class="d-flex gap-1">
                                         <a href="/Quotation/Detail/@q.QuotationId"
                                            class="btn btn-sm btn-outline-secondary" title="Xem">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        @if (canEdit && q.Status == "DRAFT")
+                                        @if (canEdit && q.Status == "DRAFT" && (q.CreatedBy == currentUserId || isManager))
                                         {
                                             <a href="/Quotation/Edit/@q.QuotationId"
                                                class="btn btn-sm btn-outline-primary" title="Sửa">
@@ -192,11 +214,14 @@
 @functions {
     string BuildPageUrl(int page)
     {
+        // Always emit createdBy (even when empty) so the controller's "no querystring → default to me"
+        // logic doesn't re-apply on pagination after the user clears the creator filter.
         var qs = new Dictionary<string, string?> {
             ["keyword"] = Model.SearchKeyword,
             ["status"] = Model.FilterStatus,
             ["customerId"] = Model.FilterCustomerId?.ToString(),
             ["salesPersonId"] = Model.FilterSalesPersonId?.ToString(),
+            ["createdBy"] = Model.FilterCreatedBy?.ToString() ?? "",
             ["page"] = page.ToString()
         };
         return "/Quotation?" + string.Join("&", qs.Where(kv => kv.Value != null).Select(kv => $"{kv.Key}={kv.Value}"));

@@ -27,7 +27,12 @@ public class RfqController : Controller
 
     private bool CanCreate => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
 
+    /// <summary>ADMIN/MANAGER can edit any RFQ regardless of ownership.</summary>
+    private bool IsManager => CurrentRoleCode is "ADMIN" or "MANAGER";
+
     private bool IsOwner(int createdBy) => createdBy == CurrentUserId;
+
+    private bool CanManage(int createdBy) => IsOwner(createdBy) || IsManager;
 
     // ── Index ────────────────────────────────────────
     public async Task<IActionResult> Index(
@@ -42,6 +47,7 @@ public class RfqController : Controller
 
         var vm = await _rfqService.GetListAsync(keyword, priority, assignedTo, createdBy, customerId, page);
         ViewBag.CanCreate = CanCreate;
+        ViewBag.IsManager = IsManager;
         ViewBag.CurrentUserId = CurrentUserId;
         return View(vm);
     }
@@ -80,9 +86,9 @@ public class RfqController : Controller
             TempData["ErrorMessage"] = "Không tìm thấy yêu cầu báo giá";
             return RedirectToAction("Index");
         }
-        if (!IsOwner(vm.CreatedBy ?? 0))
+        if (!CanManage(vm.CreatedBy ?? 0))
         {
-            TempData["ErrorMessage"] = "Bạn chỉ có thể sửa RFQ do mình tạo";
+            TempData["ErrorMessage"] = "Bạn không có quyền sửa RFQ này";
             return RedirectToAction("Detail", new { id });
         }
         if (vm.CurrentStatus != "INPROGRESS")
@@ -100,8 +106,8 @@ public class RfqController : Controller
         if (model.RfqId.HasValue)
         {
             var existing = await _rfqService.GetFormAsync(model.RfqId.Value);
-            if (!IsOwner(existing.CreatedBy ?? 0))
-                return Json(ApiResult<object>.Fail("Bạn chỉ có thể sửa RFQ do mình tạo"));
+            if (!CanManage(existing.CreatedBy ?? 0))
+                return Json(ApiResult<object>.Fail("Bạn không có quyền sửa RFQ này"));
         }
 
         var (success, error) = await _rfqService.UpdateAsync(model, CurrentUserId);
@@ -122,6 +128,7 @@ public class RfqController : Controller
             return RedirectToAction("Index");
         }
         ViewBag.CanCreate = CanCreate;
+        ViewBag.IsManager = IsManager;
         ViewBag.CurrentUserId = CurrentUserId;
 
         // SalesPersons for import quotation modal
@@ -152,8 +159,8 @@ public class RfqController : Controller
         var existing = await _rfqService.GetDetailAsync(id);
         if (existing == null)
             return Json(ApiResult<object>.Fail("Không tìm thấy RFQ"));
-        if (!IsOwner(existing.CreatedBy))
-            return Json(ApiResult<object>.Fail("Bạn chỉ có thể hủy RFQ do mình tạo"));
+        if (!CanManage(existing.CreatedBy))
+            return Json(ApiResult<object>.Fail("Bạn không có quyền hủy RFQ này"));
 
         var (success, error) = await _rfqService.CancelAsync(id, CurrentUserId, model?.Reason);
         return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy RFQ" : error });

@@ -35,7 +35,7 @@ public class QuotationService : IQuotationService
     // LIST (paginated)
     // ══════════════════════════════════════════════════
     public async Task<QuotationListViewModel> GetListAsync(
-        string? keyword, string? status, int? customerId, int? salesPersonId,
+        string? keyword, string? status, int? customerId, int? salesPersonId, int? createdBy,
         int pageIndex = 1, int pageSize = 20)
     {
         var query = _uow.Repository<Quotation>().Query()
@@ -53,6 +53,9 @@ public class QuotationService : IQuotationService
 
         if (salesPersonId.HasValue && salesPersonId > 0)
             query = query.Where(q => q.SalesPersonId == salesPersonId);
+
+        if (createdBy.HasValue && createdBy > 0)
+            query = query.Where(q => q.CreatedBy == createdBy);
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
@@ -83,7 +86,8 @@ public class QuotationService : IQuotationService
                 Status = q.Status,
                 TotalAmount = q.TotalAmount,
                 Currency = q.Currency,
-                ItemCount = q.Items.Count
+                ItemCount = q.Items.Count,
+                CreatedBy = q.CreatedBy
             })
             .ToListAsync();
 
@@ -100,8 +104,10 @@ public class QuotationService : IQuotationService
             FilterStatus = status,
             FilterCustomerId = customerId,
             FilterSalesPersonId = salesPersonId,
+            FilterCreatedBy = createdBy,
             Customers = await GetCustomerOptionsAsync(),
-            SalesPersons = await GetSalesPersonOptionsAsync()
+            SalesPersons = await GetSalesPersonOptionsAsync(),
+            Users = await GetFilterUserOptionsAsync()
         };
     }
 
@@ -165,6 +171,7 @@ public class QuotationService : IQuotationService
             InternalNotes = q.InternalNotes,
             TemplateId = q.TemplateId,
             CurrentStatus = q.Status,
+            CreatedBy = q.CreatedBy,
             Items = q.Items.Select(i => new QuotationItemFormModel
             {
                 QuotationItemId = i.QuotationItemId,
@@ -460,6 +467,7 @@ public class QuotationService : IQuotationService
             CreatedAt = q.CreatedAt,
             UpdatedAt = q.UpdatedAt,
             CreatedByName = createdByName,
+            CreatedBy = q.CreatedBy,
             SalesOrderId = q.SalesOrder?.SalesOrderId,
             SalesOrderNo = q.SalesOrder?.SalesOrderNo,
             Items = q.Items.Select(i => new QuotationItemDetailViewModel
@@ -954,6 +962,26 @@ public class QuotationService : IQuotationService
             .Where(u => u.IsActive && !u.IsLocked &&
                         (u.Role.RoleCode == "SALES" || u.Role.RoleCode == "MANAGER" || u.Role.RoleCode == "ADMIN"))
             .Include(u => u.Role)
+            .OrderBy(u => u.FullName)
+            .Select(u => new SalesPersonOptionViewModel
+            {
+                UserId = u.UserId,
+                UserCode = u.UserCode,
+                FullName = u.FullName
+            })
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// MANAGER + SALES users for the list page's creator/assignee filter dropdowns.
+    /// Excludes ADMIN deliberately — admins don't normally create or own quotations.
+    /// </summary>
+    private async Task<List<SalesPersonOptionViewModel>> GetFilterUserOptionsAsync()
+    {
+        return await _uow.Repository<User>().Query()
+            .Include(u => u.Role)
+            .Where(u => u.IsActive && !u.IsLocked &&
+                        (u.Role.RoleCode == "MANAGER" || u.Role.RoleCode == "SALES"))
             .OrderBy(u => u.FullName)
             .Select(u => new SalesPersonOptionViewModel
             {

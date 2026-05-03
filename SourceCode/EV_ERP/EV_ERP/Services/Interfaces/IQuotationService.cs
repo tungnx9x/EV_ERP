@@ -6,7 +6,7 @@ public interface IQuotationService
 {
     // ── List (paginated) ─────────────────────────────
     Task<QuotationListViewModel> GetListAsync(
-        string? keyword, string? status, int? customerId, int? salesPersonId,
+        string? keyword, string? status, int? customerId, int? salesPersonId, int? createdBy,
         int pageIndex = 1, int pageSize = 20);
 
     // ── Form ─────────────────────────────────────────

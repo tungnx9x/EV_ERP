@@ -2,6 +2,9 @@
 @{
     ViewData["Title"] = Model.QuotationNo;
     bool canEdit = ViewBag.CanEdit == true;
+    bool isManager = ViewBag.IsManager == true;
+    int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
+    bool canEditThis = canEdit && (isManager || Model.CreatedBy == currentUserId);
 }
 
 <!-- Header -->
@@ -42,9 +45,12 @@
         {
             @if (Model.Status == "DRAFT")
             {
-                <a href="/Quotation/Edit/@Model.QuotationId" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-pencil me-1"></i> Sửa
-                </a>
+                @if (canEditThis)
+                {
+                    <a href="/Quotation/Edit/@Model.QuotationId" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil me-1"></i> Sửa
+                    </a>
+                }
                 <button class="btn btn-sm btn-primary" onclick="doAction('Send', @Model.QuotationId)">
                     <i class="bi bi-send me-1"></i> Gửi báo giá
                 </button>

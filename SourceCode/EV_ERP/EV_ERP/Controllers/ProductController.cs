@@ -23,7 +23,9 @@ namespace EV_ERP.Controllers
         private string CurrentRoleCode =>
             HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.RoleCode;
 
-        private bool CanEdit => CurrentRoleCode is "ADMIN" or "MANAGER";
+        // Any authenticated user can create/edit products (incl. gallery, barcode).
+        // Deactivation (ToggleActive) stays restricted to ADMIN/MANAGER.
+        private bool CanEdit => true;
         private bool CanDelete => CurrentRoleCode is "ADMIN" or "MANAGER";
 
         // ── Index ────────────────────────────────────────

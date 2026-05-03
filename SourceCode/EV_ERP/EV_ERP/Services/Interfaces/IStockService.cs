@@ -6,7 +6,8 @@ namespace EV_ERP.Services.Interfaces
     {
         // ── List ─────────────────────────────────────────
         Task<StockTransactionListViewModel> GetListAsync(
-            string? keyword, string? type, string? status, int? warehouseId);
+            string? keyword, string? type, string? status, int? warehouseId,
+            int pageIndex = 1, int pageSize = 20);
 
         // ── Detail ───────────────────────────────────────
         Task<StockTransactionDetailViewModel?> GetDetailAsync(long transactionId);

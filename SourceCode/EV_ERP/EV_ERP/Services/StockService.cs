@@ -27,7 +27,8 @@ namespace EV_ERP.Services
 
         // ── List ─────────────────────────────────────────
         public async Task<StockTransactionListViewModel> GetListAsync(
-            string? keyword, string? type, string? status, int? warehouseId)
+            string? keyword, string? type, string? status, int? warehouseId,
+            int pageIndex = 1, int pageSize = 20)
         {
             var query = _uow.Repository<StockTransaction>().Query()
                 .Include(t => t.Warehouse)
@@ -54,9 +55,13 @@ namespace EV_ERP.Services
                     (t.Notes != null && t.Notes.ToLower().Contains(kw)));
             }
 
+            var totalCount = await query.CountAsync();
+
             var transactions = await query
                 .OrderByDescending(t => t.TransactionDate)
                 .ThenByDescending(t => t.CreatedAt)
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             var warehouses = await _uow.Repository<Warehouse>().Query()
@@ -69,28 +74,35 @@ namespace EV_ERP.Services
                     WarehouseName = w.WarehouseName
                 }).ToListAsync();
 
+            var rows = transactions.Select(t => new StockTransactionRowViewModel
+            {
+                TransactionId = t.TransactionId,
+                TransactionNo = t.TransactionNo,
+                TransactionType = t.TransactionType,
+                WarehouseName = t.Warehouse.WarehouseName,
+                SalesOrderNo = t.SalesOrder?.SalesOrderNo,
+                SalesOrderId = t.SalesOrderId,
+                TransactionDate = t.TransactionDate,
+                Status = t.Status,
+                ItemCount = t.Items.Count,
+                TotalQuantity = t.Items.Sum(i => i.Quantity),
+                CreatedByName = t.CreatedByUser.FullName,
+                CreatedAt = t.CreatedAt
+            }).ToList();
+
             return new StockTransactionListViewModel
             {
-                Transactions = transactions.Select(t => new StockTransactionRowViewModel
+                Paged = new Models.Common.PagedResult<StockTransactionRowViewModel>
                 {
-                    TransactionId = t.TransactionId,
-                    TransactionNo = t.TransactionNo,
-                    TransactionType = t.TransactionType,
-                    WarehouseName = t.Warehouse.WarehouseName,
-                    SalesOrderNo = t.SalesOrder?.SalesOrderNo,
-                    SalesOrderId = t.SalesOrderId,
-                    TransactionDate = t.TransactionDate,
-                    Status = t.Status,
-                    ItemCount = t.Items.Count,
-                    TotalQuantity = t.Items.Sum(i => i.Quantity),
-                    CreatedByName = t.CreatedByUser.FullName,
-                    CreatedAt = t.CreatedAt
-                }).ToList(),
+                    Items = rows,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                },
                 SearchKeyword = keyword,
                 FilterType = type,
                 FilterStatus = status,
                 FilterWarehouseId = warehouseId,
-                TotalCount = transactions.Count,
                 Warehouses = warehouses
             };
         }

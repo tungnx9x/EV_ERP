@@ -3,11 +3,12 @@
     ViewData["Title"] = "Quản lý kho";
     bool canEdit = ViewBag.CanEdit == true;
     bool canDelete = ViewBag.CanDelete == true;
+    var paged = Model.Paged;
 }
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
-        <p class="text-muted small mb-0">Tổng cộng @Model.TotalCount kho</p>
+        <p class="text-muted small mb-0">Tổng cộng @paged.TotalCount kho</p>
     </div>
     @if (canEdit)
     {
@@ -52,7 +53,7 @@
 <!-- Table -->
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        @if (!Model.Warehouses.Any())
+        @if (!paged.Items.Any())
         {
             <div class="text-center py-5 text-muted">
                 <i class="bi bi-archive" style="font-size: 3rem; opacity: 0.3;"></i>
@@ -76,8 +77,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @{ int idx = 1; }
-                        @foreach (var w in Model.Warehouses)
+                        @{ int idx = (paged.PageIndex - 1) * paged.PageSize + 1; }
+                        @foreach (var w in paged.Items)
                         {
                             <tr>
                                 <td class="text-muted small">@(idx++)</td>
@@ -149,9 +150,51 @@
                     </tbody>
                 </table>
             </div>
+
+            @if (paged.TotalPages > 1)
+            {
+                <nav class="d-flex justify-content-center py-3">
+                    <ul class="pagination pagination-sm mb-0">
+                        @if (paged.HasPrevious)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(paged.PageIndex - 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        }
+                        @for (int pg = 1; pg <= paged.TotalPages; pg++)
+                        {
+                            <li class="page-item @(pg == paged.PageIndex ? "active" : "")">
+                                <a class="page-link" href="@BuildPageUrl(pg)">@pg</a>
+                            </li>
+                        }
+                        @if (paged.HasNext)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(paged.PageIndex + 1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
         }
     </div>
 </div>
+
+@functions {
+    string BuildPageUrl(int page)
+    {
+        var qs = new Dictionary<string, string?> {
+            ["keyword"] = Model.SearchKeyword,
+            ["status"] = Model.FilterStatus,
+            ["page"] = page.ToString()
+        };
+        return "/Warehouse?" + string.Join("&", qs.Where(kv => !string.IsNullOrEmpty(kv.Value)).Select(kv => $"{kv.Key}={kv.Value}"));
+    }
+}
 
 <style>
     .link-hover:hover { color: #2563eb !important; }

@@ -4,7 +4,7 @@ namespace EV_ERP.Services.Interfaces
 {
     public interface IWarehouseService
     {
-        Task<WarehouseListViewModel> GetListAsync(string? keyword, string? status);
+        Task<WarehouseListViewModel> GetListAsync(string? keyword, string? status, int pageIndex = 1, int pageSize = 20);
         Task<WarehouseFormViewModel> GetFormAsync(int? warehouseId = null);
         Task<(bool Success, string? ErrorMessage)> CreateAsync(WarehouseFormViewModel model, int createdBy);
         Task<(bool Success, string? ErrorMessage)> UpdateAsync(WarehouseFormViewModel model, int updatedBy);

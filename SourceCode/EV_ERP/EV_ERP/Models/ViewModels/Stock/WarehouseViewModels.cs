@@ -1,14 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using EV_ERP.Models.Common;
 
 namespace EV_ERP.Models.ViewModels.Stock
 {
     // ── List ─────────────────────────────────────────────
     public class WarehouseListViewModel
     {
-        public List<WarehouseRowViewModel> Warehouses { get; set; } = [];
+        public PagedResult<WarehouseRowViewModel> Paged { get; set; } = new();
         public string? SearchKeyword { get; set; }
         public string? FilterStatus { get; set; }
-        public int TotalCount { get; set; }
     }
 
     public class WarehouseRowViewModel

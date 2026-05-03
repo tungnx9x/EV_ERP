@@ -34,9 +34,9 @@ namespace EV_ERP.Controllers
         private bool CanConfirm => CurrentRoleCode is "ADMIN" or "MANAGER" or "WAREHOUSE";
 
         // ── Index ────────────────────────────────────────
-        public async Task<IActionResult> Index(string? keyword, string? type, string? status, int? warehouseId)
+        public async Task<IActionResult> Index(string? keyword, string? type, string? status, int? warehouseId, int page = 1)
         {
-            var vm = await _stockService.GetListAsync(keyword, type, status, warehouseId);
+            var vm = await _stockService.GetListAsync(keyword, type, status, warehouseId, page);
             ViewBag.CanEdit = CanEdit;
             return View(vm);
         }

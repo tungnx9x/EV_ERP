@@ -19,7 +19,8 @@ namespace EV_ERP.Services
         }
 
         // ── List ─────────────────────────────────────────
-        public async Task<WarehouseListViewModel> GetListAsync(string? keyword, string? status)
+        public async Task<WarehouseListViewModel> GetListAsync(string? keyword, string? status,
+            int pageIndex = 1, int pageSize = 20)
         {
             var query = _uow.Repository<Warehouse>().Query()
                 .Include(w => w.Manager)
@@ -35,25 +36,38 @@ namespace EV_ERP.Services
                     (w.Address != null && w.Address.ToLower().Contains(kw)));
             }
 
-            var warehouses = await query.OrderBy(w => w.WarehouseCode).ToListAsync();
+            var totalCount = await query.CountAsync();
+
+            var warehouses = await query
+                .OrderBy(w => w.WarehouseCode)
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var rows = warehouses.Select(w => new WarehouseRowViewModel
+            {
+                WarehouseId = w.WarehouseId,
+                WarehouseCode = w.WarehouseCode,
+                WarehouseName = w.WarehouseName,
+                Address = w.Address,
+                ManagerName = w.Manager?.FullName,
+                IsVirtual = w.IsVirtual,
+                IsActive = w.IsActive,
+                LocationCount = w.Locations.Count(l => l.IsActive),
+                CreatedAt = w.CreatedAt
+            }).ToList();
 
             return new WarehouseListViewModel
             {
-                Warehouses = warehouses.Select(w => new WarehouseRowViewModel
+                Paged = new Models.Common.PagedResult<WarehouseRowViewModel>
                 {
-                    WarehouseId = w.WarehouseId,
-                    WarehouseCode = w.WarehouseCode,
-                    WarehouseName = w.WarehouseName,
-                    Address = w.Address,
-                    ManagerName = w.Manager?.FullName,
-                    IsVirtual = w.IsVirtual,
-                    IsActive = w.IsActive,
-                    LocationCount = w.Locations.Count(l => l.IsActive),
-                    CreatedAt = w.CreatedAt
-                }).ToList(),
+                    Items = rows,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                },
                 SearchKeyword = keyword,
-                FilterStatus = status,
-                TotalCount = warehouses.Count
+                FilterStatus = status
             };
         }
 

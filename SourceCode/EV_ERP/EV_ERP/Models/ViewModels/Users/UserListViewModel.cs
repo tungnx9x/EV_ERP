@@ -1,13 +1,14 @@
+using EV_ERP.Models.Common;
+
 namespace EV_ERP.Models.ViewModels.Users
 {
     public class UserListViewModel
     {
-        public List<UserRowViewModel> Users { get; set; } = [];
+        public PagedResult<UserRowViewModel> Paged { get; set; } = new();
         public string? SearchKeyword { get; set; }
         public int? FilterRoleId { get; set; }
         public string? FilterStatus { get; set; }
         public List<RoleOptionViewModel> Roles { get; set; } = [];
-        public int TotalCount { get; set; }
     }
 
     public class UserRowViewModel

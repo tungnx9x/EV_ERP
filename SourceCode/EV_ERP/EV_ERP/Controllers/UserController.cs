@@ -21,9 +21,9 @@ namespace EV_ERP.Controllers
         }
 
         // ── List ─────────────────────────────────────────
-        public async Task<IActionResult> Index(string? keyword, int? roleId, string? status)
+        public async Task<IActionResult> Index(string? keyword, int? roleId, string? status, int page = 1)
         {
-            var vm = await _userService.GetListAsync(keyword, roleId, status);
+            var vm = await _userService.GetListAsync(keyword, roleId, status, page);
             return View(vm);
         }
 

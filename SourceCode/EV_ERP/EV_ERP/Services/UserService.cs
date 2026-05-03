@@ -17,7 +17,8 @@ namespace EV_ERP.Services
             _logger = logger;
         }
 
-        public async Task<UserListViewModel> GetListAsync(string? keyword, int? roleId, string? status)
+        public async Task<UserListViewModel> GetListAsync(string? keyword, int? roleId, string? status,
+            int pageIndex = 1, int pageSize = 20)
         {
             var query = _uow.Repository<User>().Query()
                 .Include(u => u.Role)
@@ -40,7 +41,13 @@ namespace EV_ERP.Services
             else if (status == "inactive")
                 query = query.Where(u => !u.IsActive);
 
-            var users = await query.OrderBy(u => u.UserCode).ToListAsync();
+            var totalCount = await query.CountAsync();
+
+            var users = await query
+                .OrderBy(u => u.UserCode)
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
             var roles = await _uow.Repository<Role>().Query()
                 .Where(r => r.IsActive)
@@ -53,29 +60,36 @@ namespace EV_ERP.Services
                 })
                 .ToListAsync();
 
+            var rows = users.Select(u => new UserRowViewModel
+            {
+                UserId = u.UserId,
+                UserCode = u.UserCode,
+                UserName = u.UserName,
+                FullName = u.FullName,
+                Email = u.Email,
+                Phone = u.Phone,
+                RoleName = u.Role.RoleName,
+                RoleCode = u.Role.RoleCode,
+                IsActive = u.IsActive,
+                IsLocked = u.IsLocked,
+                LastLoginAt = u.LastLoginAt,
+                AvatarUrl = u.AvatarUrl,
+                CreatedAt = u.CreatedAt
+            }).ToList();
+
             return new UserListViewModel
             {
-                Users = users.Select(u => new UserRowViewModel
+                Paged = new Models.Common.PagedResult<UserRowViewModel>
                 {
-                    UserId = u.UserId,
-                    UserCode = u.UserCode,
-                    UserName = u.UserName,
-                    FullName = u.FullName,
-                    Email = u.Email,
-                    Phone = u.Phone,
-                    RoleName = u.Role.RoleName,
-                    RoleCode = u.Role.RoleCode,
-                    IsActive = u.IsActive,
-                    IsLocked = u.IsLocked,
-                    LastLoginAt = u.LastLoginAt,
-                    AvatarUrl = u.AvatarUrl,
-                    CreatedAt = u.CreatedAt
-                }).ToList(),
+                    Items = rows,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                },
                 SearchKeyword = keyword,
                 FilterRoleId = roleId,
                 FilterStatus = status,
-                Roles = roles,
-                TotalCount = users.Count
+                Roles = roles
             };
         }
 

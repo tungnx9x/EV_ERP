@@ -1,5 +1,11 @@
 @model EV_ERP.Models.ViewModels.Quotations.QuotationFormViewModel
 @{
     ViewData["Title"] = "Tạo báo giá mới";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Báo giá", "/Quotation"),
+        new("Tạo mới")
+    };
 }
 <partial name="_QuotationForm" model="Model" />

@@ -134,6 +134,28 @@
             min-height: calc(100vh - var(--topbar-height));
         }
 
+        /* ── Breadcrumb bar ── */
+        .breadcrumb-bar {
+            margin-left: var(--sidebar-width);
+            margin-top: var(--topbar-height);
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.5rem 1.5rem;
+        }
+        .breadcrumb-bar + #main-content {
+            margin-top: 0;
+        }
+        .breadcrumb-bar .breadcrumb {
+            margin-bottom: 0;
+            font-size: 0.82rem;
+        }
+        .breadcrumb-bar .breadcrumb-item a {
+            color: #64748b;
+            text-decoration: none;
+        }
+        .breadcrumb-bar .breadcrumb-item a:hover { color: var(--sidebar-active); }
+        .breadcrumb-bar .breadcrumb-item.active { color: #1e293b; font-weight: 500; }
+
         /* ── Alerts ── */
         .alert-fixed {
             position: fixed; top: calc(var(--topbar-height) + 0.75rem);
@@ -173,7 +195,8 @@
                 left: 0;
             }
 
-            #main-content {
+            #main-content,
+            .breadcrumb-bar {
                 margin-left: 0;
             }
 
@@ -363,6 +386,31 @@
         <i class="bi bi-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+}
+
+<!-- ── Breadcrumbs ─────────────────────────── -->
+@{
+    var breadcrumbs = ViewData["Breadcrumbs"] as List<BreadcrumbItem>;
+}
+@if (breadcrumbs != null && breadcrumbs.Count > 0)
+{
+    <nav class="breadcrumb-bar" aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            @for (var i = 0; i < breadcrumbs.Count; i++)
+            {
+                var crumb = breadcrumbs[i];
+                var isLast = i == breadcrumbs.Count - 1;
+                if (isLast || crumb.IsActive)
+                {
+                    <li class="breadcrumb-item active" aria-current="page">@crumb.Text</li>
+                }
+                else
+                {
+                    <li class="breadcrumb-item"><a href="@crumb.Url">@crumb.Text</a></li>
+                }
+            }
+        </ol>
+    </nav>
 }
 
 <!-- ── Main content ───────────────────────── -->

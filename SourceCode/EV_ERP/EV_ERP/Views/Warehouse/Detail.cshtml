@@ -1,6 +1,13 @@
 @model EV_ERP.Models.ViewModels.Stock.WarehouseDetailViewModel
 @{
     ViewData["Title"] = Model.WarehouseName;
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new("Kho hàng", "/Warehouse"),
+        new(Model.WarehouseName)
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool canDelete = ViewBag.CanDelete == true;
 }

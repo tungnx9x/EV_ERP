@@ -1,6 +1,12 @@
 @model EV_ERP.Models.ViewModels.Stock.WarehouseListViewModel
 @{
     ViewData["Title"] = "Quản lý kho";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new("Kho hàng")
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool canDelete = ViewBag.CanDelete == true;
     var paged = Model.Paged;

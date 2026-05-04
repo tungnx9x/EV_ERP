@@ -1,6 +1,11 @@
 @model EV_ERP.Models.ViewModels.SalesOrders.SalesOrderListViewModel
 @{
-    ViewData["Title"] = "Đơn hàng";
+    ViewData["Title"] = "Đơn hàng";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Đơn hàng")
+    };
     bool canEdit = ViewBag.CanEdit == true;
     var p = Model.Paged;
 }

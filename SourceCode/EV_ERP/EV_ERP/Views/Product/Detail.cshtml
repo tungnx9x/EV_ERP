@@ -1,6 +1,12 @@
 @model EV_ERP.Models.ViewModels.Products.ProductDetailViewModel
 @{
     ViewData["Title"] = Model.ProductName;
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Sản phẩm", "/Product"),
+        new(Model.ProductName)
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool canDelete = ViewBag.CanDelete == true;
 }

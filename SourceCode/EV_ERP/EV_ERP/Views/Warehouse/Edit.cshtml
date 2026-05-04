@@ -1,6 +1,14 @@
 @model EV_ERP.Models.ViewModels.Stock.WarehouseFormViewModel
 @{
     ViewData["Title"] = "Chỉnh sửa kho";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new("Kho hàng", "/Warehouse"),
+        new(string.IsNullOrEmpty(Model.WarehouseName) ? "Chỉnh sửa" : Model.WarehouseName, $"/Warehouse/Detail/{Model.WarehouseId}"),
+        new("Chỉnh sửa")
+    };
 }
 
 <div class="row justify-content-center">

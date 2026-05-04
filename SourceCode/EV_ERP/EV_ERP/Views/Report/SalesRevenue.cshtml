@@ -2,6 +2,12 @@
 @using System.Text.Json
 @{
     ViewData["Title"] = "Báo cáo doanh thu";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Báo cáo"),
+        new("Doanh thu")
+    };
     var chartLabels = JsonSerializer.Serialize(Model.ChartLabels);
     var chartData = JsonSerializer.Serialize(Model.ChartData);
 }

@@ -1,6 +1,12 @@
 @model EV_ERP.Models.ViewModels.Stock.StockTransactionListViewModel
 @{
     ViewData["Title"] = "Phiếu kho";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new("Phiếu kho")
+    };
     bool canEdit = ViewBag.CanEdit == true;
     var paged = Model.Paged;
 }

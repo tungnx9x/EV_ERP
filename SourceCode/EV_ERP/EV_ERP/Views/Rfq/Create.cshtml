@@ -1,5 +1,11 @@
 @model EV_ERP.Models.ViewModels.RFQs.RfqFormViewModel
 @{
     ViewData["Title"] = "Tạo yêu cầu báo giá";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Yêu cầu báo giá", "/Rfq"),
+        new("Tạo mới")
+    };
 }
 <partial name="_RfqForm" model="Model" />

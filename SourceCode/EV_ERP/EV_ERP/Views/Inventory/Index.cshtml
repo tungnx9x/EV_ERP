@@ -1,6 +1,11 @@
 @model EV_ERP.Models.ViewModels.Stock.InventoryListViewModel
 @{
     ViewData["Title"] = "Tồn kho";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho")
+    };
 }
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">

@@ -1,6 +1,13 @@
 @model EV_ERP.Models.ViewModels.Products.ProductFormViewModel
 @{
     ViewData["Title"] = "Chỉnh sửa sản phẩm";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Sản phẩm", "/Product"),
+        new(string.IsNullOrEmpty(Model.ProductName) ? "Chỉnh sửa" : Model.ProductName, $"/Product/Detail/{Model.ProductId}"),
+        new("Chỉnh sửa")
+    };
 }
 
 <div class="row justify-content-center">

@@ -1,6 +1,12 @@
 @model EV_ERP.Models.ViewModels.Users.UserFormViewModel
 @{
     ViewData["Title"] = "Tạo tài khoản mới";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Quản lý tài khoản", "/User"),
+        new("Tạo mới")
+    };
 }
 
 <div class="row justify-content-center">

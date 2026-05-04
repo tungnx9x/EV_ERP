@@ -1,6 +1,11 @@
 @model EV_ERP.Models.ViewModels.Customers.CustomerListViewModel
 @{
     ViewData["Title"] = "Quản lý khách hàng";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Khách hàng")
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool canDelete = ViewBag.CanDelete == true;
 }

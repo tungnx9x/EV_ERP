@@ -1,6 +1,12 @@
 @model EV_ERP.Models.ViewModels.Stock.ProductInventoryDetailViewModel
 @{
     ViewData["Title"] = "Tồn kho: " + Model.ProductName;
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new(Model.ProductName)
+    };
 }
 
 <!-- Header -->

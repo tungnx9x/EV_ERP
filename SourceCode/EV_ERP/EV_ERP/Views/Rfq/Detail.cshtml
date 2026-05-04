@@ -2,6 +2,12 @@
 @using EV_ERP.Models.ViewModels.Quotations
 @{
     ViewData["Title"] = Model.RfqNo;
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Yêu cầu báo giá", "/Rfq"),
+        new(Model.RfqNo)
+    };
     bool canCreate = ViewBag.CanCreate == true;
     bool isManager = ViewBag.IsManager == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);

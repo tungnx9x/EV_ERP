@@ -1,6 +1,11 @@
 @model EV_ERP.Models.ViewModels.Quotations.QuotationListViewModel
 @{
     ViewData["Title"] = "Báo giá";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Báo giá")
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool isManager = ViewBag.IsManager == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);

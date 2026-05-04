@@ -1,6 +1,11 @@
 @model EV_ERP.Models.ViewModels.Users.UserListViewModel
 @{
     ViewData["Title"] = "Quản lý tài khoản";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Quản lý tài khoản")
+    };
     var paged = Model.Paged;
 }
 

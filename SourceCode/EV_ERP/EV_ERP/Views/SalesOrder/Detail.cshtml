@@ -1,6 +1,12 @@
 @model EV_ERP.Models.ViewModels.SalesOrders.SalesOrderDetailViewModel
 @{
     ViewData["Title"] = Model.SalesOrderNo;
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Đơn hàng", "/SalesOrder"),
+        new(Model.SalesOrderNo)
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool isManager = ViewBag.IsManager == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);

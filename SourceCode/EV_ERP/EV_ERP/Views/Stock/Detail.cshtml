@@ -1,6 +1,13 @@
 @model EV_ERP.Models.ViewModels.Stock.StockTransactionDetailViewModel
 @{
     ViewData["Title"] = Model.TransactionNo;
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new("Phiếu kho", "/Stock"),
+        new(Model.TransactionNo)
+    };
     bool canEdit = ViewBag.CanEdit == true;
     bool canConfirm = ViewBag.CanConfirm == true;
 }

@@ -3,6 +3,13 @@
     var isEdit = Model.IsEditMode;
     var typeLabel = Model.TransactionType == "OUTBOUND" ? "Xuất kho" : "Nhập kho";
     ViewData["Title"] = isEdit ? $"Sửa phiếu {typeLabel}" : $"Tạo phiếu {typeLabel}";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tồn kho", "/Inventory"),
+        new("Phiếu kho", "/Stock"),
+        new(isEdit ? $"Sửa phiếu {typeLabel}" : $"Tạo phiếu {typeLabel}")
+    };
 }
 
 <div class="card border-0 shadow-sm">

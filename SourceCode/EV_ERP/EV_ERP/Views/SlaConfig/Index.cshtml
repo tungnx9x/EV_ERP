@@ -1,6 +1,11 @@
 @model List<EV_ERP.Models.Entities.System.SlaConfig>
 @{
     ViewData["Title"] = "Cấu hình SLA";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Cấu hình SLA")
+    };
 
     var entityLabels = new Dictionary<string, string>
     {

@@ -1,6 +1,13 @@
 @model EV_ERP.Models.ViewModels.Customers.CustomerFormViewModel
 @{
     ViewData["Title"] = "Chỉnh sửa khách hàng";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Khách hàng", "/Customer"),
+        new(string.IsNullOrEmpty(Model.CustomerName) ? "Chỉnh sửa" : Model.CustomerName, $"/Customer/Detail/{Model.CustomerId}"),
+        new("Chỉnh sửa")
+    };
 }
 
 <div class="row justify-content-center">

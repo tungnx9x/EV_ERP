@@ -716,6 +716,179 @@ public class SalesOrderService : ISalesOrderService
         return (ms.ToArray(), fileName);
     }
 
+    // ══════════════════════════════════════════════════
+    // EXPORT ĐNHU (HOÀN ỨNG) EXCEL
+    //   — chạy khi SO ở trạng thái DELIVERED (chờ quyết toán),
+    //     đề nghị hoàn lại phần tạm ứng còn dư so với chi phí thực.
+    // ══════════════════════════════════════════════════
+    public async Task<(byte[] FileBytes, string FileName)?> ExportDnhuAsync(int salesOrderId, int userId)
+    {
+        return await BuildSettlementExportAsync(salesOrderId, userId, isDnhu: true);
+    }
+
+    // ══════════════════════════════════════════════════
+    // EXPORT ĐNTT (THANH TOÁN) EXCEL
+    //   — chạy khi SO ở trạng thái DELIVERED (chờ quyết toán),
+    //     đề nghị thanh toán phần còn lại nếu chi phí vượt tạm ứng (hoặc không có tạm ứng).
+    // ══════════════════════════════════════════════════
+    public async Task<(byte[] FileBytes, string FileName)?> ExportDnttAsync(int salesOrderId, int userId)
+    {
+        return await BuildSettlementExportAsync(salesOrderId, userId, isDnhu: false);
+    }
+
+    private async Task<(byte[] FileBytes, string FileName)?> BuildSettlementExportAsync(
+        int salesOrderId, int userId, bool isDnhu)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(x => x.Customer)
+            .Include(x => x.SalesPerson)
+            .Include(x => x.Items.OrderBy(i => i.SortOrder))
+            .FirstOrDefaultAsync(x => x.SalesOrderId == salesOrderId);
+
+        if (so == null || so.Items.Count == 0) return null;
+
+        var requestor = await _uow.Repository<User>().GetByIdAsync(userId);
+        var requestorName = requestor?.FullName ?? so.SalesPerson?.FullName ?? "";
+
+        var templateName = isDnhu ? "DNHU-template.xlsx" : "DNTT-template.xlsx";
+        var templatePath = Path.Combine(_env.WebRootPath, "templates", templateName);
+        if (!File.Exists(templatePath)) return null;
+
+        using var wb = new XLWorkbook(templatePath);
+        var ws = wb.Worksheet(1);
+
+        var now = DateTime.Now;
+        int itemCount = so.Items.Count;
+        const int dataStartRow = 12;
+        int totalRow = dataStartRow + itemCount;       // shifts down after inserts
+        int lastDataRow = dataStartRow + itemCount - 1;
+
+        // ── Header info ──
+        var docPrefix = isDnhu ? "ĐNHU" : "ĐNTT";
+        ws.Cell("F5").Value = $"Số {docPrefix}: {so.SalesOrderNo}";
+        ws.Cell("K5").Value = $"Ngày    {now:dd}     Tháng     {now:MM}      Năm {now:yyyy}";
+        ws.Cell("C6").Value = requestorName;                                  // Họ và tên
+        ws.Cell("C7").Value = "Sales";                                        // Thuộc phòng
+        ws.Cell("C8").Value = so.CustomerPoNo ?? so.SalesOrderNo;
+        ws.Cell("C9").Value = so.Customer.CustomerName;
+        ws.Cell("C10").Value = so.OrderDate.ToString("dd.MM.yyyy");
+        ws.Cell("G10").Value = so.DeliveringAt?.ToString("dd.MM.yyyy")
+                              ?? so.ExpectedDeliveryDate?.ToString("dd.MM.yyyy") ?? "";
+
+        // ── Insert extra rows for items beyond the first template row ──
+        if (itemCount > 1)
+        {
+            ws.Row(dataStartRow).InsertRowsBelow(itemCount - 1);
+        }
+
+        // ── Fill item data ──
+        decimal taxRateDecimal = so.TaxRate / 100m;
+        for (int i = 0; i < itemCount; i++)
+        {
+            var item = so.Items.ElementAt(i);
+            int row = dataStartRow + i;
+
+            ws.Cell(row, 1).Value = i + 1;                                     // A: STT
+            ws.Cell(row, 2).Value = so.Customer.CustomerName;                  // B: Tên dự án/KS
+            ws.Cell(row, 3).Value = item.ProductName;                          // C: Tên hàng hóa
+            ws.Cell(row, 4).Value = item.UnitName;                             // D: ĐVT
+            ws.Cell(row, 5).Value = item.Quantity;                             // E: SL bán
+            ws.Cell(row, 6).Value = item.UnitPrice;                            // F: Đơn giá bán VNĐ
+            ws.Cell(row, 7).Value = (item.TaxRate ?? so.TaxRate) / 100m;       // G: VAT (decimal)
+            ws.Cell(row, 8).FormulaA1 = $"(F{row}*E{row})+(F{row}*E{row}*G{row})"; // H: Thành tiền
+
+            // Cột mua hàng (J, K, L, M, N, O)
+            ws.Cell(row, 10).Value = 0;                                        // J: Đơn giá mua nguyên tệ (chưa lưu, để trống/0)
+            ws.Cell(row, 11).Value = 0;                                        // K: Tỷ giá
+            ws.Cell(row, 12).Value = item.PurchasePrice ?? 0;                  // L: Đơn giá mua VNĐ
+            ws.Cell(row, 13).Value = item.Quantity;                            // M: SL mua (giả định = SL bán)
+            ws.Cell(row, 14).Value = (item.TaxRate ?? so.TaxRate) / 100m;      // N: VAT mua
+            ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})"; // O: Thành tiền chi phí
+
+            // Cột phí v/c và giá vốn — giữ formula gốc tham chiếu R13/L13
+            ws.Cell(row, 16).Value = 0;                                        // P: Kg/Volume
+            ws.Cell(row, 17).FormulaA1 = $"P{row}*50000/M{row}+200000/M{row}"; // Q: Phí v/c về VP
+            ws.Cell(row, 18).FormulaA1 = $"$R$13/$L$13*L{row}";                // R: Phí v/c đến KH
+            ws.Cell(row, 19).FormulaA1 = $"L{row}+Q{row}+R{row}";              // S: Đơn giá vốn
+
+            ws.Cell(row, 20).Value = item.SourceName ?? "";                    // T: NCC
+            ws.Cell(row, 21).Value = "";                                       // U: Hình thức TT
+            ws.Cell(row, 22).Value = "";                                       // V: Số HĐ đầu vào
+            ws.Cell(row, 23).Value = so.DeliveredAt?.ToString("dd/MM/yyyy") ?? ""; // W: Ngày BBGN
+
+            // Number formats
+            ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 7).Style.NumberFormat.Format = "0%";
+            ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 12).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 13).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 14).Style.NumberFormat.Format = "0%";
+            ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 17).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 19).Style.NumberFormat.Format = "#,##0";
+
+            ws.Range(row, 1, row, 23).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            ws.Range(row, 1, row, 23).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        }
+
+        // ── Total row formulas ──
+        ws.Cell(totalRow, 5).FormulaA1 = $"SUMPRODUCT(E{dataStartRow}:E{lastDataRow},F{dataStartRow}:F{lastDataRow})";
+        ws.Cell(totalRow, 7).FormulaA1 = $"SUMPRODUCT(E{dataStartRow}:E{lastDataRow},F{dataStartRow}:F{lastDataRow},G{dataStartRow}:G{lastDataRow})";
+        ws.Cell(totalRow, 8).FormulaA1 = $"SUM(H{dataStartRow}:H{lastDataRow})";
+        ws.Cell(totalRow, 12).FormulaA1 = $"SUMPRODUCT(L{dataStartRow}:L{lastDataRow},M{dataStartRow}:M{lastDataRow})";
+        ws.Cell(totalRow, 14).FormulaA1 = $"SUMPRODUCT(L{dataStartRow}:L{lastDataRow},M{dataStartRow}:M{lastDataRow},N{dataStartRow}:N{lastDataRow})";
+        ws.Cell(totalRow, 15).FormulaA1 = $"SUM(O{dataStartRow}:O{lastDataRow})";
+        ws.Cell(totalRow, 17).FormulaA1 = $"SUMPRODUCT(Q{dataStartRow}:Q{lastDataRow},M{dataStartRow}:M{lastDataRow})";
+        ws.Cell(totalRow, 19).FormulaA1 = $"SUMPRODUCT(S{dataStartRow}:S{lastDataRow},M{dataStartRow}:M{lastDataRow})";
+        ws.Cell(totalRow, 20).FormulaA1 = $"O{totalRow}+Q{totalRow}+R{totalRow}";
+
+        // ── Settlement footer (specific to DNHU vs DNTT) ──
+        decimal advanceTotal = so.AdvanceAmount ?? 0;
+        decimal actualCost = so.ActualCost ?? so.PurchaseCost ?? 0;
+
+        if (isDnhu)
+        {
+            // F20: Số tiền đã tạm ứng Lần 1, F21: Lần 2, F22: còn phải thanh toán, O22: Số tiền cần Hoàn lại
+            int rowsShifted = totalRow - 13;
+            int row20 = 20 + rowsShifted;
+            int row21 = 21 + rowsShifted;
+            int row22 = 22 + rowsShifted;
+
+            ws.Cell(row20, 6).Value = advanceTotal;
+            ws.Cell(row20, 6).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row21, 6).Value = 0;
+            ws.Cell(row21, 6).Style.NumberFormat.Format = "#,##0";
+
+            // Số tiền cần hoàn lại = max(0, advance - actualCost)
+            decimal refund = Math.Max(0m, advanceTotal - actualCost);
+            ws.Cell(row22, 15).Value = refund;
+            ws.Cell(row22, 15).Style.NumberFormat.Format = "#,##0";
+        }
+        else
+        {
+            // DNTT: O14 = SỐ TIỀN CẦN THANH TOÁN; nằm ngay dưới totalRow ở bản gốc nên cần tính lại
+            int rowsShifted = totalRow - 13;
+            int payRow = 14 + rowsShifted;
+
+            // Số tiền cần thanh toán = max(0, actualCost - advance)
+            decimal payable = Math.Max(0m, actualCost - advanceTotal);
+            ws.Cell(payRow, 15).Value = payable;
+            ws.Cell(payRow, 15).Style.NumberFormat.Format = "#,##0";
+        }
+
+        // ── Filename ──
+        var safeCustomer = SanitizeFileName(so.Customer.CustomerName);
+        var safePo = SanitizeFileName(so.CustomerPoNo ?? so.SalesOrderNo);
+        var safeUser = SanitizeFileName(requestorName);
+        var fileName = $"{now:yyyy.MM.dd}_EVH-{safeCustomer}-{safePo}_{docPrefix}_{safeUser}.xlsx";
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return (ms.ToArray(), fileName);
+    }
+
     private static string SanitizeFileName(string name)
     {
         var invalid = Path.GetInvalidFileNameChars();

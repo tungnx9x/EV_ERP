@@ -91,6 +91,12 @@
             }
             @if (Model.Status == "DELIVERED" && canManageStatus)
             {
+                <a href="/SalesOrder/ExportDnhu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất ĐNHU
+                </a>
+                <a href="/SalesOrder/ExportDntt/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất ĐNTT
+                </a>
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
                     <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
                 </button>
@@ -675,11 +681,11 @@
             </div>
             <div class="modal-body">
                 <div class="row g-3 mb-3">
-                    <div class="col-md-6">
+                    @* <div class="col-md-6">
                         <label class="form-label small fw-semibold">Nguồn mua chung</label>
                         <input type="text" id="inputPurchaseSource" class="form-control form-control-sm"
                                placeholder="VD: Shopee + Lazada" />
-                    </div>
+                    </div> *@
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold">Dự kiến hàng về kho</label>
                         <input type="date" id="inputExpectedReceiveDate" class="form-control form-control-sm" />
@@ -698,9 +704,9 @@
                             <tr>
                                 <th>Sản phẩm</th>
                                 <th class="text-end" style="width:80px;">SL</th>
-                                <th class="text-end" style="width:120px;">Giá bán</th>
                                 <th class="text-end" style="width:140px;">Giá mua (nhập)</th>
-                                <th class="text-end" style="width:120px;">Chi phí dòng</th>
+                                <th class="text-end" style="width:120px;">Chi phí</th>
+                                <th class="text-end" style="width:120px;">Giá bán</th>
                             </tr>
                         </thead>
                         <tbody id="buyingItemsBody">
@@ -708,24 +714,14 @@
                             {
                                 <tr>
                                     <td>@item.ProductName</td>
-                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
-                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
+                                    <td class="text-end">@item.Quantity.ToString("N3")</td>                                  
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end purchase-price-input"
                                                data-item-id="@item.SOItemId" data-qty="@item.Quantity"
                                                value="@(item.PurchasePrice ?? 0)" min="0" />
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm source-name-input"
-                                               data-item-id="@item.SOItemId"
-                                               value="@(item.SourceName ?? "")" placeholder="Shopee..." />
-                                    </td>
-                                    <td>
-                                        <input type="url" class="form-control form-control-sm source-url-input"
-                                               data-item-id="@item.SOItemId"
-                                               value="@(item.SourceUrl ?? "")" placeholder="https://..." />
-                                    </td>
+                                    </td>                                   
                                     <td class="text-end line-cost-cell">0</td>
+                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
                                 </tr>
                             }
                         </tbody>
@@ -1152,7 +1148,7 @@
         });
 
         var body = {
-            PurchaseSource: document.getElementById('inputPurchaseSource').value.trim() || null,
+            PurchaseSource: null,
             ExpectedReceiveDate: document.getElementById('inputExpectedReceiveDate').value || null,
             BuyingNotes: document.getElementById('inputBuyingNotes').value.trim(),
             Items: items

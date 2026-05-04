@@ -333,6 +333,32 @@ public class SalesOrderController : Controller
             result.Value.FileName);
     }
 
+    // ── Export ĐNHU (Hoàn ứng) Excel ─────────────────
+    [HttpGet]
+    public async Task<IActionResult> ExportDnhu(int id)
+    {
+        var result = await _salesOrderService.ExportDnhuAsync(id, CurrentUserId);
+        if (result == null)
+            return BadRequest("Không thể xuất file ĐNHU");
+
+        return File(result.Value.FileBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            result.Value.FileName);
+    }
+
+    // ── Export ĐNTT (Thanh toán) Excel ───────────────
+    [HttpGet]
+    public async Task<IActionResult> ExportDntt(int id)
+    {
+        var result = await _salesOrderService.ExportDnttAsync(id, CurrentUserId);
+        if (result == null)
+            return BadRequest("Không thể xuất file ĐNTT");
+
+        return File(result.Value.FileBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            result.Value.FileName);
+    }
+
     // ── Export Product Template Excel ────────────────
     [HttpGet]
     public async Task<IActionResult> ExportProductTemplate(int id)

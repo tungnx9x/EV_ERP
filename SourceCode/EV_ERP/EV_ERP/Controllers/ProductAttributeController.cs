@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace EV_ERP.Controllers
 {
     [RequireLogin]
-    [RequireRole("ADMIN", "MANAGER")]
     public class ProductAttributeController : Controller
     {
         private readonly IProductAttributeService _attrService;
@@ -19,6 +18,7 @@ namespace EV_ERP.Controllers
         }
 
         // ── Attribute List ──────────────────────────────
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> Index(string? keyword, int page = 1)
         {
             var vm = await _attrService.GetAttributeListAsync(keyword, page);
@@ -27,6 +27,7 @@ namespace EV_ERP.Controllers
 
         // ── Create Attribute ────────────────────────────
         [HttpGet]
+        [RequireRole("ADMIN", "MANAGER")]
         public IActionResult Create()
         {
             return View(new ProductAttributeFormViewModel());
@@ -34,6 +35,7 @@ namespace EV_ERP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> Create(ProductAttributeFormViewModel model)
         {
             if (!ModelState.IsValid)
@@ -52,6 +54,7 @@ namespace EV_ERP.Controllers
 
         // ── Edit Attribute ──────────────────────────────
         [HttpGet]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> Edit(int id)
         {
             var vm = await _attrService.GetAttributeFormAsync(id);
@@ -65,6 +68,7 @@ namespace EV_ERP.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> Edit(ProductAttributeFormViewModel model)
         {
             if (!ModelState.IsValid)
@@ -90,6 +94,7 @@ namespace EV_ERP.Controllers
 
         // ── Toggle Active (Ajax) ────────────────────────
         [HttpPost]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> ToggleActive(int id)
         {
             var (success, error) = await _attrService.ToggleAttributeActiveAsync(id);
@@ -105,6 +110,7 @@ namespace EV_ERP.Controllers
         // ═══════════════════════════════════════════════
 
         [HttpPost]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> AddValue([FromBody] AttributeValueFormViewModel model)
         {
             try
@@ -122,6 +128,7 @@ namespace EV_ERP.Controllers
         }
 
         [HttpPost]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> UpdateValue([FromBody] AttributeValueFormViewModel model)
         {
             try
@@ -139,6 +146,7 @@ namespace EV_ERP.Controllers
         }
 
         [HttpPost]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> ToggleValueActive(int id)
         {
             try
@@ -161,6 +169,7 @@ namespace EV_ERP.Controllers
         // ═══════════════════════════════════════════════
 
         [HttpGet]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> SkuConfig(int id)
         {
             var vm = await _attrService.GetSkuConfigAsync(id);
@@ -173,6 +182,7 @@ namespace EV_ERP.Controllers
         }
 
         [HttpPost]
+        [RequireRole("ADMIN", "MANAGER")]
         public async Task<IActionResult> SaveSkuConfig([FromBody] SaveSkuConfigRequest request)
         {
             try

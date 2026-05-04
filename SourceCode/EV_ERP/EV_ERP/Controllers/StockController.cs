@@ -36,6 +36,11 @@ namespace EV_ERP.Controllers
         // ── Index ────────────────────────────────────────
         public async Task<IActionResult> Index(string? keyword, string? type, string? status, int? warehouseId, int page = 1)
         {
+            // First visit (no querystring) defaults to "DRAFT". Once the user submits the form
+            // or paginates, the actual status value (including empty = "Tất cả") is respected.
+            if (!Request.Query.Any())
+                status = "DRAFT";
+
             var vm = await _stockService.GetListAsync(keyword, type, status, warehouseId, page);
             ViewBag.CanEdit = CanEdit;
             return View(vm);

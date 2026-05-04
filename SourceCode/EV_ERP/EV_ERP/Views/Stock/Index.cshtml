@@ -72,7 +72,7 @@
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
                     <i class="bi bi-funnel me-1"></i> Lọc
                 </button>
-                <a href="/Stock" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                <a href="/Stock" class="btn btn-outline-secondary btn-sm" title="Reset (mặc định: trạng thái Nháp)">
                     <i class="bi bi-x-lg"></i>
                 </a>
             </div>
@@ -201,14 +201,16 @@
 @functions {
     string BuildPageUrl(int page)
     {
+        // status is always emitted (even empty) so paging after the user clears the default
+        // "DRAFT" filter back to "Tất cả" doesn't re-trigger the controller's bare-URL default.
         var qs = new Dictionary<string, string?> {
             ["keyword"] = Model.SearchKeyword,
             ["type"] = Model.FilterType,
-            ["status"] = Model.FilterStatus,
+            ["status"] = Model.FilterStatus ?? "",
             ["warehouseId"] = Model.FilterWarehouseId?.ToString(),
             ["page"] = page.ToString()
         };
-        return "/Stock?" + string.Join("&", qs.Where(kv => !string.IsNullOrEmpty(kv.Value)).Select(kv => $"{kv.Key}={kv.Value}"));
+        return "/Stock?" + string.Join("&", qs.Where(kv => kv.Key == "status" || !string.IsNullOrEmpty(kv.Value)).Select(kv => $"{kv.Key}={kv.Value}"));
     }
 }
 

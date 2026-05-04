@@ -120,14 +120,14 @@ public class SalesOrderController : Controller
 
     // ── Update Draft Info (PO KH + file) ──────────────
     [HttpPost]
-    public async Task<IActionResult> UpdateDraftInfo(int id, string? customerPoNo, IFormFile? customerPoFile)
+    public async Task<IActionResult> UpdateDraftInfo(int id, string? customerPoNo, IFormFile? customerPoFile, DateTime? expectedDeliveryDate)
     {
         try
         {
             if (!CanEdit)
                 return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-            var (success, error) = await _salesOrderService.UpdateDraftInfoAsync(id, customerPoNo, customerPoFile, CurrentUserId);
+            var (success, error) = await _salesOrderService.UpdateDraftInfoAsync(id, customerPoNo, customerPoFile, expectedDeliveryDate, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã lưu thông tin PO khách hàng" : error });
         }
         catch (Exception ex)

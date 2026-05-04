@@ -581,13 +581,15 @@ public class SalesOrderService : ISalesOrderService
     // UPDATE DRAFT INFO (PO KH + file)
     // ══════════════════════════════════════════════════
     public async Task<(bool Success, string? ErrorMessage)> UpdateDraftInfoAsync(
-        int salesOrderId, string? customerPoNo, IFormFile? customerPoFile, int userId)
+        int salesOrderId, string? customerPoNo, IFormFile? customerPoFile,
+        DateTime? expectedDeliveryDate, int userId)
     {
         var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
         if (so == null) return (false, "Không tìm thấy đơn hàng");
         if (so.Status != "DRAFT") return (false, "Chỉ có thể cập nhật ở trạng thái Nháp");
 
         so.CustomerPoNo = customerPoNo?.Trim();
+        so.ExpectedDeliveryDate = expectedDeliveryDate;
 
         if (customerPoFile != null && customerPoFile.Length > 0)
         {

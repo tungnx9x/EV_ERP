@@ -227,6 +227,13 @@
                             <div><a href="@Model.CustomerPoFile" target="_blank" class="text-primary"><i class="bi bi-file-earmark-arrow-down me-1"></i>Tải xuống</a></div>
                         </div>
                     }
+                    @if (Model.ExpectedDeliveryDate.HasValue)
+                    {
+                        <div class="col-6">
+                            <div class="text-muted">Dự kiến giao</div>
+                            <div class="fw-semibold">@Model.ExpectedDeliveryDate.Value.ToString("dd/MM/yyyy")</div>
+                        </div>
+                    }
                     @if (Model.PaymentDueDate.HasValue)
                     {
                         <div class="col-6">
@@ -251,6 +258,11 @@
                             <label class="form-label small fw-semibold mb-1">Mã PO khách hàng</label>
                             <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
                                    placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold mb-1">Dự kiến giao hàng</label>
+                            <input type="date" id="draftExpectedDeliveryDate" class="form-control form-control-sm"
+                                   value="@(Model.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"))" />
                         </div>
                         <div class="mb-2">
                             <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
@@ -869,6 +881,10 @@
     function saveDraftInfo() {
         var formData = new FormData();
         formData.append('customerPoNo', document.getElementById('draftCustomerPoNo').value.trim());
+        var expectedDate = document.getElementById('draftExpectedDeliveryDate').value;
+        if (expectedDate) {
+            formData.append('expectedDeliveryDate', expectedDate);
+        }
         var fileInput = document.getElementById('draftCustomerPoFile');
         if (fileInput.files.length > 0) {
             formData.append('customerPoFile', fileInput.files[0]);

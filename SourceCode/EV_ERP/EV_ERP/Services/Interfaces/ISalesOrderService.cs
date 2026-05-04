@@ -42,9 +42,10 @@ public interface ISalesOrderService
     Task<(bool Success, string? ErrorMessage)> CancelAsync(
         int salesOrderId, int userId, string? reason);
 
-    // ── Update draft info (PO KH + file) ──────────────
+    // ── Update draft info (PO KH + file + expected delivery date) ──────────────
     Task<(bool Success, string? ErrorMessage)> UpdateDraftInfoAsync(
-        int salesOrderId, string? customerPoNo, IFormFile? customerPoFile, int userId);
+        int salesOrderId, string? customerPoNo, IFormFile? customerPoFile,
+        DateTime? expectedDeliveryDate, int userId);
 
     // ── Create product & map to SO item ────────────────
     Task<(bool Success, string? ErrorMessage)> CreateProductAndMapAsync(

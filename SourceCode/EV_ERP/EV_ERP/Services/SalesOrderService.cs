@@ -167,6 +167,7 @@ public class SalesOrderService : ISalesOrderService
             ShippingAddress = s.ShippingAddress,
             Notes = s.Notes,
             InternalNotes = s.InternalNotes,
+            SalesPersonId = s.SalesPersonId,
             SalesPersonName = s.SalesPerson.FullName,
             ActualCost = s.ActualCost,
             SettlementNotes = s.SettlementNotes,
@@ -201,6 +202,14 @@ public class SalesOrderService : ISalesOrderService
                 IsProductMapped = i.IsProductMapped
             }).ToList()
         };
+    }
+
+    public async Task<int?> GetSalesPersonIdAsync(int salesOrderId)
+    {
+        return await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.SalesOrderId == salesOrderId)
+            .Select(s => (int?)s.SalesPersonId)
+            .FirstOrDefaultAsync();
     }
 
     // ══════════════════════════════════════════════════

@@ -159,6 +159,7 @@ public class SalesOrderDetailViewModel
     public string? ShippingAddress { get; set; }
     public string? Notes { get; set; }
     public string? InternalNotes { get; set; }
+    public int SalesPersonId { get; set; }
     public string SalesPersonName { get; set; } = string.Empty;
 
     // Settlement

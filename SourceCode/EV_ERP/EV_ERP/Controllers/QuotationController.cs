@@ -33,6 +33,14 @@ public class QuotationController : Controller
     private bool CanManage(int? createdBy) =>
         IsManager || (createdBy.HasValue && createdBy.Value == CurrentUserId);
 
+    /// <summary>Status-change actions: only the assignee or a manager can run these.</summary>
+    private async Task<bool> CanManageStatusAsync(int quotationId)
+    {
+        if (IsManager) return true;
+        var assigneeId = await _quotationService.GetSalesPersonIdAsync(quotationId);
+        return assigneeId.HasValue && assigneeId.Value == CurrentUserId;
+    }
+
     // ── Index ────────────────────────────────────────
     public async Task<IActionResult> Index(
         string? keyword, string? status, int? customerId, int? salesPersonId, int? createdBy, int page = 1)
@@ -144,8 +152,8 @@ public class QuotationController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _quotationService.SendAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gửi báo giá" : error });
@@ -162,8 +170,8 @@ public class QuotationController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _quotationService.ApproveAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã duyệt báo giá" : error });
@@ -180,8 +188,8 @@ public class QuotationController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _quotationService.RejectAsync(id, CurrentUserId, model?.Reason);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã từ chối báo giá" : error });
@@ -198,8 +206,8 @@ public class QuotationController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error, newId) = await _quotationService.AmendAsync(id, CurrentUserId);
             if (!success)
@@ -219,8 +227,8 @@ public class QuotationController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _quotationService.ExpireAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã đánh hết hạn" : error });
@@ -237,8 +245,8 @@ public class QuotationController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _quotationService.CancelAsync(id, CurrentUserId, model?.Reason);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy báo giá" : error });

@@ -30,6 +30,17 @@ public class SalesOrderController : Controller
 
     private bool CanEdit => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
 
+    /// <summary>ADMIN/MANAGER bypass assignee check on status changes.</summary>
+    private bool IsManager => CurrentRoleCode is "ADMIN" or "MANAGER";
+
+    /// <summary>Status-change actions: only the assignee or a manager can run these.</summary>
+    private async Task<bool> CanManageStatusAsync(int salesOrderId)
+    {
+        if (IsManager) return true;
+        var assigneeId = await _salesOrderService.GetSalesPersonIdAsync(salesOrderId);
+        return assigneeId.HasValue && assigneeId.Value == CurrentUserId;
+    }
+
     // ── Index ────────────────────────────────────────
     public async Task<IActionResult> Index(
         string? keyword, string? status, int? customerId, int? salesPersonId, int page = 1)
@@ -56,6 +67,8 @@ public class SalesOrderController : Controller
             return RedirectToAction("Index");
         }
         ViewBag.CanEdit = CanEdit;
+        ViewBag.IsManager = IsManager;
+        ViewBag.CurrentUserId = CurrentUserId;
         if (CanEdit && vm.Status == "DRAFT" && vm.HasUnmappedProducts)
         {
             var productForm = await _productService.GetFormAsync();
@@ -142,8 +155,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.SubmitWaitAsync(id, model, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gửi đề nghị tạm ứng" : error });
@@ -161,8 +174,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.StartBuyingAsync(id, model, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bắt đầu mua hàng" : error });
@@ -180,8 +193,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.ConfirmReceivedAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận nhận hàng" : error });
@@ -199,8 +212,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.StartDeliveringAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bàn giao cho vận chuyển" : error });
@@ -218,8 +231,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.ConfirmDeliveredAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Khách hàng đã nhận hàng" : error });
@@ -237,8 +250,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn kh��ng có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.ReturnAsync(id, model, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận trả hàng" : error });
@@ -256,8 +269,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.CompleteAsync(id, model, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hoàn tất đơn hàng" : error });
@@ -275,8 +288,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.ReportAsync(id, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã nộp báo cáo KQKD" : error });
@@ -294,8 +307,8 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!CanEdit)
-                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
             var (success, error) = await _salesOrderService.CancelAsync(id, CurrentUserId, model?.Reason);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy đơn hàng" : error });

@@ -94,9 +94,9 @@
                             <th class="d-none d-md-table-cell">PO KH</th>
                             <th class="d-none d-md-table-cell">Ngày tạo</th>
                             <th>Trạng thái</th>
-                            <th class="d-none d-lg-table-cell">Nguồn mua</th>
+                            @* <th class="d-none d-lg-table-cell">Nguồn mua</th> *@
                             <th class="text-end">Tổng bán</th>
-                            <th class="text-end d-none d-lg-table-cell">Chi phí mua</th>
+                            @* <th class="text-end d-none d-lg-table-cell">Chi phí mua</th> *@
                             <th style="width:70px;">Xem</th>
                         </tr>
                     </thead>
@@ -128,15 +128,15 @@
                                         @r.StatusText
                                     </span>
                                 </td>
-                                <td class="d-none d-lg-table-cell text-muted small">
+                                @* <td class="d-none d-lg-table-cell text-muted small">
                                     @(r.PurchaseSource ?? "—")
-                                </td>
+                                </td> *@
                                 <td class="text-end fw-semibold">
                                     @r.TotalAmount.ToString("N0")
                                 </td>
-                                <td class="text-end d-none d-lg-table-cell text-muted small">
+                               @*  <td class="text-end d-none d-lg-table-cell text-muted small">
                                     @(r.PurchaseCost?.ToString("N0") ?? "—")
-                                </td>
+                                </td> *@
                                 <td>
                                     <a href="/SalesOrder/Detail/@r.SalesOrderId"
                                        class="btn btn-sm btn-outline-secondary" title="Xem">

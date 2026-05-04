@@ -452,6 +452,7 @@ public class QuotationService : IQuotationService
             Status = q.Status,
             AmendFromId = q.AmendFromId,
             AmendFromNo = q.AmendFrom?.QuotationNo,
+            SalesPersonId = q.SalesPersonId,
             SalesPersonName = q.SalesPerson.FullName,
             SubTotal = q.SubTotal,
             DiscountType = q.DiscountType,
@@ -496,6 +497,14 @@ public class QuotationService : IQuotationService
                 IsProductMapped = i.IsProductMapped
             }).ToList()
         };
+    }
+
+    public async Task<int?> GetSalesPersonIdAsync(int quotationId)
+    {
+        return await _uow.Repository<Quotation>().Query()
+            .Where(q => q.QuotationId == quotationId)
+            .Select(q => (int?)q.SalesPersonId)
+            .FirstOrDefaultAsync();
     }
 
     // ══════════════════════════════════════════════════

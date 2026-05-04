@@ -13,6 +13,9 @@ public interface ISalesOrderService
     // ── Detail ───────────────────────────────────────
     Task<SalesOrderDetailViewModel?> GetDetailAsync(int salesOrderId);
 
+    // ── Lightweight assignee lookup (for authz checks) ───
+    Task<int?> GetSalesPersonIdAsync(int salesOrderId);
+
     // ── Auto-create from Quotation ───────────────────
     Task<(bool Success, string? ErrorMessage, int? SalesOrderId)> CreateFromQuotationAsync(
         int quotationId, int userId);

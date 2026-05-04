@@ -220,7 +220,8 @@ public class QuotationDetailViewModel
     public int? AmendFromId { get; set; }
     public string? AmendFromNo { get; set; }
 
-    // Sales person
+    // Sales person (assignee)
+    public int SalesPersonId { get; set; }
     public string SalesPersonName { get; set; } = string.Empty;
 
     // Money

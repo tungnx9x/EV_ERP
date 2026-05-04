@@ -22,6 +22,9 @@ public interface IQuotationService
     // ── Detail ───────────────────────────────────────
     Task<QuotationDetailViewModel?> GetDetailAsync(int quotationId);
 
+    // ── Lightweight assignee lookup (for authz checks) ───
+    Task<int?> GetSalesPersonIdAsync(int quotationId);
+
     // ── Status transitions ───────────────────────────
     Task<(bool Success, string? ErrorMessage)> SendAsync(int quotationId, int userId);
     Task<(bool Success, string? ErrorMessage)> ApproveAsync(int quotationId, int userId);

@@ -5,6 +5,7 @@
     bool isManager = ViewBag.IsManager == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
     bool canEditThis = canEdit && (isManager || Model.CreatedBy == currentUserId);
+    bool canManageStatus = isManager || Model.SalesPersonId == currentUserId;
 }
 
 <!-- Header -->
@@ -51,29 +52,53 @@
                         <i class="bi bi-pencil me-1"></i> Sửa
                     </a>
                 }
-                <button class="btn btn-sm btn-primary" onclick="doAction('Send', @Model.QuotationId)">
-                    <i class="bi bi-send me-1"></i> Gửi báo giá
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="doCancel(@Model.QuotationId)">
-                    <i class="bi bi-x-circle me-1"></i> Hủy
-                </button>
+                @if (canManageStatus)
+                {
+                    <button class="btn btn-sm btn-primary" onclick="doAction('Send', @Model.QuotationId)">
+                        <i class="bi bi-send me-1"></i> Gửi báo giá
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="doCancel(@Model.QuotationId)">
+                        <i class="bi bi-x-circle me-1"></i> Hủy
+                    </button>
+                }
             }
-            @if (Model.Status == "SENT")
+            @if (Model.Status == "SENT" && canManageStatus)
             {
-                <button class="btn btn-sm btn-success" onclick="doAction('Approve', @Model.QuotationId)">
-                    <i class="bi bi-check-circle me-1"></i> Duyệt (KH đồng ý)
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="doReject(@Model.QuotationId)">
-                    <i class="bi bi-x-circle me-1"></i> Từ chối
-                </button>
-                <button class="btn btn-sm btn-outline-warning" onclick="doAction('Amend', @Model.QuotationId)">
-                    <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa (Amend)
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="doAction('Expire', @Model.QuotationId)">
-                    <i class="bi bi-clock-history me-1"></i> Hết hạn
-                </button>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-lightning-charge me-1"></i> Xử lý báo giá
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li>
+                            <a class="dropdown-item text-success" href="#"
+                               onclick="event.preventDefault(); doAction('Approve', @Model.QuotationId);">
+                                <i class="bi bi-check-circle me-2"></i> Duyệt (KH đồng ý)
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#"
+                               onclick="event.preventDefault(); doReject(@Model.QuotationId);">
+                                <i class="bi bi-x-circle me-2"></i> Từ chối
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item text-warning-emphasis" href="#"
+                               onclick="event.preventDefault(); doAction('Amend', @Model.QuotationId);">
+                                <i class="bi bi-pencil-square me-2"></i> Chỉnh sửa (Amend)
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-secondary" href="#"
+                               onclick="event.preventDefault(); doAction('Expire', @Model.QuotationId);">
+                                <i class="bi bi-clock-history me-2"></i> Hết hạn
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             }
-            @if (Model.Status == "REJECTED")
+            @if (Model.Status == "REJECTED" && canManageStatus)
             {
                 <button class="btn btn-sm btn-outline-warning" onclick="doAction('Amend', @Model.QuotationId)">
                     <i class="bi bi-pencil-square me-1"></i> Tạo bản chỉnh sửa

@@ -2,6 +2,9 @@
 @{
     ViewData["Title"] = Model.SalesOrderNo;
     bool canEdit = ViewBag.CanEdit == true;
+    bool isManager = ViewBag.IsManager == true;
+    int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
+    bool canManageStatus = isManager || Model.SalesPersonId == currentUserId;
     bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "RETURNED" or "COMPLETED" or "REPORTED";
     var productForm = ViewBag.ProductForm as EV_ERP.Models.ViewModels.Products.ProductFormViewModel;
 }
@@ -46,14 +49,17 @@
                 <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
                     <i class="bi bi-file-earmark-excel me-1"></i> Xuất DNTU
                 </a>
-                <button class="btn btn-sm btn-primary" onclick="showSubmitWaitModal()">
-                    <i class="bi bi-send me-1"></i> Gửi DNTU
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Hủy
-                </button>
+                @if (canManageStatus)
+                {
+                    <button class="btn btn-sm btn-primary" onclick="showSubmitWaitModal()">
+                        <i class="bi bi-send me-1"></i> Gửi DNTU
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
+                        <i class="bi bi-x-circle me-1"></i> Hủy
+                    </button>
+                }
             }
-            @if (Model.Status == "WAIT")
+            @if (Model.Status == "WAIT" && canManageStatus)
             {
                 <button class="btn btn-sm btn-info text-white" onclick="showBuyingModal()">
                     <i class="bi bi-cart3 me-1"></i> Bắt đầu mua hàng
@@ -62,7 +68,7 @@
                     <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
-            @if (Model.Status == "BUYING")
+            @if (Model.Status == "BUYING" && canManageStatus)
             {
                 <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xác nhận hàng đã về kho?')">
                     <i class="bi bi-box-seam me-1"></i> Xác nhận nhận hàng
@@ -77,13 +83,13 @@
                     <i class="bi bi-hourglass-split me-1"></i> Chờ kho xuất hàng
                 </span>
             }
-            @if (Model.Status == "DELIVERING")
+            @if (Model.Status == "DELIVERING" && canManageStatus)
             {
                 <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xác nhận khách hàng đã nhận hàng?')">
                     <i class="bi bi-check-circle me-1"></i> KH đã nhận hàng
                 </button>
             }
-            @if (Model.Status == "DELIVERED")
+            @if (Model.Status == "DELIVERED" && canManageStatus)
             {
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
                     <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
@@ -92,13 +98,13 @@
                     <i class="bi bi-arrow-return-left me-1"></i> Trả hàng
                 </button>
             }
-            @if (Model.Status == "RETURNED")
+            @if (Model.Status == "RETURNED" && canManageStatus)
             {
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
                     <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
                 </button>
             }
-            @if (Model.Status == "COMPLETED")
+            @if (Model.Status == "COMPLETED" && canManageStatus)
             {
                 <button class="btn btn-sm btn-primary" onclick="doSimpleAction('Report', 'Xác nhận nộp báo cáo KQKD?')">
                     <i class="bi bi-file-earmark-bar-graph me-1"></i> Nộp báo cáo KQKD

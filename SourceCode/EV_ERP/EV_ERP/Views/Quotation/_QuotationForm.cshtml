@@ -243,6 +243,7 @@
         cursor: pointer;
     }
     .qi-img-remove-btn:hover { color: #dc2626; }
+    .qi-img-paste-target { box-shadow: 0 0 0 2px #3b82f6; border-radius: 6px; }
 
     .qi-badge-mapped {
         font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
@@ -490,7 +491,7 @@
 
                 '<div class="qi-body">' +
                     // ── ROW 1: Image + Description + Unit + Purchase Link ──
-                    '<div class="qi-img-row">' +
+                    '<div class="qi-img-row" data-paste-idx="' + idx + '">' +
                         (item.IsProductMapped
                             ? (item.ImageUrl
                                 ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
@@ -500,9 +501,10 @@
                               '</div>'
                             : (item.ImageUrl
                                 ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
-                                : '<div class="qi-img-empty-lg" onclick="triggerUpload(' + idx + ')">' +
-                                    '<i class="bi bi-cloud-arrow-up" style="font-size:1.5rem;"></i>' +
-                                    '<span>Tai anh len</span>' +
+                                : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
+                                    '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
+                                    '<span>Click + Ctrl+V</span>' +
+                                    '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
                                   '</div>') +
                               '<div class="qi-img-actions">' +
                                   '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this)" />' +
@@ -510,7 +512,7 @@
                                       '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
                                   '</button>' +
                                   (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
-                                  '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG, WebP — toi da 5MB</div>' +
+                                  '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
                               '</div>'
                         ) +
                         '<div class="qi-grid qi-grid-row1" style="flex:1;">' +
@@ -654,6 +656,8 @@
     // ══════════════════════════════════════════════
     // IMAGE UPLOAD
     // ══════════════════════════════════════════════
+    var activePasteIdx = null;
+
     function triggerUpload(idx) {
         document.getElementById('imgFile_' + idx).click();
     }
@@ -661,16 +665,20 @@
     function uploadItemImage(idx, inputEl) {
         var file = inputEl.files[0];
         if (!file) return;
+        _doUploadItemImage(idx, file);
+    }
+
+    function _doUploadItemImage(idx, file) {
+        if (!file) return;
+        if (!/^image\//i.test(file.type)) { alert('File khong phai la anh'); return; }
 
         var formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', file, file.name || ('paste-' + Date.now() + '.png'));
 
-        // Show loading state
-        var preview = inputEl.closest('.qi-img-row');
-        if (preview) {
-            var firstChild = preview.firstElementChild;
-            if (firstChild) firstChild.style.opacity = '0.5';
-        }
+        // Show loading state on the image cell of this row
+        var rowEl = document.querySelector('.qi-img-row[data-paste-idx="' + idx + '"]');
+        var firstChild = rowEl ? rowEl.firstElementChild : null;
+        if (firstChild) firstChild.style.opacity = '0.5';
 
         fetch('/Quotation/UploadItemImage', {
             method: 'POST',
@@ -684,20 +692,53 @@
                 renderItems();
             } else {
                 alert(res.Message || 'Upload that bai');
-                if (preview) {
-                    var firstChild = preview.firstElementChild;
-                    if (firstChild) firstChild.style.opacity = '1';
-                }
+                if (firstChild) firstChild.style.opacity = '1';
             }
         })
         .catch(function () {
             alert('Loi ket noi khi upload');
-            if (preview) {
-                var firstChild = preview.firstElementChild;
-                if (firstChild) firstChild.style.opacity = '1';
-            }
+            if (firstChild) firstChild.style.opacity = '1';
         });
     }
+
+    // Track which image cell is the paste target — set on click, drawn with a blue ring.
+    document.addEventListener('click', function (e) {
+        var row = e.target.closest('.qi-img-row[data-paste-idx]');
+        // Clear any previous ring
+        document.querySelectorAll('.qi-img-paste-target').forEach(function (el) {
+            el.classList.remove('qi-img-paste-target');
+        });
+        if (!row) { activePasteIdx = null; return; }
+
+        var idx = parseInt(row.dataset.pasteIdx, 10);
+        var item = items[idx];
+        // Mapped items can't change image (system avatar) — skip activation.
+        if (!item || item.IsProductMapped) { activePasteIdx = null; return; }
+
+        activePasteIdx = idx;
+        row.classList.add('qi-img-paste-target');
+    });
+
+    // Document-level paste handler — fires when the user presses Ctrl+V anywhere.
+    document.addEventListener('paste', function (e) {
+        if (activePasteIdx === null || activePasteIdx === undefined) return;
+        if (!items[activePasteIdx] || items[activePasteIdx].IsProductMapped) return;
+
+        var cd = e.clipboardData || window.clipboardData;
+        if (!cd || !cd.items) return;
+
+        for (var i = 0; i < cd.items.length; i++) {
+            var it = cd.items[i];
+            if (it.kind === 'file' && /^image\//i.test(it.type)) {
+                var file = it.getAsFile();
+                if (file) {
+                    e.preventDefault();
+                    _doUploadItemImage(activePasteIdx, file);
+                    return;
+                }
+            }
+        }
+    });
 
     function removeImage(idx) {
         items[idx].ImageUrl = '';

@@ -13,7 +13,9 @@
       "Bash(rm -rf dnhu dntt)",
       "Bash(mkdir dnhu *)",
       "Bash(unzip -o -q \"F:/Dev/EV_ERP/SystemDesign/EVH-Form-DNHU-template.xlsx\" -d dnhu)",
-      "Bash(unzip -o -q \"F:/Dev/EV_ERP/SystemDesign/EVH-Form-DNTT-template.xlsx\" -d dntt)"
+      "Bash(unzip -o -q \"F:/Dev/EV_ERP/SystemDesign/EVH-Form-DNTT-template.xlsx\" -d dntt)",
+      "Read(//tmp/**)",
+      "Bash(dotnet run *)"
     ]
   }
 }

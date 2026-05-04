@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ClosedXML.Excel.Drawings;
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
@@ -1075,6 +1076,19 @@ public class QuotationService : IQuotationService
         if (dataStartRow == 0)
             return (false, "Không tìm thấy dữ liệu sản phẩm trong file", null);
 
+        // Map embedded images to their anchor row (first picture per row wins,
+        // matches the export which anchors product image at column E of each item row)
+        var pictureByRow = new Dictionary<int, IXLPicture>();
+        foreach (var pic in ws.Pictures)
+        {
+            var topLeft = pic.TopLeftCell;
+            if (topLeft == null) continue;
+            var anchorRow = topLeft.Address.RowNumber;
+            if (anchorRow < dataStartRow) continue;
+            if (!pictureByRow.ContainsKey(anchorRow))
+                pictureByRow[anchorRow] = pic;
+        }
+
         // Parse items
         var items = new List<QuotationItem>();
         var errors = new List<string>();
@@ -1149,10 +1163,16 @@ public class QuotationService : IQuotationService
             var taxAmount = Math.Round(lineTotal * vatRate / 100m, 0);
             var lineTotalWithTax = lineTotal + taxAmount;
 
+            // Extract embedded image (if any) for this row
+            string? imageUrl = null;
+            if (pictureByRow.TryGetValue(r, out var rowPic))
+                imageUrl = await SaveImportedItemPictureAsync(rowPic);
+
             items.Add(new QuotationItem
             {
                 ProductName = productName,
                 ProductDescription = string.IsNullOrEmpty(proposal) ? null : proposal,
+                ImageUrl = imageUrl,
                 UnitName = unitName,
                 Quantity = qty,
                 UnitPrice = unitPrice,
@@ -1241,5 +1261,41 @@ public class QuotationService : IQuotationService
         await file.CopyToAsync(stream);
 
         return $"/uploads/Quotation/Images/{fileName}";
+    }
+
+    // Saves an embedded image extracted from an imported quotation Excel file.
+    private async Task<string?> SaveImportedItemPictureAsync(IXLPicture pic)
+    {
+        try
+        {
+            var ext = pic.Format switch
+            {
+                XLPictureFormat.Png => ".png",
+                XLPictureFormat.Jpeg => ".jpg",
+                XLPictureFormat.Gif => ".gif",
+                XLPictureFormat.Bmp => ".bmp",
+                XLPictureFormat.Tiff => ".tif",
+                XLPictureFormat.Webp => ".webp",
+                _ => ".png"
+            };
+
+            var dir = Path.Combine(_storageRoot, "Quotation", "Images");
+            Directory.CreateDirectory(dir);
+
+            var fileName = $"quot-imp-{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(dir, fileName);
+
+            var src = pic.ImageStream;
+            src.Position = 0;
+            await using var fs = new FileStream(filePath, FileMode.Create);
+            await src.CopyToAsync(fs);
+
+            return $"/uploads/Quotation/Images/{fileName}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to extract embedded image from imported quotation");
+            return null;
+        }
     }
 }

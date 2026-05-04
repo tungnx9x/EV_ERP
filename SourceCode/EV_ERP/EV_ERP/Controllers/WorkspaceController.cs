@@ -34,6 +34,11 @@ public class WorkspaceController : Controller
         var currentUser = CurrentUserObj;
         var canViewOthers = currentUser.RoleCode is "ADMIN" or "MANAGER";
 
+        // WAREHOUSE staff don't act on RFQ/Quotation/SO assignment fields, so the standard
+        // 10-card workspace is empty for them. Route them to a calendar of upcoming receipts/deliveries.
+        if (currentUser.RoleCode == "WAREHOUSE")
+            return RedirectToAction(nameof(Warehouse));
+
         // Determine which user's tasks to show
         var userId = currentUser.UserId;
         var viewingUserName = currentUser.FullName;
@@ -423,6 +428,123 @@ public class WorkspaceController : Controller
 
         return View(vm);
     }
+
+    // ═══════════════════════════════════════════════════
+    // WAREHOUSE CALENDAR — upcoming SO receipts (incoming) / deliveries (outgoing)
+    // ═══════════════════════════════════════════════════
+    public async Task<IActionResult> Warehouse(string mode = "incoming", int? year = null, int? month = null)
+    {
+        ViewData["Title"] = "Lịch kho";
+        if (mode != "incoming" && mode != "outgoing") mode = "incoming";
+
+        var today = DateTime.Today;
+        var y = year ?? today.Year;
+        var m = month ?? today.Month;
+        if (m < 1 || m > 12) { y = today.Year; m = today.Month; }
+
+        var monthStart = new DateTime(y, m, 1);
+        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+        // Calendar grid spans full weeks (Mon-first). Pad before/after for prior/next month days.
+        var firstDayOfWeek = (int)monthStart.DayOfWeek;             // Sun=0..Sat=6
+        var leadingDays = (firstDayOfWeek + 6) % 7;                  // Mon=0..Sun=6
+        var gridStart = monthStart.AddDays(-leadingDays);
+        var trailingDays = (7 - ((leadingDays + DateTime.DaysInMonth(y, m)) % 7)) % 7;
+        var gridEnd = monthEnd.AddDays(trailingDays);
+
+        // Pull SOs whose target date falls inside the visible grid (incl. leading/trailing).
+        var soQuery = _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Customer)
+            .Where(s => s.Status != "CANCELLED");
+
+        soQuery = mode == "incoming"
+            ? soQuery.Where(s => s.ExpectedReceiveDate != null
+                              && s.ExpectedReceiveDate >= gridStart
+                              && s.ExpectedReceiveDate <= gridEnd)
+            : soQuery.Where(s => s.ExpectedDeliveryDate != null
+                              && s.ExpectedDeliveryDate >= gridStart
+                              && s.ExpectedDeliveryDate <= gridEnd);
+
+        var rawOrders = await soQuery
+            .Select(s => new
+            {
+                s.SalesOrderId,
+                s.SalesOrderNo,
+                CustomerName = s.Customer.CustomerName,
+                s.Status,
+                Date = mode == "incoming" ? s.ExpectedReceiveDate!.Value : s.ExpectedDeliveryDate!.Value,
+                ItemCount = s.Items.Count,
+                s.TotalAmount,
+                s.Currency
+            })
+            .OrderBy(s => s.Date).ThenBy(s => s.SalesOrderNo)
+            .ToListAsync();
+
+        var ordersByDate = rawOrders
+            .GroupBy(o => o.Date.Date)
+            .ToDictionary(g => g.Key, g => g.Select(o => new WarehouseCalendarOrder
+            {
+                SalesOrderId = o.SalesOrderId,
+                SalesOrderNo = o.SalesOrderNo,
+                CustomerName = o.CustomerName,
+                Status = o.Status,
+                StatusText = SoStatusText(o.Status),
+                StatusBadge = SoStatusBadge(o.Status),
+                ItemCount = o.ItemCount,
+                TotalAmount = o.TotalAmount,
+                Currency = o.Currency
+            }).ToList());
+
+        var days = new List<WarehouseCalendarDay>();
+        for (var d = gridStart; d <= gridEnd; d = d.AddDays(1))
+        {
+            days.Add(new WarehouseCalendarDay
+            {
+                Date = d,
+                IsCurrentMonth = d.Month == m && d.Year == y,
+                IsToday = d == today,
+                Orders = ordersByDate.GetValueOrDefault(d) ?? []
+            });
+        }
+
+        var vm = new WarehouseCalendarViewModel
+        {
+            Mode = mode,
+            Year = y,
+            Month = m,
+            Days = days
+        };
+
+        return View(vm);
+    }
+
+    private static string SoStatusText(string status) => status switch
+    {
+        "DRAFT" => "Nháp",
+        "WAIT" => "Chờ tạm ứng",
+        "BUYING" => "Đang mua",
+        "RECEIVED" => "Đã nhận hàng",
+        "DELIVERING" => "Đang giao",
+        "DELIVERED" => "Đã giao",
+        "RETURNED" => "Trả hàng",
+        "COMPLETED" => "Hoàn tất",
+        "REPORTED" => "Đã báo cáo",
+        _ => status
+    };
+
+    private static string SoStatusBadge(string status) => status switch
+    {
+        "DRAFT" => "secondary",
+        "WAIT" => "warning",
+        "BUYING" => "info",
+        "RECEIVED" => "primary",
+        "DELIVERING" => "info",
+        "DELIVERED" => "success",
+        "RETURNED" => "warning",
+        "COMPLETED" => "success",
+        "REPORTED" => "primary",
+        _ => "secondary"
+    };
 
     // ═══════════════════════════════════════════════════
     // SAVE QUICK NOTE

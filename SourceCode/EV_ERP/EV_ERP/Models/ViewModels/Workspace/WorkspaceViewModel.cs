@@ -72,3 +72,43 @@ public class TaskExtraInfo
     public string Value { get; set; } = string.Empty;
     public string CssClass { get; set; } = "bg-light text-muted border";
 }
+
+// ═══════════════════════════════════════════════════
+// WAREHOUSE CALENDAR — for WAREHOUSE role
+// ═══════════════════════════════════════════════════
+public class WarehouseCalendarViewModel
+{
+    /// <summary>"incoming" → ExpectedReceiveDate; "outgoing" → ExpectedDeliveryDate</summary>
+    public string Mode { get; set; } = "incoming";
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public string MonthLabel => $"Tháng {Month:00}/{Year}";
+
+    public DateTime PrevMonth => new DateTime(Year, Month, 1).AddMonths(-1);
+    public DateTime NextMonth => new DateTime(Year, Month, 1).AddMonths(1);
+
+    public List<WarehouseCalendarDay> Days { get; set; } = [];
+
+    public int TotalOrders => Days.Sum(d => d.Orders.Count);
+}
+
+public class WarehouseCalendarDay
+{
+    public DateTime Date { get; set; }
+    public bool IsCurrentMonth { get; set; }
+    public bool IsToday { get; set; }
+    public List<WarehouseCalendarOrder> Orders { get; set; } = [];
+}
+
+public class WarehouseCalendarOrder
+{
+    public int SalesOrderId { get; set; }
+    public string SalesOrderNo { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string StatusText { get; set; } = string.Empty;
+    public string StatusBadge { get; set; } = "secondary";
+    public int ItemCount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string Currency { get; set; } = "VND";
+}

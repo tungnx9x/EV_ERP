@@ -1,0 +1,140 @@
+@model EV_ERP.Models.ViewModels.Workspace.WarehouseCalendarViewModel
+@{
+    ViewData["Title"] = "Lịch kho";
+    var dayNames = new[] { "T2", "T3", "T4", "T5", "T6", "T7", "CN" };
+    string ModeUrl(string mode) => $"/Workspace/Warehouse?mode={mode}&year={Model.Year}&month={Model.Month}";
+    string NavUrl(int year, int month) => $"/Workspace/Warehouse?mode={Model.Mode}&year={year}&month={month}";
+    var today = DateTime.Today;
+}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+        <h5 class="fw-bold mb-0">
+            <i class="bi bi-calendar3 me-2 text-primary"></i> Lịch kho
+        </h5>
+        <div class="text-muted small mt-1">
+            @Model.TotalOrders đơn hàng trong @Model.MonthLabel
+        </div>
+    </div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Mode">
+        <a href="@ModeUrl("incoming")"
+           class="btn @(Model.Mode == "incoming" ? "btn-primary" : "btn-outline-primary")">
+            <i class="bi bi-box-arrow-in-down me-1"></i> Hàng về (Dự kiến nhập)
+        </a>
+        <a href="@ModeUrl("outgoing")"
+           class="btn @(Model.Mode == "outgoing" ? "btn-primary" : "btn-outline-primary")">
+            <i class="bi bi-truck me-1"></i> Hàng đi (Dự kiến giao)
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between py-2">
+        <a href="@NavUrl(Model.PrevMonth.Year, Model.PrevMonth.Month)" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <h6 class="mb-0 fw-semibold">@Model.MonthLabel</h6>
+            @if (today.Year != Model.Year || today.Month != Model.Month)
+            {
+                <a href="@NavUrl(today.Year, today.Month)" class="btn btn-sm btn-link text-decoration-none py-0">
+                    Hôm nay
+                </a>
+            }
+        </div>
+        <a href="@NavUrl(Model.NextMonth.Year, Model.NextMonth.Month)" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="warehouse-calendar">
+            <div class="wc-row wc-header">
+                @foreach (var name in dayNames)
+                {
+                    <div class="wc-cell wc-day-name">@name</div>
+                }
+            </div>
+            @{
+                var dayChunks = Model.Days
+                    .Select((d, i) => new { d, i })
+                    .GroupBy(x => x.i / 7)
+                    .Select(g => g.Select(x => x.d).ToList())
+                    .ToList();
+            }
+            @foreach (var week in dayChunks)
+            {
+                <div class="wc-row">
+                    @foreach (var day in week)
+                    {
+                        var cellClass = "wc-cell wc-day";
+                        if (!day.IsCurrentMonth) cellClass += " wc-other-month";
+                        if (day.IsToday) cellClass += " wc-today";
+                        var isWeekend = day.Date.DayOfWeek == DayOfWeek.Saturday || day.Date.DayOfWeek == DayOfWeek.Sunday;
+                        if (isWeekend) cellClass += " wc-weekend";
+
+                        <div class="@cellClass">
+                            <div class="wc-date-label">
+                                <span class="wc-date-num">@day.Date.Day</span>
+                                @if (day.IsToday)
+                                {
+                                    <span class="badge bg-primary ms-1" style="font-size:0.6rem;">Hôm nay</span>
+                                }
+                            </div>
+                            @if (day.Orders.Any())
+                            {
+                                <div class="wc-orders">
+                                    @foreach (var o in day.Orders)
+                                    {
+                                        <a href="/SalesOrder/Detail/@o.SalesOrderId"
+                                           class="wc-order-card border-start border-3 border-@o.StatusBadge"
+                                           title="@o.SalesOrderNo — @o.CustomerName (@o.StatusText)">
+                                            <div class="d-flex justify-content-between align-items-center gap-1">
+                                                <span class="fw-semibold text-truncate">@o.SalesOrderNo</span>
+                                                <span class="badge bg-@(o.StatusBadge)-subtle text-@(o.StatusBadge)-emphasis">@o.StatusText</span>
+                                            </div>
+                                            <div class="text-truncate text-muted" style="font-size:0.7rem;">@o.CustomerName</div>
+                                            <div class="d-flex justify-content-between text-muted" style="font-size:0.68rem;">
+                                                <span><i class="bi bi-box me-1"></i>@o.ItemCount SP</span>
+                                                <span class="fw-semibold">@o.TotalAmount.ToString("N0") @o.Currency</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .warehouse-calendar { display: flex; flex-direction: column; }
+    .wc-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .wc-header { background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    .wc-cell { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 4px 6px; }
+    .wc-row > .wc-cell:last-child { border-right: none; }
+    .wc-day-name { text-align: center; font-weight: 600; font-size: 0.78rem; color: #475569; padding: 8px 6px; }
+    .wc-day { min-height: 130px; max-height: 220px; overflow: hidden; display: flex; flex-direction: column; }
+    .wc-other-month { background: #fafafa; }
+    .wc-other-month .wc-date-num { color: #cbd5e1; }
+    .wc-today { background: #eff6ff; }
+    .wc-weekend.wc-day:not(.wc-today) { background: #fafafa; }
+    .wc-other-month.wc-weekend { background: #f5f5f5; }
+    .wc-date-label { font-size: 0.78rem; font-weight: 600; color: #334155; margin-bottom: 4px; display: flex; align-items: center; gap: 2px; }
+    .wc-orders { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; flex: 1; }
+    .wc-order-card { display: block; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; font-size: 0.72rem; text-decoration: none; color: #1e293b; transition: box-shadow .12s; }
+    .wc-order-card:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.08); color: #0f172a; }
+
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; } .text-secondary-emphasis { color: #475569 !important; }
+    .bg-info-subtle { background-color: #e0f2fe !important; } .text-info-emphasis { color: #0369a1 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; } .text-success-emphasis { color: #166534 !important; }
+    .bg-warning-subtle { background-color: #fef9c3 !important; } .text-warning-emphasis { color: #854d0e !important; }
+    .bg-primary-subtle { background-color: #dbeafe !important; } .text-primary-emphasis { color: #1e40af !important; }
+
+    @@media (max-width: 768px) {
+        .wc-day { min-height: 90px; }
+        .wc-order-card { font-size: 0.65rem; padding: 2px 4px; }
+    }
+</style>

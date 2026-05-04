@@ -191,6 +191,8 @@ public class SalesOrderItemDetailViewModel
     public int SOItemId { get; set; }
     public int ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
+    public string? ProductDescription { get; set; }
+    public string? ImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal DeliveredQty { get; set; }

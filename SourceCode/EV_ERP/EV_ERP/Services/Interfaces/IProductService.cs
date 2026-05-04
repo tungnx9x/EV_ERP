@@ -27,5 +27,9 @@ namespace EV_ERP.Services.Interfaces
             int productId, IList<IFormFile> files);
         Task<(bool Success, string? ErrorMessage)> DeleteImageAsync(int imageId, int productId);
         Task<(bool Success, string? ErrorMessage)> SetAvatarAsync(int imageId, int productId, int updatedBy);
+
+        // Copy an existing /uploads/... image into the product gallery (used when creating a product
+        // from a Sales Order line that already has a snapshot image from the quotation).
+        Task<bool> AddImageFromExistingUrlAsync(int productId, string sourceImageUrl, bool setAsPrimary);
     }
 }

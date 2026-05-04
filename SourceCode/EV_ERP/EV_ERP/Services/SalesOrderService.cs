@@ -186,6 +186,8 @@ public class SalesOrderService : ISalesOrderService
                 SOItemId = i.SOItemId,
                 ProductId = i.ProductId ?? 0,
                 ProductName = i.ProductName,
+                ProductDescription = i.ProductDescription,
+                ImageUrl = i.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 DeliveredQty = i.DeliveredQty,
@@ -679,10 +681,27 @@ public class SalesOrderService : ISalesOrderService
             // H: Thành tiền = (F*E) + (F*E*G) — set formula
             ws.Cell(row, 8).FormulaA1 = $"(F{row}*E{row})+(F{row}*E{row}*G{row})";
 
+            // Cột mua hàng (J, K, L, M, N, O) — replace template placeholders
+            ws.Cell(row, 10).Value = item.PurchasePrice ?? 0;        // J: Đơn giá mua nguyên tệ
+            ws.Cell(row, 11).Value = 0;                              // K: Tỷ giá
+            ws.Cell(row, 12).Value = item.PurchasePrice ?? 0;        // L: Đơn giá mua VNĐ
+            ws.Cell(row, 13).Value = item.Quantity;                  // M: SL mua (giả định = SL bán)
+            ws.Cell(row, 14).Value = (item.TaxRate ?? so.TaxRate) / 100m; // N: VAT mua
+            ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})"; // O: Thành tiền chi phí
+
+            // R: Phí vận chuyển — replace template placeholder
+            ws.Cell(row, 18).Value = item.ShippingFee ?? 0;
+
             // Format number cells
             ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0.###";
             ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 10).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 12).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 13).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 14).Style.NumberFormat.Format = "0%";
+            ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0";
 
             // Copy borders
             ws.Range(row, 1, row, 20).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;

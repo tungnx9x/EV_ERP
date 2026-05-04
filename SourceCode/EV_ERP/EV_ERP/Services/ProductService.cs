@@ -751,6 +751,64 @@ namespace EV_ERP.Services
             return (true, null);
         }
 
+        public async Task<bool> AddImageFromExistingUrlAsync(int productId, string sourceImageUrl, bool setAsPrimary)
+        {
+            if (string.IsNullOrWhiteSpace(sourceImageUrl)) return false;
+
+            // Resolve /uploads/... URL to a physical file path under _storageRoot.
+            var relative = sourceImageUrl.TrimStart('/');
+            if (relative.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+                relative = relative["uploads/".Length..];
+            var sourcePath = Path.Combine(_storageRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(sourcePath)) return false;
+
+            var ext = Path.GetExtension(sourcePath);
+            if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+
+            var uploadsDir = Path.Combine(_storageRoot, "ProductImages");
+            Directory.CreateDirectory(uploadsDir);
+            var fileName = $"product-{productId}-{Guid.NewGuid():N}{ext}";
+            var destPath = Path.Combine(uploadsDir, fileName);
+
+            try
+            {
+                File.Copy(sourcePath, destPath, overwrite: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to copy existing image {Source} into product gallery for ProductId={Id}",
+                    sourceImageUrl, productId);
+                return false;
+            }
+
+            var newUrl = $"/uploads/ProductImages/{fileName}";
+            var imgRepo = _uow.Repository<ProductImage>();
+            var currentCount = await imgRepo.CountAsync(i => i.ProductId == productId);
+
+            await imgRepo.AddAsync(new ProductImage
+            {
+                ProductId = productId,
+                ImageUrl = newUrl,
+                DisplayOrder = currentCount,
+                IsPrimary = setAsPrimary,
+                CreatedAt = DateTime.Now
+            });
+
+            if (setAsPrimary)
+            {
+                var product = await _uow.Repository<Product>().GetByIdAsync(productId);
+                if (product != null)
+                {
+                    product.ImageUrl = newUrl;
+                    product.UpdatedAt = DateTime.Now;
+                    _uow.Repository<Product>().Update(product);
+                }
+            }
+
+            await _uow.SaveChangesAsync();
+            return true;
+        }
+
         private async Task<string?> SaveProductImageAsync(IFormFile file, int productId)
         {
             var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp", "image/gif" };

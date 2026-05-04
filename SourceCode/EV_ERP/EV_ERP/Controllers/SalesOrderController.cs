@@ -79,7 +79,7 @@ public class SalesOrderController : Controller
 
     // ── Create Product & Map (from SO Detail modal) ─────
     [HttpPost]
-    public async Task<IActionResult> CreateProduct(int id, ProductFormViewModel model, IList<IFormFile>? GalleryFiles, int AvatarIndex = 0)
+    public async Task<IActionResult> CreateProduct(int id, ProductFormViewModel model, IList<IFormFile>? GalleryFiles, int AvatarIndex = 0, string? ExistingImageUrl = null)
     {
         try
         {
@@ -92,6 +92,13 @@ public class SalesOrderController : Controller
             var (success, error, productId) = await _productService.CreateAsync(model, CurrentUserId);
             if (!success)
                 return Json(ApiResult<object>.Fail(error ?? "Tạo sản phẩm thất bại"));
+
+            // Carry over the snapshot image from the SO line item (if user didn't replace it via upload).
+            if (productId.HasValue && !string.IsNullOrWhiteSpace(ExistingImageUrl))
+            {
+                bool noUploadedFiles = model.GalleryFiles == null || model.GalleryFiles.Count == 0;
+                await _productService.AddImageFromExistingUrlAsync(productId.Value, ExistingImageUrl, setAsPrimary: noUploadedFiles);
+            }
 
             // Auto-map to SO item
             if (model.SoItemId.HasValue && productId.HasValue)

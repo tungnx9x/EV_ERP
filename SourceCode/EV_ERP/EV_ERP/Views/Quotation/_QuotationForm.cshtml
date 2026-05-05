@@ -50,7 +50,7 @@
                         <label class="form-label small fw-semibold">Hệ số <span class="text-danger">*</span></label>
                         <input type="number" id="frm_coefficient" class="form-control form-control-sm"
                                value="@Model.Coefficient" min="0.01" step="any" />
-                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập / Hệ số + Vận chuyển</div>
+                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập × Tỷ giá / Hệ số + Vận chuyển / Số lượng</div>
                     </div>
                     <div class="col-lg-3">
                         <label class="form-label small fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
@@ -601,6 +601,7 @@
     function updateQtyOrPrice(idx) {
         var qty = parseFloat(document.getElementById('qty_' + idx).value) || 0;
         items[idx].Quantity = qty;
+        recalcUnitPriceFromImport(idx);
         recalcItemLine(idx);
         renderItems();
         recalcTotals();
@@ -755,7 +756,8 @@
         var rate = item.ExchangeRate > 0 ? item.ExchangeRate : 1;
         var importVnd = item.ImportPrice * rate;
         var coeff = item.Coefficient > 0 ? item.Coefficient : 1;
-        item.UnitPrice = Math.round(importVnd / coeff + item.Shipping);
+        var qty = item.Quantity > 0 ? item.Quantity : 1;
+        item.UnitPrice = Math.round(importVnd / coeff + (item.Shipping || 0) / qty);
     }
 
     function recalcItemLine(idx) {

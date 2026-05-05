@@ -167,7 +167,7 @@
         gap: 6px 12px;
         align-items: end;
     }
-    .qi-grid-row1 { grid-template-columns: 1fr 80px 1fr; }
+    .qi-grid-row1 { grid-template-columns: 1fr 80px 1fr 1fr; }
     .qi-grid-row2 { grid-template-columns: 1fr 1fr 1fr 1fr 80px 1fr 1fr 60px 1fr; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; }
 
     .qi-label {
@@ -200,7 +200,7 @@
         padding: 8px 0;
         margin: 4px 0;
         border-top: 1px solid #f1f5f9;
-        border-bottom: 1px solid #f1f5f9;
+        /* border-bottom: 1px solid #f1f5f9; */
     }
     .qi-img-preview {
         width: 80px; height: 80px;
@@ -518,8 +518,8 @@
                         '<div class="qi-grid qi-grid-row1" style="flex:1;">' +
                             '<div>' +
                                 '<div class="qi-label">Mo ta / De xuat</div>' +
-                                '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.Proposal || '') + '" ' +
-                                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham..." />' +
+                                '<textarea rows="1" class="form-control form-control-sm"' +
+                                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham...">' + escapeHtml(item.Proposal || '') + '</textarea>' +
                             '</div>' +
                             '<div>' +
                                 '<div class="qi-label">DVT</div>' +
@@ -530,6 +530,11 @@
                                 '<div class="qi-label">Link mua hang</div>' +
                                 '<input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
                                     'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." />' +
+                            '</div>' +
+                            '<div>' +
+                                '<div class="qi-label">Ghi chu</div>' +
+                                 '<textarea rows="1" class="form-control form-control-sm"' +
+                                    'onchange="updateField(' + idx + ', \'Notes\', this.value)" placeholder="5-7 days...">' + escapeHtml(item.Notes || '') + '</textarea>' +
                             '</div>' +
                         '</div>' +
                     '</div>' +

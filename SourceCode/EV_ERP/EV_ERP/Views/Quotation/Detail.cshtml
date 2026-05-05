@@ -120,231 +120,205 @@
     </div>
 </div>
 
-<div class="row g-3">
-    <!-- LEFT: Info -->
-    <div class="col-lg-4">
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body">
-                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                    Thông tin khách hàng
-                </h6>
-                <div class="mb-2">
-                    <div class="fw-semibold">@Model.CustomerName</div>
-                    <div class="text-muted small">@Model.CustomerCode</div>
-                </div>
-                @if (Model.ContactName != null)
-                {
-                    <div class="d-flex align-items-center gap-2 mb-1 small">
-                        <i class="bi bi-person text-muted" style="width:16px;"></i>
-                        <span>@Model.ContactName</span>
-                    </div>
-                }
-                @if (Model.ContactPhone != null)
-                {
-                    <div class="d-flex align-items-center gap-2 mb-1 small">
-                        <i class="bi bi-telephone text-muted" style="width:16px;"></i>
-                        <span>@Model.ContactPhone</span>
-                    </div>
-                }
+<div class="row">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                Thông tin báo giá
+            </h6>
+            <div class="row g-2 small">
+                <div class="col-6">
+                <div class="text-muted">Khách hàng</div>
+                <div class="fw-semibold">@Model.CustomerName - @Model.CustomerCode</div>
             </div>
-        </div>
-
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body">
-                <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                    Thông tin báo giá
-                </h6>
-                <div class="row g-2 small">
-                    <div class="col-6">
-                        <div class="text-muted">Ngày BG</div>
-                        <div class="fw-semibold">@Model.QuotationDate.ToString("dd/MM/yyyy")</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Hết hạn</div>
-                        <div class="fw-semibold @(Model.ExpiryDate < DateTime.Today ? "text-danger" : "")">
-                            @(Model.ExpiryDate?.ToString("dd/MM/yyyy") ?? "—")
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Hạn xử lý</div>
-                        <div class="fw-semibold @(Model.Deadline < DateTime.Now && Model.Status is "DRAFT" or "SENT" ? "text-danger" : "")">
-                            @Model.Deadline.ToString("dd/MM/yyyy HH:mm")
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Phụ trách</div>
-                        <div class="fw-semibold">@Model.SalesPersonName</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Người tạo</div>
-                        <div class="fw-semibold">@(Model.CreatedByName ?? "—")</div>
-                    </div>
-                    @if (Model.SentAt.HasValue)
+            <div class="col-6">
+                <div class="text-muted">Ngày BG</div>
+                <div class="fw-semibold">@Model.QuotationDate.ToString("dd/MM/yyyy")</div>
+            </div>
+            <div class="col-6">
+                <div class="text-muted">Hết hạn</div>
+                <div class="fw-semibold @(Model.ExpiryDate < DateTime.Today ? "text-danger" : "")">
+                    @(Model.ExpiryDate?.ToString("dd/MM/yyyy") ?? "—")
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="text-muted">Hạn xử lý</div>
+                <div class="fw-semibold @(Model.Deadline < DateTime.Now && Model.Status is "DRAFT" or "SENT" ? "text-danger" : "")">
+                    @Model.Deadline.ToString("dd/MM/yyyy HH:mm")
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="text-muted">Phụ trách</div>
+                <div class="fw-semibold">@Model.SalesPersonName</div>
+            </div>
+            <div class="col-6">
+                <div class="text-muted">Người tạo</div>
+                <div class="fw-semibold">@(Model.CreatedByName ?? "—")</div>
+            </div>
+            @if (Model.SentAt.HasValue)
+            {
+                <div class="col-6">
+                    <div class="text-muted">Gửi lúc</div>
+                    <div class="fw-semibold">@Model.SentAt.Value.ToString("dd/MM HH:mm")</div>
+                </div>
+            }
+            @if (Model.ApprovedAt.HasValue)
+            {
+                <div class="col-6">
+                    <div class="text-muted">Duyệt lúc</div>
+                    <div class="fw-semibold text-success">@Model.ApprovedAt.Value.ToString("dd/MM HH:mm")</div>
+                </div>
+            }
+            @if (Model.RejectedAt.HasValue)
+            {
+                <div class="col-12">
+                    <div class="text-muted">Từ chối lúc</div>
+                    <div class="fw-semibold text-danger">@Model.RejectedAt.Value.ToString("dd/MM HH:mm")</div>
+                    @if (Model.RejectReason != null)
                     {
-                        <div class="col-6">
-                            <div class="text-muted">Gửi lúc</div>
-                            <div class="fw-semibold">@Model.SentAt.Value.ToString("dd/MM HH:mm")</div>
-                        </div>
-                    }
-                    @if (Model.ApprovedAt.HasValue)
-                    {
-                        <div class="col-6">
-                            <div class="text-muted">Duyệt lúc</div>
-                            <div class="fw-semibold text-success">@Model.ApprovedAt.Value.ToString("dd/MM HH:mm")</div>
-                        </div>
-                    }
-                    @if (Model.RejectedAt.HasValue)
-                    {
-                        <div class="col-12">
-                            <div class="text-muted">Từ chối lúc</div>
-                            <div class="fw-semibold text-danger">@Model.RejectedAt.Value.ToString("dd/MM HH:mm")</div>
-                            @if (Model.RejectReason != null)
-                            {
-                                <div class="text-muted small mt-1">Lý do: @Model.RejectReason</div>
-                            }
-                        </div>
+                        <div class="text-muted small mt-1">Lý do: @Model.RejectReason</div>
                     }
                 </div>
+            }
             </div>
-        </div>
-
-        @if (!string.IsNullOrEmpty(Model.PaymentTerms))
-        {
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        Điều khoản thanh toán
-                    </h6>
-                    <p class="small mb-0">@Model.PaymentTerms</p>
-                </div>
-            </div>
-        }
-
-        @if (!string.IsNullOrEmpty(Model.Notes))
-        {
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        Ghi chú
-                    </h6>
-                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
-                </div>
-            </div>
-        }
-
-        @if (!string.IsNullOrEmpty(Model.InternalNotes))
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
-                    </h6>
-                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
-                </div>
-            </div>
-        }
+        </div>              
     </div>
+</div>
 
-    <!-- RIGHT: Items + Totals -->
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-bottom py-2">
-                <h6 class="mb-0 fw-semibold small text-uppercase">
-                    <i class="bi bi-box-seam me-1"></i> Chi tiet san pham
-                    <span class="badge bg-primary rounded-pill ms-1">@Model.Items.Count</span>
-                </h6>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size:0.8rem;">
-                        <thead class="table-light">
+@if (!string.IsNullOrEmpty(Model.PaymentTerms))
+{
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                Điều khoản thanh toán
+            </h6>
+            <p class="small mb-0">@Model.PaymentTerms</p>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.Notes))
+{
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                Ghi chú
+            </h6>
+            <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.InternalNotes))
+{
+    <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
+        <div class="card-body">
+            <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
+            </h6>
+            <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
+        </div>
+    </div>
+}
+
+<div class="row">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom py-2">
+            <h6 class="mb-0 fw-semibold small text-uppercase">
+                <i class="bi bi-box-seam me-1"></i> Chi tiet san pham
+                <span class="badge bg-primary rounded-pill ms-1">@Model.Items.Count</span>
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size:0.8rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th rowspan="2" style="width:30px;" class="text-center align-middle">STT</th>
+                            <th colspan="4" class="text-center bg-primary-subtle">Thong tin san pham</th>
+                            <th colspan="5" class="text-center bg-success-subtle">Bao gia khach hang</th>
+                            <th colspan="5" class="text-center bg-warning-subtle">Thong tin noi bo</th>
+                        </tr>
+                        <tr>
+                            <th>Yeu cau</th>
+                            <th>De xuat</th>
+                            <th style="width:60px;">Hinh</th>
+                            <th>DVT</th>
+                            <th class="text-end">SL</th>
+                            <th class="text-end">Don gia</th>
+                            <th class="text-end">Truoc VAT</th>
+                            <th class="text-center">VAT</th>
+                            <th class="text-end">Sau VAT</th>
+                            <th>Link</th>
+                            <th class="text-end">Gia nhap</th>
+                            <th>Ty gia</th>
+                            <th class="text-end">Shipping</th>
+                            <th class="text-center">He so</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var item in Model.Items)
+                        {
                             <tr>
-                                <th rowspan="2" style="width:30px;" class="text-center align-middle">STT</th>
-                                <th colspan="4" class="text-center bg-primary-subtle">Thong tin san pham</th>
-                                <th colspan="5" class="text-center bg-success-subtle">Bao gia khach hang</th>
-                                <th colspan="5" class="text-center bg-warning-subtle">Thong tin noi bo</th>
-                            </tr>
-                            <tr>
-                                <th>Yeu cau</th>
-                                <th>De xuat</th>
-                                <th style="width:60px;">Hinh</th>
-                                <th>DVT</th>
-                                <th class="text-end">SL</th>
-                                <th class="text-end">Don gia</th>
-                                <th class="text-end">Truoc VAT</th>
-                                <th class="text-center">VAT</th>
-                                <th class="text-end">Sau VAT</th>
-                                <th>Link</th>
-                                <th class="text-end">Gia nhap</th>
-                                <th>Ty gia</th>
-                                <th class="text-end">Shipping</th>
-                                <th class="text-center">He so</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @{ int idx = 1; }
-                            @foreach (var item in Model.Items)
-                            {
-                                <tr>
-                                    <td class="text-center text-muted">@(idx++)</td>
-                                    <td class="fw-semibold">
-                                        @item.ProductName
-                                        @if (!item.IsProductMapped)
-                                        {
-                                            <span class="badge bg-warning-subtle text-warning ms-1" style="font-size:0.6rem;"
-                                                  title="SP nhap tay - chua co trong he thong">Tam</span>
-                                        }
-                                    </td>
-                                    <td class="text-muted small">@(item.Proposal ?? "—")</td>
-                                    <td class="text-center">
-                                        @if (!string.IsNullOrEmpty(item.ImageUrl))
-                                        {
-                                            <img src="@item.ImageUrl" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:4px;" />
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted" style="font-size:0.7rem;">N/A</span>
-                                        }
-                                    </td>
-                                    <td>@item.UnitName</td>
-                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
-                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
-                                    <td class="text-end">@item.AmountExclVat.ToString("N0")</td>
-                                    <td class="text-center">@item.VatRate%</td>
-                                    <td class="text-end fw-bold text-primary">@item.AmountInclVat.ToString("N0")</td>
-                                    <td class="small">
-                                        @if (!string.IsNullOrEmpty(item.SourceUrl))
-                                        {
-                                            <a href="@item.SourceUrl" target="_blank" class="text-truncate d-inline-block" style="max-width:150px;" title="@item.SourceUrl">
-                                                <i class="bi bi-link-45deg"></i> Link
-                                            </a>
-                                        }
-                                        else
-                                        {
-                                            <span>—</span>
-                                        }
-                                    </td>
-                                    <td class="text-end">@item.ImportPrice.ToString("N0")</td>
-                                    <td class="text-center">@(item.ExchangeRate > 0 ? item.ExchangeRate.ToString("N0") : "—")</td>
-                                    <td class="text-end">@item.Shipping.ToString("N0")</td>
-                                    <td class="text-center">@item.Coefficient</td>
-                                </tr>
-                            }
-                        </tbody>
-                        <tfoot class="table-light">
-                            <tr class="fw-semibold">
-                                <td colspan="7" class="text-end">Tong cong:</td>
-                                <td class="text-end">@Model.SubTotal.ToString("N0")</td>
-                                <td></td>
-                                <td class="text-end text-primary fs-6">
-                                    @Model.TotalAmount.ToString("N0")
-                                    <span class="small fw-normal text-muted">@Model.Currency</span>
+                                <td class="text-center text-muted">@(idx++)</td>
+                                <td class="fw-semibold">
+                                    @item.ProductName
+                                    @if (!item.IsProductMapped)
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning ms-1" style="font-size:0.6rem;"
+                                              title="SP nhap tay - chua co trong he thong">Tam</span>
+                                    }
                                 </td>
-                                <td colspan="5"></td>
+                                <td class="text-muted small">@(item.Proposal ?? "—")</td>
+                                <td class="text-center">
+                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    {
+                                        <img src="@item.ImageUrl" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:4px;" />
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-size:0.7rem;">N/A</span>
+                                    }
+                                </td>
+                                <td>@item.UnitName</td>
+                                <td class="text-end">@item.Quantity.ToString("N3")</td>
+                                <td class="text-end">@item.UnitPrice.ToString("N0")</td>
+                                <td class="text-end">@item.AmountExclVat.ToString("N0")</td>
+                                <td class="text-center">@item.VatRate%</td>
+                                <td class="text-end fw-bold text-primary">@item.AmountInclVat.ToString("N0")</td>
+                                <td class="small">
+                                    @if (!string.IsNullOrEmpty(item.SourceUrl))
+                                    {
+                                        <a href="@item.SourceUrl" target="_blank" class="text-truncate d-inline-block" style="max-width:150px;" title="@item.SourceUrl">
+                                            <i class="bi bi-link-45deg"></i> Link
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span>—</span>
+                                    }
+                                </td>
+                                <td class="text-end">@item.ImportPrice.ToString("N0")</td>
+                                <td class="text-center">@(item.ExchangeRate > 0 ? item.ExchangeRate.ToString("N0") : "—")</td>
+                                <td class="text-end">@item.Shipping.ToString("N0")</td>
+                                <td class="text-center">@item.Coefficient</td>
                             </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                        }
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-semibold">
+                            <td colspan="7" class="text-end">Tong cong:</td>
+                            <td class="text-end">@Model.SubTotal.ToString("N0")</td>
+                            <td></td>
+                            <td class="text-end text-primary fs-6">
+                                @Model.TotalAmount.ToString("N0")
+                                <span class="small fw-normal text-muted">@Model.Currency</span>
+                            </td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
         </div>
     </div>

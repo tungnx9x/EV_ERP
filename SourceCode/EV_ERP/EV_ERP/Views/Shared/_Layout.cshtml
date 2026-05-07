@@ -548,6 +548,28 @@
         console.warn('SignalR connection failed:', err);
     });
 
+    // ── Session keep-alive heartbeat ──
+    // Pings server every 5 min while the page is open, refreshing the sliding session timeout.
+    // On 401 (session truly expired), redirects to login with returnUrl preserved.
+    (function() {
+        var HEARTBEAT_MS = 5 * 60 * 1000;
+        function ping() {
+            fetch('/Auth/KeepAlive', { credentials: 'same-origin', cache: 'no-store' })
+                .then(function(r) {
+                    if (r.status === 401) {
+                        var ret = encodeURIComponent(window.location.pathname + window.location.search);
+                        window.location.href = '/Auth/Login?returnUrl=' + ret;
+                    }
+                })
+                .catch(function() { /* network blip — try again next tick */ });
+        }
+        setInterval(ping, HEARTBEAT_MS);
+        // Ping immediately when a hidden tab becomes visible again, in case it was hidden a long time.
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) ping();
+        });
+    })();
+
     function showNotifToast(notif) {
         var toastHtml = `
             <div class="alert alert-${notif.Severity === 'DANGER' ? 'danger' : notif.Severity === 'WARNING' ? 'warning' : 'info'}

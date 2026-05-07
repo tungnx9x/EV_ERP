@@ -99,5 +99,20 @@ namespace EV_ERP.Controllers
         {
             return View();
         }
+
+        // ── Keep-alive heartbeat ─────────────────────────
+        // Reading the session value is enough to refresh the sliding IdleTimeout.
+        // Returns JSON (never redirects) so the client can handle expiry without HTML responses.
+        [HttpGet]
+        public IActionResult KeepAlive()
+        {
+            var user = HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser);
+            if (user == null)
+            {
+                Response.StatusCode = 401;
+                return Json(new { ok = false });
+            }
+            return Json(new { ok = true });
+        }
     }
 }

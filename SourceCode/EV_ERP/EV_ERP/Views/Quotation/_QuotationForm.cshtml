@@ -79,6 +79,9 @@
         <!-- Items container -->
         <div id="itemsContainer"></div>
 
+        <!-- Pagination (visible when more than PAGE_SIZE items) -->
+        <nav id="itemsPagination" class="d-flex justify-content-center mb-3" style="display:none;"></nav>
+
         <div id="itemsEmpty" class="card border-0 shadow-sm mb-3">
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-inbox" style="font-size:2.5rem;opacity:.25;"></i>
@@ -298,6 +301,8 @@
     var searchTimeout = null;
     var isEditMode = @(Model.IsEditMode ? "true" : "false");
     var activeSearchIdx = -1;
+    var PAGE_SIZE = 10;
+    var currentPage = 1;
 
     // ══════════════════════════════════════════════
     // INIT
@@ -371,6 +376,8 @@
             Notes: globalNotes,
             IsProductMapped: false
         });
+        // Jump to the last page so the freshly-added row is visible.
+        currentPage = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
         renderItems();
         recalcTotals();
         setTimeout(function () {
@@ -479,18 +486,28 @@
         var container = document.getElementById('itemsContainer');
         var empty = document.getElementById('itemsEmpty');
         var totals = document.getElementById('totalsCard');
+        var pagNav = document.getElementById('itemsPagination');
         document.getElementById('itemCountBadge').textContent = items.length;
 
         if (items.length === 0) {
             container.innerHTML = '';
             empty.style.display = 'block';
             totals.style.display = 'none';
+            if (pagNav) pagNav.style.display = 'none';
             return;
         }
         empty.style.display = 'none';
         totals.style.display = 'block';
 
-        container.innerHTML = items.map(function (item, idx) {
+        // Pagination: clamp current page, then slice. Handlers still use the global index.
+        var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+        var startIdx = (currentPage - 1) * PAGE_SIZE;
+        var pageItems = items.slice(startIdx, startIdx + PAGE_SIZE);
+
+        container.innerHTML = pageItems.map(function (item, localIdx) {
+            var idx = startIdx + localIdx;
             var badgeClass = item.IsProductMapped ? 'qi-badge-ht' : 'qi-badge-tmp';
             var badgeText = item.IsProductMapped ? 'HT' : 'Tam';
             var badgeTitle = item.IsProductMapped ? 'SP trong he thong' : 'SP nhap tay (chua co trong he thong)';
@@ -611,6 +628,64 @@
                 '</div>' +
             '</div>';
         }).join('');
+
+        renderPagination();
+    }
+
+    // ══════════════════════════════════════════════
+    // PAGINATION
+    // ══════════════════════════════════════════════
+    function renderPagination() {
+        var nav = document.getElementById('itemsPagination');
+        if (!nav) return;
+        if (items.length <= PAGE_SIZE) {
+            nav.style.display = 'none';
+            nav.innerHTML = '';
+            return;
+        }
+        nav.style.display = '';
+
+        var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+        var html = '<ul class="pagination pagination-sm mb-0">';
+        html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') + '">' +
+            '<a class="page-link" href="#" onclick="gotoPage(' + (currentPage - 1) + '); return false;">«</a></li>';
+
+        // Compact list when many pages: 1 … current-1 current current+1 … last
+        var pages = [];
+        if (totalPages <= 7) {
+            for (var i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            var start = Math.max(2, currentPage - 1);
+            var end = Math.min(totalPages - 1, currentPage + 1);
+            if (start > 2) pages.push('…');
+            for (var j = start; j <= end; j++) pages.push(j);
+            if (end < totalPages - 1) pages.push('…');
+            pages.push(totalPages);
+        }
+        pages.forEach(function (p) {
+            if (p === '…') {
+                html += '<li class="page-item disabled"><span class="page-link">…</span></li>';
+            } else {
+                html += '<li class="page-item ' + (p === currentPage ? 'active' : '') + '">' +
+                    '<a class="page-link" href="#" onclick="gotoPage(' + p + '); return false;">' + p + '</a></li>';
+            }
+        });
+
+        html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') + '">' +
+            '<a class="page-link" href="#" onclick="gotoPage(' + (currentPage + 1) + '); return false;">»</a></li>';
+        html += '</ul>';
+        nav.innerHTML = html;
+    }
+
+    function gotoPage(p) {
+        var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+        if (p < 1 || p > totalPages || p === currentPage) return;
+        currentPage = p;
+        renderItems();
+        // Scroll items list into view so the user lands on top of the new page.
+        var c = document.getElementById('itemsContainer');
+        if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // ══════════════════════════════════════════════
@@ -678,6 +753,9 @@
 
     function removeItem(idx) {
         items.splice(idx, 1);
+        // Clamp current page if the deletion shrank the page count.
+        var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
         renderItems();
         recalcTotals();
     }

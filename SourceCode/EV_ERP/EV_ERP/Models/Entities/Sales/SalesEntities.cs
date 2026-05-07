@@ -2,6 +2,7 @@ using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Products;
+using EV_ERP.Models.Entities.Reference;
 using EV_ERP.Models.Entities.Templates;
 
 namespace EV_ERP.Models.Entities.Sales;
@@ -111,9 +112,14 @@ public class QuotationItem
     public string? Notes { get; set; }
     /// <summary>0 = chưa gắn SP, 1 = đã gắn Product</summary>
     public bool IsProductMapped { get; set; }
+    // v2.1 — Currency của giá nhập + ảnh KH yêu cầu (so sánh với SP NV mua)
+    public string? PurchaseCurrency { get; set; }
+    public decimal? PurchaseExchangeRate { get; set; } = 1;
+    public string? RequiredImageUrl { get; set; }
 
     public virtual Quotation Quotation { get; set; } = null!;
     public virtual Product? Product { get; set; }
+    public virtual Currency? PurchaseCurrencyRef { get; set; }
 }
 
 // ─── QUOTATION EMAIL HISTORY ─────────────────────────
@@ -181,6 +187,7 @@ public class SalesOrder : AuditableEntity
 
     // ── Chi phí mua (giá vốn) ──
     public decimal? PurchaseCost { get; set; }
+    public string? PurchaseCostCurrency { get; set; }       // v2.1 — currency của tổng chi phí mua
 
     public string? ShippingAddress { get; set; }
     public string? Notes { get; set; }
@@ -210,6 +217,7 @@ public class SalesOrder : AuditableEntity
     public virtual Customer Customer { get; set; } = null!;
     public virtual CustomerContact? Contact { get; set; }
     public virtual User SalesPerson { get; set; } = null!;
+    public virtual Currency? PurchaseCostCurrencyRef { get; set; }
     public virtual ICollection<SalesOrderItem> Items { get; set; } = [];
 }
 
@@ -244,7 +252,9 @@ public class SalesOrderItem
     public string? Notes { get; set; }
     /// <summary>0 = chưa gắn SP, 1 = đã gắn Product</summary>
     public bool IsProductMapped { get; set; }
-
+    public string? PurchaseCurrency { get; set; }       // v2.1 — currency của giá mua thực tế
+    public decimal? PurchaseExchangeRate { get; set; } = 1;
     public virtual SalesOrder SalesOrder { get; set; } = null!;
     public virtual Product? Product { get; set; }
+    public virtual Currency? PurchaseCurrencyRef { get; set; }
 }

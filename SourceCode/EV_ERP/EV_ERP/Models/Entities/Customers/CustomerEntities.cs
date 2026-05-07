@@ -1,5 +1,6 @@
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
+using EV_ERP.Models.Entities.Reference;
 
 namespace EV_ERP.Models.Entities.Customers;
 
@@ -27,6 +28,10 @@ public class Customer : AuditableEntity, ISoftDeletable
     public string? City { get; set; }
     public string? District { get; set; }
     public string? Ward { get; set; }
+    // v2.1 — FK to master location tables (legacy text fields kept for back-compat)
+    public string? CityCode { get; set; }
+    public string? DistrictCode { get; set; }
+    public string? WardCode { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
@@ -39,6 +44,9 @@ public class Customer : AuditableEntity, ISoftDeletable
 
     public virtual CustomerGroup? CustomerGroup { get; set; }
     public virtual User? SalesPerson { get; set; }
+    public virtual City? CityRef { get; set; }
+    public virtual District? DistrictRef { get; set; }
+    public virtual Ward? WardRef { get; set; }
     public virtual ICollection<CustomerContact> Contacts { get; set; } = [];
     public virtual ICollection<CustomerNote> Notes { get; set; } = [];
 }

@@ -3,6 +3,7 @@ using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Finance;
 using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
+using EV_ERP.Models.Entities.Reference;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.Entities.System;
 using EV_ERP.Models.Entities.Templates;
@@ -74,6 +75,13 @@ namespace EV_ERP.Data
         public DbSet<SlaConfig> SlaConfigs => Set<SlaConfig>();
         public DbSet<SlaTracking> SlaTrackings => Set<SlaTracking>();
         public DbSet<TaskComment> TaskComments => Set<TaskComment>();
+
+        // ── Master data — Currency, FX, Địa danh (5 bảng) — v2.1 ─
+        public DbSet<Currency> Currencies => Set<Currency>();
+        public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
+        public DbSet<City> Cities => Set<City>();
+        public DbSet<District> Districts => Set<District>();
+        public DbSet<Ward> Wards => Set<Ward>();
 
         // =================================================================
         // FLUENT API CONFIGURATIONS
@@ -164,8 +172,20 @@ namespace EV_ERP.Data
                 e.Property(x => x.CustomerName).HasMaxLength(300);
                 e.Property(x => x.TaxCode).HasMaxLength(20);
                 e.Property(x => x.CreditLimit).HasColumnType("decimal(18,2)");
+                e.Property(x => x.CityCode).HasMaxLength(5);
+                e.Property(x => x.DistrictCode).HasMaxLength(5);
+                e.Property(x => x.WardCode).HasMaxLength(7);
                 e.HasOne(x => x.CustomerGroup).WithMany(g => g.Customers).HasForeignKey(x => x.CustomerGroupId);
                 e.HasOne(x => x.SalesPerson).WithMany().HasForeignKey(x => x.SalesPersonId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.CityRef).WithMany()
+                 .HasForeignKey(x => x.CityCode).HasPrincipalKey(c => c.Code)
+                 .OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.DistrictRef).WithMany()
+                 .HasForeignKey(x => x.DistrictCode).HasPrincipalKey(d => d.Code)
+                 .OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.WardRef).WithMany()
+                 .HasForeignKey(x => x.WardCode).HasPrincipalKey(w => w.Code)
+                 .OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<CustomerContact>(e =>
@@ -212,12 +232,17 @@ namespace EV_ERP.Data
                 e.Property(x => x.ProductName).HasMaxLength(300);
                 e.Property(x => x.Barcode).HasMaxLength(50);
                 e.Property(x => x.SKU).HasMaxLength(50);
-                e.Property(x => x.SourceUrl).HasMaxLength(500);
+                e.Property(x => x.SourceUrl).HasMaxLength(1000);
                 e.Property(x => x.DefaultSalePrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.DefaultPurchasePrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.DefaultPurchaseCurrency).HasMaxLength(3).HasDefaultValue("VND");
                 e.Property(x => x.Weight).HasColumnType("decimal(10,3)");
                 e.HasOne(x => x.Category).WithMany(c => c.Products).HasForeignKey(x => x.CategoryId);
                 e.HasOne(x => x.Unit).WithMany(u => u.Products).HasForeignKey(x => x.UnitId);
+                e.HasOne(x => x.DefaultPurchaseCurrencyRef).WithMany()
+                 .HasForeignKey(x => x.DefaultPurchaseCurrency)
+                 .HasPrincipalKey(c => c.CurrencyCode)
+                 .OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<ProductImage>(e =>
@@ -345,8 +370,16 @@ namespace EV_ERP.Data
                 e.Property(x => x.TaxRate).HasColumnType("decimal(5,2)");
                 e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.LineTotalWithTax).HasColumnType("decimal(18,2)");
+                e.Property(x => x.SourceUrl).HasMaxLength(1000);
+                e.Property(x => x.PurchaseCurrency).HasMaxLength(3).HasDefaultValue("VND");
+                e.Property(x => x.PurchaseExchangeRate).HasColumnType("decimal(18,6)");
+                e.Property(x => x.RequiredImageUrl).HasMaxLength(1000);
                 e.HasOne(x => x.Quotation).WithMany(q => q.Items).HasForeignKey(x => x.QuotationId);
                 e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.PurchaseCurrencyRef).WithMany()
+                 .HasForeignKey(x => x.PurchaseCurrency)
+                 .HasPrincipalKey(c => c.CurrencyCode)
+                 .OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<QuotationEmailHistory>(e =>
@@ -375,12 +408,17 @@ namespace EV_ERP.Data
                 e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.Currency).HasMaxLength(3).HasDefaultValue("VND");
+                e.Property(x => x.PurchaseCostCurrency).HasMaxLength(3).HasDefaultValue("VND");
                 e.HasOne(x => x.Rfq).WithMany(r => r.SalesOrders).HasForeignKey(x => x.RfqId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Quotation).WithOne(q => q.SalesOrder)
                  .HasForeignKey<SalesOrder>(x => x.QuotationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Contact).WithMany().HasForeignKey(x => x.ContactId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.SalesPerson).WithMany().HasForeignKey(x => x.SalesPersonId).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.PurchaseCostCurrencyRef).WithMany()
+                 .HasForeignKey(x => x.PurchaseCostCurrency)
+                 .HasPrincipalKey(c => c.CurrencyCode)
+                 .OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<SalesOrderItem>(e =>
@@ -398,8 +436,15 @@ namespace EV_ERP.Data
                 e.Property(x => x.TaxRate).HasColumnType("decimal(5,2)");
                 e.Property(x => x.TaxAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.LineTotalWithTax).HasColumnType("decimal(18,2)");
+                e.Property(x => x.SourceUrl).HasMaxLength(1000);
+                e.Property(x => x.PurchaseCurrency).HasMaxLength(3).HasDefaultValue("VND");
+                e.Property(x => x.PurchaseExchangeRate).HasColumnType("decimal(18,6)");
                 e.HasOne(x => x.SalesOrder).WithMany(s => s.Items).HasForeignKey(x => x.SalesOrderId);
                 e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.PurchaseCurrencyRef).WithMany()
+                 .HasForeignKey(x => x.PurchaseCurrency)
+                 .HasPrincipalKey(c => c.CurrencyCode)
+                 .OnDelete(DeleteBehavior.NoAction);
             });
 
             // ─────────────────────────────────────────────
@@ -652,6 +697,87 @@ namespace EV_ERP.Data
                 e.Property(x => x.ContentType).HasMaxLength(100);
                 e.Property(x => x.FileCategory).HasMaxLength(50);
                 e.HasOne(x => x.UploadedByUser).WithMany().HasForeignKey(x => x.UploadedBy).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // ─────────────────────────────────────────────
+            // REFERENCE — Currency, Exchange Rate, Cities, Districts, Wards (v2.1)
+            // ─────────────────────────────────────────────
+            mb.Entity<Currency>(e =>
+            {
+                e.HasKey(x => x.CurrencyCode);
+                e.Property(x => x.CurrencyCode).HasMaxLength(3);
+                e.Property(x => x.CurrencyName).HasMaxLength(100);
+                e.Property(x => x.Symbol).HasMaxLength(10);
+                e.Property(x => x.DecimalPlaces).HasDefaultValue((byte)2);
+            });
+
+            mb.Entity<ExchangeRate>(e =>
+            {
+                e.HasKey(x => x.ExchangeRateId);
+                e.HasIndex(x => new { x.FromCurrency, x.ToCurrency, x.EffectiveDate }).IsUnique();
+                e.HasIndex(x => new { x.EffectiveDate, x.FromCurrency, x.ToCurrency })
+                 .IsDescending(true, false, false)
+                 .HasDatabaseName("IX_ExchRate_Date");
+                e.Property(x => x.FromCurrency).HasMaxLength(3);
+                e.Property(x => x.ToCurrency).HasMaxLength(3);
+                e.Property(x => x.Rate).HasColumnType("decimal(18,6)");
+                e.Property(x => x.Source).HasMaxLength(100);
+                e.HasOne(x => x.FromCurrencyRef).WithMany()
+                 .HasForeignKey(x => x.FromCurrency).HasPrincipalKey(c => c.CurrencyCode)
+                 .OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.ToCurrencyRef).WithMany()
+                 .HasForeignKey(x => x.ToCurrency).HasPrincipalKey(c => c.CurrencyCode)
+                 .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            mb.Entity<City>(e =>
+            {
+                e.HasKey(x => x.CityId);
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => x.Slug);
+                e.Property(x => x.Code).HasMaxLength(5);
+                e.Property(x => x.Name).HasMaxLength(50);
+                e.Property(x => x.NameWithType).HasMaxLength(60);
+                e.Property(x => x.Slug).HasMaxLength(50);
+                e.Property(x => x.Type).HasMaxLength(15);
+            });
+
+            mb.Entity<District>(e =>
+            {
+                e.HasKey(x => x.DistrictId);
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => x.CityCode);
+                e.HasIndex(x => x.Slug);
+                e.Property(x => x.Code).HasMaxLength(5);
+                e.Property(x => x.Name).HasMaxLength(60);
+                e.Property(x => x.NameWithType).HasMaxLength(80);
+                e.Property(x => x.Slug).HasMaxLength(60);
+                e.Property(x => x.Type).HasMaxLength(15);
+                e.Property(x => x.CityCode).HasMaxLength(5);
+                e.Property(x => x.Path).HasMaxLength(80);
+                e.Property(x => x.PathWithType).HasMaxLength(120);
+                e.HasOne(x => x.City).WithMany(c => c.Districts)
+                 .HasForeignKey(x => x.CityCode).HasPrincipalKey(c => c.Code)
+                 .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            mb.Entity<Ward>(e =>
+            {
+                e.HasKey(x => x.WardId);
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => x.DistrictCode);
+                e.HasIndex(x => x.Slug);
+                e.Property(x => x.Code).HasMaxLength(7);
+                e.Property(x => x.Name).HasMaxLength(60);
+                e.Property(x => x.NameWithType).HasMaxLength(80);
+                e.Property(x => x.Slug).HasMaxLength(60);
+                e.Property(x => x.Type).HasMaxLength(15);
+                e.Property(x => x.DistrictCode).HasMaxLength(5);
+                e.Property(x => x.Path).HasMaxLength(120);
+                e.Property(x => x.PathWithType).HasMaxLength(180);
+                e.HasOne(x => x.District).WithMany(d => d.Wards)
+                 .HasForeignKey(x => x.DistrictCode).HasPrincipalKey(d => d.Code)
+                 .OnDelete(DeleteBehavior.NoAction);
             });
         }
     }

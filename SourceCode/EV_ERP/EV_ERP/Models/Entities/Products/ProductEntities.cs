@@ -1,5 +1,6 @@
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Customers;
+using EV_ERP.Models.Entities.Reference;
 
 namespace EV_ERP.Models.Entities.Products;
 
@@ -47,6 +48,7 @@ public class Product : AuditableEntity, ISoftDeletable
     public string? ImageUrl { get; set; }
     public decimal? DefaultSalePrice { get; set; }
     public decimal? DefaultPurchasePrice { get; set; }
+    public string? DefaultPurchaseCurrency { get; set; }        // v2.1 — VND mặc định
     public int MinStockLevel { get; set; }
     public decimal? Weight { get; set; }
     public string? WeightUnit { get; set; }
@@ -55,6 +57,7 @@ public class Product : AuditableEntity, ISoftDeletable
 
     public virtual ProductCategory? Category { get; set; }
     public virtual Unit Unit { get; set; } = null!;
+    public virtual Currency? DefaultPurchaseCurrencyRef { get; set; }
     public virtual ICollection<ProductImage> Images { get; set; } = [];
     public virtual ICollection<CustomerPrice> CustomerPrices { get; set; } = [];
     public virtual ICollection<ProductAttributeMap> AttributeMaps { get; set; } = [];

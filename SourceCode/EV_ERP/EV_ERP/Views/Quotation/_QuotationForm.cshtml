@@ -32,7 +32,7 @@
                 }
                 <input type="hidden" id="frm_salesPersonId" value="@Model.SalesPersonId" />
                 <div class="row">
-                    <div class="col-lg-6">
+                    <div class="col-lg-3">
                         <label class="form-label small fw-semibold">Khách hàng <span class="text-danger">*</span></label>
                         <div class="position-relative" id="customerWrapper">
                             <input type="hidden" id="frm_customerId" value="@Model.CustomerId" />
@@ -45,19 +45,21 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="col-lg-6">
-                        <label class="form-label small fw-semibold">Hệ số <span class="text-danger">*</span></label>
-                        <input type="number" id="frm_coefficient" class="form-control form-control-sm"
-                               value="@Model.Coefficient" min="0.01" step="any" />
-                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập × Tỷ giá / Hệ số + Vận chuyển / Số lượng</div>
-                    </div>
                     <div class="col-lg-3">
                         <label class="form-label small fw-semibold">Hạn xử lý nội bộ <span class="text-danger">*</span></label>
                         <input type="datetime-local" id="frm_deadline" class="form-control form-control-sm"
                                value="@(Model.Deadline?.ToString("yyyy-MM-ddTHH:mm"))"
                                @(Model.RfqId.HasValue ? "readonly" : "") />
                     </div>
+                    <div class="col-lg-2">
+                        <label class="form-label small fw-semibold">Hệ số chung</label>
+                        <input type="number" id="frm_coefficient" class="form-control form-control-sm" min="0.01" step="any" placeholder="Nhập để áp dụng chung" />
+                        <div class="form-text" style="font-size:0.72rem;">Đơn giá = Giá nhập × Tỷ giá / Hệ số + Vận chuyển / Số lượng</div>
+                    </div>
+                    <div class="col-lg-4">
+                        <label class="form-label small fw-semibold">Ghi chú chung</label>
+                        <textarea id="frm_notesforall" class="form-control form-control-sm" rows="1" placeholder="Nhập để áp dụng chung"></textarea>
+                    </div>                   
                 </div>
             </div>
         </div>
@@ -72,11 +74,6 @@
                 <i class="bi bi-box-seam me-1"></i> Sản phẩm
                 <span class="badge bg-primary rounded-pill ms-1" id="itemCountBadge">0</span>
             </h6>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEmptyRow()">
-                    <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
-                </button>
-            </div>
         </div>
 
         <!-- Items container -->
@@ -87,6 +84,16 @@
                 <i class="bi bi-inbox" style="font-size:2.5rem;opacity:.25;"></i>
                 <p class="small mt-2 mb-0">Chưa có sản phẩm — nhấn <strong>"Thêm sản phẩm"</strong> để bắt đầu</p>
             </div>
+        </div>
+
+        <!-- Inline action bar: add product + quick save (no redirect) -->
+        <div class="d-flex justify-content-end gap-2 mb-3">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEmptyRow()">
+                <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
+            </button>
+            <button type="button" class="btn btn-sm btn-success" onclick="submitForm(true)" id="btnQuickSave">
+                <i class="bi bi-save me-1"></i> Lưu báo giá
+            </button>
         </div>
 
         <!-- Totals -->
@@ -110,7 +117,8 @@
             <a href="/Quotation" class="btn btn-outline-secondary">Hủy</a>
             <button type="button" class="btn btn-primary" onclick="submitForm()" id="btnSubmit">
                 <i class="bi bi-check-lg me-1"></i>
-                @(Model.IsEditMode ? "Cập nhật" : "Tạo báo giá")
+                @* @(Model.IsEditMode ? "Cập nhật" : "Tạo báo giá") *@
+                Hoàn tất
             </button>
         </div>
     </div>
@@ -295,8 +303,13 @@
     // INIT
     // ══════════════════════════════════════════════
     document.addEventListener('DOMContentLoaded', function () {
-        renderItems();
-        recalcTotals();
+        // New quotation with no pre-loaded items → seed one empty row so the user can start typing.
+        if (!isEditMode && items.length === 0) {
+            addEmptyRow();
+        } else {
+            renderItems();
+            recalcTotals();
+        }
 
         document.getElementById('frm_coefficient').addEventListener('input', function () {
             var globalCoeff = parseFloat(this.value) || 1;
@@ -307,6 +320,14 @@
             });
             renderItems();
             recalcTotals();
+        });
+
+        document.getElementById('frm_notesforall').addEventListener('input', function () {
+            var globalNotes = this.value;
+            items.forEach(function (item, idx) {
+                item.Notes = globalNotes;
+            });
+            renderItems();
         });
 
         document.addEventListener('click', function (e) {
@@ -323,6 +344,7 @@
     // ══════════════════════════════════════════════
     function addEmptyRow() {
         var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
+        var globalNotes = document.getElementById('frm_notesforall').value || null;
         items.push({
             QuotationItemId: null,
             ProductId: 0,
@@ -346,7 +368,7 @@
             DiscountAmount: 0,
             LineTotal: 0,
             SortOrder: items.length,
-            Notes: null,
+            Notes: globalNotes,
             IsProductMapped: false
         });
         renderItems();
@@ -842,7 +864,9 @@
     // ══════════════════════════════════════════════
     // SUBMIT
     // ══════════════════════════════════════════════
-    function submitForm() {
+    // stayOnPage = true → quick save (no redirect, inline toast, switches to Edit mode after Create)
+    // stayOnPage = false (default) → existing behavior: redirect to Detail on success
+    function submitForm(stayOnPage) {
         var customerId = parseInt(document.getElementById('frm_customerId').value);
         var deadlineVal = document.getElementById('frm_deadline')?.value;
         if (!deadlineVal) { alert('Vui long chon han xu ly noi bo'); return; }
@@ -858,9 +882,23 @@
             }
         }
 
-        var btn = document.getElementById('btnSubmit');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang luu...';
+        var primaryBtn = document.getElementById('btnSubmit');
+        var quickBtn = document.getElementById('btnQuickSave');
+        var activeBtn = stayOnPage ? quickBtn : primaryBtn;
+        var primaryLabel = '<i class="bi bi-check-lg me-1"></i> ' + 'Hoàn tất';
+        var quickLabel = '<i class="bi bi-save me-1"></i> Lưu báo giá';
+
+        function setBusy(busy) {
+            [primaryBtn, quickBtn].forEach(function (b) { if (b) b.disabled = busy; });
+            if (busy) {
+                activeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang lưu...';
+            } else {
+                if (primaryBtn) primaryBtn.innerHTML = primaryLabel;
+                if (quickBtn) quickBtn.innerHTML = quickLabel;
+            }
+        }
+
+        setBusy(true);
 
         var payload = {
             QuotationId: isEditMode ? parseInt(document.getElementById('frm_quotationId')?.value) : null,
@@ -890,18 +928,47 @@
         .then(r => r.json())
         .then(data => {
             if (data.Success && data.Data) {
-                window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
+                if (stayOnPage) {
+                    var savedId = data.Data.QuotationId;
+                    // Promote Create → Edit so subsequent quick-saves update the same quotation.
+                    if (!isEditMode && savedId) {
+                        isEditMode = true;
+                        var hid = document.getElementById('frm_quotationId');
+                        if (!hid) {
+                            hid = document.createElement('input');
+                            hid.type = 'hidden';
+                            hid.id = 'frm_quotationId';
+                            document.body.appendChild(hid);
+                        }
+                        hid.value = savedId;
+                        try { history.replaceState(null, '', '/Quotation/Edit/' + savedId); } catch (e) {}
+                    }
+                    setBusy(false);
+                    showQuickSaveToast(data.Message || 'Da luu bao gia');
+                } else {
+                    window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
+                }
             } else {
                 alert(data.Message || 'Loi luu bao gia');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cap nhat' : 'Tao bao gia');
+                setBusy(false);
             }
         })
         .catch(function () {
             alert('Loi ket noi');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> ' + (isEditMode ? 'Cap nhat' : 'Tao bao gia');
+            setBusy(false);
         });
+    }
+
+    function showQuickSaveToast(msg) {
+        var html = '<div class="alert alert-success alert-dismissible fade show alert-fixed" role="alert" style="z-index:10000;">' +
+            '<i class="bi bi-check-circle me-2"></i>' + escapeHtml(msg) +
+            '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+            '</div>';
+        document.body.insertAdjacentHTML('beforeend', html);
+        var el = document.body.lastElementChild;
+        setTimeout(function () {
+            try { bootstrap.Alert.getOrCreateInstance(el).close(); } catch (e) { el.remove(); }
+        }, 3000);
     }
 
     // ══════════════════════════════════════════════

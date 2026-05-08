@@ -117,6 +117,8 @@ public class QuotationFormViewModel
     // ── Dropdown data ────────────────────────────────
     public List<CustomerOptionViewModel> Customers { get; set; } = [];
     public List<SalesPersonOptionViewModel> SalesPersons { get; set; } = [];
+    public List<CurrencyOptionViewModel> Currencies { get; set; } = [];
+    public List<UnitOptionViewModel> Units { get; set; } = [];
 
     // Helpers
     public bool IsEditMode => QuotationId.HasValue && QuotationId > 0;
@@ -152,7 +154,8 @@ public class QuotationItemFormModel
     public string? Supplier { get; set; }
     public string? SourceUrl { get; set; }
     public decimal ImportPrice { get; set; }
-    public decimal ExchangeRate { get; set; } = 1;
+    public decimal ExchangeRate { get; set; } = 1;          // → entity.PurchaseExchangeRate
+    public string? PurchaseCurrency { get; set; } = "VND";  // → entity.PurchaseCurrency
     public decimal Shipping { get; set; }
     public decimal Coefficient { get; set; } = 1;
 
@@ -295,6 +298,21 @@ public class SalesPersonOptionViewModel
     public int UserId { get; set; }
     public string UserCode { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
+}
+
+public class CurrencyOptionViewModel
+{
+    public string CurrencyCode { get; set; } = string.Empty;
+    public string CurrencyName { get; set; } = string.Empty;
+    public string? Symbol { get; set; }
+    public byte DecimalPlaces { get; set; } = 2;
+}
+
+public class UnitOptionViewModel
+{
+    public int UnitId { get; set; }
+    public string UnitCode { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
 }
 
 // ══════════════════════════════════════════════════════

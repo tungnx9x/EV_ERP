@@ -130,6 +130,22 @@ public class QuotationController : Controller
         return Json(ApiResult<object>.Ok(new { QuotationId = model.QuotationId }, "Đã cập nhật báo giá"));
     }
 
+    // ── Currency rate lookup (FX → VND) ──────────────
+    [HttpGet]
+    public async Task<IActionResult> GetCurrencyRate(string code)
+    {
+        try
+        {
+            var rate = await _quotationService.GetCurrencyRateToVndAsync(code ?? "VND");
+            return Json(ApiResult<object>.Ok(new { code = (code ?? "VND").ToUpperInvariant(), rate }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetCurrencyRate failed for code {Code}", code);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
     // ── Detail ───────────────────────────────────────
     [HttpGet]
     public async Task<IActionResult> Detail(int id)

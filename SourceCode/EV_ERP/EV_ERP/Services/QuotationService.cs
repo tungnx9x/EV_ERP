@@ -4,6 +4,7 @@ using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Products;
+using EV_ERP.Models.Entities.Reference;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.Quotations;
 using EV_ERP.Repositories.Interfaces;
@@ -119,6 +120,8 @@ public class QuotationService : IQuotationService
     {
         var customers = await GetCustomerOptionsAsync();
         var salesPersons = await GetSalesPersonOptionsAsync();
+        var currencies = await GetCurrencyOptionsAsync();
+        var units = await GetUnitOptionsAsync();
 
         if (!quotationId.HasValue || quotationId <= 0)
         {
@@ -128,6 +131,8 @@ public class QuotationService : IQuotationService
                 RfqId = rfqId,
                 Customers = customers,
                 SalesPersons = salesPersons,
+                Currencies = currencies,
+                Units = units,
                 QuotationNo = code
             };
 
@@ -151,7 +156,7 @@ public class QuotationService : IQuotationService
             .FirstOrDefaultAsync(x => x.QuotationId == quotationId.Value);
 
         if (q == null)
-            return new QuotationFormViewModel { Customers = customers, SalesPersons = salesPersons };
+            return new QuotationFormViewModel { Customers = customers, SalesPersons = salesPersons, Currencies = currencies, Units = units };
 
         return new QuotationFormViewModel
         {
@@ -197,10 +202,14 @@ public class QuotationService : IQuotationService
                 SourceUrl = i.SourceUrl,
                 SortOrder = i.SortOrder,
                 Notes = i.Notes,
-                IsProductMapped = i.IsProductMapped
+                IsProductMapped = i.IsProductMapped,
+                PurchaseCurrency = i.PurchaseCurrency ?? "VND",
+                ExchangeRate = i.PurchaseExchangeRate ?? 1
             }).ToList(),
             Customers = customers,
-            SalesPersons = salesPersons
+            SalesPersons = salesPersons,
+            Currencies = currencies,
+            Units = units
         };
     }
 
@@ -275,7 +284,9 @@ public class QuotationService : IQuotationService
                 SourceName = item.Supplier?.Trim(),
                 SortOrder = sortOrder++,
                 Notes = item.Notes?.Trim(),
-                IsProductMapped = hasProduct
+                IsProductMapped = hasProduct,
+                PurchaseCurrency = string.IsNullOrWhiteSpace(item.PurchaseCurrency) ? "VND" : item.PurchaseCurrency.Trim().ToUpperInvariant(),
+                PurchaseExchangeRate = item.ExchangeRate > 0 ? item.ExchangeRate : 1
             });
 
             subTotal += lineTotal;
@@ -381,7 +392,9 @@ public class QuotationService : IQuotationService
                 SourceName = item.Supplier?.Trim(),
                 SortOrder = sortOrder++,
                 Notes = item.Notes?.Trim(),
-                IsProductMapped = hasProduct
+                IsProductMapped = hasProduct,
+                PurchaseCurrency = string.IsNullOrWhiteSpace(item.PurchaseCurrency) ? "VND" : item.PurchaseCurrency.Trim().ToUpperInvariant(),
+                PurchaseExchangeRate = item.ExchangeRate > 0 ? item.ExchangeRate : 1
             });
 
             subTotal += lineTotal;
@@ -1000,6 +1013,49 @@ public class QuotationService : IQuotationService
                 FullName = u.FullName
             })
             .ToListAsync();
+    }
+
+    private async Task<List<CurrencyOptionViewModel>> GetCurrencyOptionsAsync()
+    {
+        return await _uow.Repository<Currency>().Query()
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.DisplayOrder).ThenBy(c => c.CurrencyCode)
+            .Select(c => new CurrencyOptionViewModel
+            {
+                CurrencyCode = c.CurrencyCode,
+                CurrencyName = c.CurrencyName,
+                Symbol = c.Symbol,
+                DecimalPlaces = c.DecimalPlaces
+            })
+            .ToListAsync();
+    }
+
+    private async Task<List<UnitOptionViewModel>> GetUnitOptionsAsync()
+    {
+        return await _uow.Repository<Unit>().Query()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.UnitName)
+            .Select(u => new UnitOptionViewModel
+            {
+                UnitId = u.UnitId,
+                UnitCode = u.UnitCode,
+                UnitName = u.UnitName
+            })
+            .ToListAsync();
+    }
+
+    public async Task<decimal> GetCurrencyRateToVndAsync(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code) || string.Equals(code, "VND", StringComparison.OrdinalIgnoreCase))
+            return 1m;
+
+        var rate = await _uow.Repository<ExchangeRate>().Query()
+            .Where(x => x.FromCurrency == code && x.ToCurrency == "VND")
+            .OrderByDescending(x => x.EffectiveDate)
+            .Select(x => (decimal?)x.Rate)
+            .FirstOrDefaultAsync();
+
+        return rate ?? 1m;
     }
 
     private static decimal CalculateLineDiscount(decimal qty, decimal unitPrice, string? discountType, decimal? discountValue)

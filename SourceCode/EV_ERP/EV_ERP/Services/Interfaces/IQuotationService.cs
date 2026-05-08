@@ -46,4 +46,8 @@ public interface IQuotationService
 
     // ── Image upload (for ad-hoc items) ─────────────
     Task<string?> UploadItemImageAsync(IFormFile file);
+
+    // ── Currency rate lookup (latest FX → VND) ───────
+    /// <summary>Returns the most recent {code} → VND rate from ExchangeRates, or 1 when none / code is VND.</summary>
+    Task<decimal> GetCurrencyRateToVndAsync(string code);
 }

@@ -132,6 +132,11 @@
      style="z-index:2000; display:none; max-height:240px; overflow-y:auto; min-width:320px;">
 </div>
 
+<!-- Shared dropdown panel for the per-item DVT input. Positioned below the active input via JS. -->
+<div id="unitDropdown" class="position-fixed bg-white border rounded shadow-sm"
+     style="z-index:2000; display:none; max-height:240px; overflow-y:auto; min-width:160px;">
+</div>
+
 <style>
     .qi-card {
         border: 1px solid #e2e8f0;
@@ -278,6 +283,22 @@
         display: flex; align-items: end; padding-bottom: 5px;
     }
 
+    .qi-x-btn {
+        border: none; background: none; padding: 0 2px;
+        color: #94a3b8; font-size: 0.95rem; line-height: 1;
+        cursor: pointer; flex-shrink: 0;
+    }
+    .qi-x-btn:hover { color: #dc2626; }
+
+    .unit-option {
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.82rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .unit-option:last-child { border-bottom: none; }
+    .unit-option:hover { background: #e0f2fe; }
+
     .product-result-item {
         padding: 10px 14px;
         cursor: pointer;
@@ -298,9 +319,12 @@
     // STATE
     // ══════════════════════════════════════════════
     var items = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Items));
+    var currencies = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Currencies));
+    var units = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Units));
     var searchTimeout = null;
     var isEditMode = @(Model.IsEditMode ? "true" : "false");
     var activeSearchIdx = -1;
+    var activeUnitInput = null;
     var PAGE_SIZE = 10;
     var currentPage = 1;
 
@@ -342,6 +366,41 @@
                 activeSearchIdx = -1;
             }
         });
+
+        // ── Unit dropdown: pick on mousedown (fires before blur) + close on outside click ──
+        var unitDd = document.getElementById('unitDropdown');
+        if (unitDd) {
+            unitDd.addEventListener('mousedown', function (e) {
+                var opt = e.target.closest('.unit-option');
+                if (!opt) return;
+                e.preventDefault(); // don't blur the active input
+                pickUnit(opt.getAttribute('data-name'));
+            });
+        }
+        document.addEventListener('click', function (e) {
+            var dd = document.getElementById('unitDropdown');
+            if (!dd) return;
+            if (dd.contains(e.target)) return;
+            if (e.target.classList && e.target.classList.contains('qi-unit-input')) return;
+            dd.style.display = 'none';
+            activeUnitInput = null;
+        });
+        // Re-anchor the dropdown to the input on scroll (it's position:fixed, so it'd otherwise stay put while
+        // the input moves underneath). Hide only when the input scrolls out of the viewport.
+        window.addEventListener('scroll', function () {
+            if (!activeUnitInput) return;
+            var dd = document.getElementById('unitDropdown');
+            if (!dd || dd.style.display === 'none') return;
+            var rect = activeUnitInput.getBoundingClientRect();
+            if (rect.bottom < 0 || rect.top > (window.innerHeight || document.documentElement.clientHeight)) {
+                dd.style.display = 'none';
+                activeUnitInput = null;
+                return;
+            }
+            dd.style.left = rect.left + 'px';
+            dd.style.top = (rect.bottom + 2) + 'px';
+            dd.style.minWidth = rect.width + 'px';
+        }, true);
     });
 
     // ══════════════════════════════════════════════
@@ -365,7 +424,8 @@
             Supplier: '',
             SourceUrl: '',
             ImportPrice: 0,
-            ExchangeRate: 0,
+            ExchangeRate: 1,
+            PurchaseCurrency: 'VND',
             Shipping: 0,
             Coefficient: globalCoeff,
             DiscountType: null,
@@ -562,8 +622,9 @@
                             '</div>' +
                             '<div>' +
                                 '<div class="qi-label">DVT</div>' +
-                                '<input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.UnitName) + '" ' +
-                                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cai, Bo..." />' +
+                                '<input type="text" class="form-control form-control-sm qi-unit-input" value="' + escapeHtml(item.UnitName) + '" ' +
+                                    'onfocus="onUnitFocus(this)" oninput="onUnitInput(this)" ' +
+                                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cai, Bo..." autocomplete="off" />' +
                             '</div>' +
                             '<div>' +
                                 '<div class="qi-label">Link mua hang</div>' +
@@ -585,11 +646,8 @@
                             '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
                                 'value="' + formatNumber(item.ImportPrice) + '" oninput="formatMoneyInput(this)" onchange="updateImportPrice(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
-                        '<div>' +
-                            '<div class="qi-label">Ty gia</div>' +
-                            '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
-                                'value="' + (item.ExchangeRate ? formatNumber(item.ExchangeRate) : '') + '" ' +
-                                'oninput="formatMoneyInput(this)" onchange="updateExchangeRate(' + idx + ', this.value)" onfocus="this.select()" placeholder="De trong = 1" />' +
+                        '<div id="tgCell_' + idx + '">' +
+                            renderRateOrCurrencyCell(idx, item) +
                         '</div>' +
                         '<div>' +
                             '<div class="qi-label">Van chuyen</div>' +
@@ -732,6 +790,119 @@
         recalcItemLine(idx);
         renderItems();
         recalcTotals();
+    }
+
+    // ── Currency / Exchange-rate dual-mode cell ──────────
+    // Currency = VND → show currency dropdown (rate is forced to 1).
+    // Currency != VND → show rate input + "Tỷ giá - <code>" label + × revert button.
+    function renderRateOrCurrencyCell(idx, item) {
+        var curr = item.PurchaseCurrency || 'VND';
+        if (curr === 'VND') {
+            var opts = '';
+            for (var i = 0; i < currencies.length; i++) {
+                var c = currencies[i];
+                opts += '<option value="' + escapeHtml(c.CurrencyCode) + '"' +
+                    (c.CurrencyCode === curr ? ' selected' : '') + '>' +
+                    escapeHtml(c.CurrencyCode) + '</option>';
+            }
+            return '<div class="qi-label">Tỷ giá</div>' +
+                '<select class="form-select form-select-sm" onchange="onCurrencyChange(' + idx + ', this.value)">' +
+                    opts +
+                '</select>';
+        }
+        return '<div class="qi-label d-flex align-items-center justify-content-between" style="gap:4px;">' +
+                '<span>Tỷ giá - ' + escapeHtml(curr) + '</span>' +
+                '<button type="button" class="qi-x-btn" onclick="resetCurrency(' + idx + ')" title="Đổi lại VND" aria-label="Đổi lại VND">×</button>' +
+            '</div>' +
+            '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
+                'value="' + (item.ExchangeRate ? formatNumber(item.ExchangeRate) : '') + '" ' +
+                'oninput="formatMoneyInput(this)" onchange="updateExchangeRate(' + idx + ', this.value)" ' +
+                'onfocus="this.select()" placeholder="Nhập tỷ giá" />';
+    }
+
+    function onCurrencyChange(idx, code) {
+        items[idx].PurchaseCurrency = code || 'VND';
+        if (!code || code === 'VND') {
+            items[idx].PurchaseCurrency = 'VND';
+            items[idx].ExchangeRate = 1;
+            recalcUnitPriceFromImport(idx);
+            recalcItemLine(idx);
+            renderItems();
+            recalcTotals();
+            return;
+        }
+        // Lookup latest <code> → VND rate; if missing, default to 1.
+        fetch('/Quotation/GetCurrencyRate?code=' + encodeURIComponent(code), { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                var rate = (res && res.Success && res.Data && res.Data.rate) ? Number(res.Data.rate) : 1;
+                items[idx].ExchangeRate = rate > 0 ? rate : 1;
+                recalcUnitPriceFromImport(idx);
+                recalcItemLine(idx);
+                renderItems();
+                recalcTotals();
+            })
+            .catch(function () {
+                items[idx].ExchangeRate = 1;
+                recalcUnitPriceFromImport(idx);
+                recalcItemLine(idx);
+                renderItems();
+                recalcTotals();
+            });
+    }
+
+    function resetCurrency(idx) {
+        items[idx].PurchaseCurrency = 'VND';
+        items[idx].ExchangeRate = 1;
+        recalcUnitPriceFromImport(idx);
+        recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    // ── Per-row Unit (DVT) combobox — shared dropdown panel anchored under the active input ──
+    function onUnitFocus(inputEl) {
+        activeUnitInput = inputEl;
+        showUnitDropdown('');
+    }
+
+    function onUnitInput(inputEl) {
+        activeUnitInput = inputEl;
+        showUnitDropdown(inputEl.value || '');
+    }
+
+    function showUnitDropdown(kw) {
+        var dd = document.getElementById('unitDropdown');
+        if (!dd || !activeUnitInput) return;
+        var lower = (kw || '').trim().toLowerCase();
+        var matches = !lower ? units : units.filter(function (u) {
+            return (u.UnitName || '').toLowerCase().indexOf(lower) >= 0
+                || (u.UnitCode || '').toLowerCase().indexOf(lower) >= 0;
+        });
+        if (matches.length === 0) {
+            dd.style.display = 'none';
+            return;
+        }
+        dd.innerHTML = matches.map(function (u) {
+            var name = escapeHtml(u.UnitName);
+            var code = u.UnitCode ? ' <span class="text-muted" style="font-size:0.72rem;">(' + escapeHtml(u.UnitCode) + ')</span>' : '';
+            return '<div class="unit-option" data-name="' + name + '">' + name + code + '</div>';
+        }).join('');
+        var rect = activeUnitInput.getBoundingClientRect();
+        dd.style.left = rect.left + 'px';
+        dd.style.top = (rect.bottom + 2) + 'px';
+        dd.style.minWidth = rect.width + 'px';
+        dd.style.display = 'block';
+    }
+
+    function pickUnit(name) {
+        if (!activeUnitInput) return;
+        activeUnitInput.value = name;
+        // Trigger the existing onchange handler on the input so updateField writes UnitName back to the right item.
+        activeUnitInput.dispatchEvent(new Event('change', { bubbles: true }));
+        var dd = document.getElementById('unitDropdown');
+        if (dd) dd.style.display = 'none';
+        activeUnitInput = null;
     }
 
     function updateShipping(idx, val) {

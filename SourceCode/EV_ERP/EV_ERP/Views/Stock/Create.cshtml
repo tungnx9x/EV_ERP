@@ -15,9 +15,9 @@
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-bottom py-3">
         <div class="d-flex align-items-center gap-2">
-            <a href="@(isEdit ? $"/Stock/Detail/{Model.TransactionId}" : "/Stock")" class="btn btn-sm btn-light border">
+            @* <a href="@(isEdit ? $"/Stock/Detail/{Model.TransactionId}" : "/Stock")" class="btn btn-sm btn-light border">
                 <i class="bi bi-arrow-left"></i>
-            </a>
+            </a> *@
             <h5 class="mb-0 fw-semibold">
                 <i class="bi @(Model.TransactionType == "OUTBOUND" ? "bi-box-arrow-up" : "bi-box-arrow-in-down") me-2 text-@(Model.TransactionType == "OUTBOUND" ? "warning" : "primary")"></i>
                 @ViewData["Title"]

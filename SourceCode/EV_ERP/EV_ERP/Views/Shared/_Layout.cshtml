@@ -253,33 +253,48 @@
                 <i class="bi bi-sliders"></i> Thuộc tính SP
             </a>
         }
-        <a href="/Rfq" class="sidebar-link @NavClass("/Rfq")">
-            <i class="bi bi-clipboard-check"></i> Yêu cầu báo giá
-        </a>
-        <a href="/Quotation" class="sidebar-link @NavClass("/Quotation")">
-            <i class="bi bi-file-earmark-text"></i> Báo giá
-        </a>
+        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER" or "SALES")
+        {
+            <a href="/Rfq" class="sidebar-link @NavClass("/Rfq")">
+                 <i class="bi bi-clipboard-check"></i> Yêu cầu báo giá
+            </a>
+            <a href="/Quotation" class="sidebar-link @NavClass("/Quotation")">
+                <i class="bi bi-file-earmark-text"></i> Báo giá
+            </a>
+        }
         <a href="/SalesOrder" class="sidebar-link @NavClass("/SalesOrder")">
             <i class="bi bi-receipt"></i> Đơn hàng
         </a>
         <a href="/Inventory" class="sidebar-link @NavClass("/Inventory")">
             <i class="bi bi-archive"></i> Tồn kho
         </a>
-        <a href="/Stock" class="sidebar-link @NavClass("/Stock")" style="padding-left:2.2rem;font-size:0.82rem;">
+        <a href="/Stock" class="sidebar-link @NavClass("/Stock")">
             <i class="bi bi-arrow-left-right"></i> Phiếu kho
         </a>
-        <a href="/Warehouse" class="sidebar-link @NavClass("/Warehouse")" style="padding-left:2.2rem;font-size:0.82rem;">
+        <a href="/Warehouse" class="sidebar-link @NavClass("/Warehouse")">
             <i class="bi bi-building"></i> Kho hàng
         </a>
-        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER")
+        <a href="#" class="sidebar-link">
+               <i class="bi bi-bar-chart-line"></i> Báo cáo
+        </a>
+        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER" or "ACCOUNTANT")
         {
-            <a href="#" class="sidebar-link">
-                <i class="bi bi-bar-chart-line"></i> Báo cáo
-            </a>
-            <a href="/Report/SalesRevenue" class="sidebar-link @NavClass("/Report/SalesRevenue")" style="padding-left:2.2rem;font-size:0.82rem;">
-                <i class="bi bi-cash-stack"></i> Doanh thu
-            </a>
+              <a href="/Report/SalesRevenue" class="sidebar-link @NavClass("/Report/SalesRevenue")" style="padding-left:2.2rem;font-size:0.82rem;">
+                <i class="bi bi-cash-stack"></i> Báo cáo doanh thu
+              </a>  
         }
+        @if (currentUser?.RoleCode is "SALES")
+        {
+              <a href="#" class="sidebar-link @NavClass("/Report/SalesResult")" style="padding-left:2.2rem;font-size:0.82rem;">
+                <i class="bi bi-cash-stack"></i> Báo cáo KQKD
+              </a>  
+        }  
+        @if (currentUser?.RoleCode is "WAREHOUSE")
+        {
+              <a href="#" class="sidebar-link @NavClass("/Report/Inventory")" style="padding-left:2.2rem;font-size:0.82rem;">
+                <i class="bi bi-cash-stack"></i> Báo cáo tồn kho
+              </a>  
+        }  
 
         @if (IsAdmin())
         {

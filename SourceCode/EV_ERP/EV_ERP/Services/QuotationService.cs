@@ -837,7 +837,7 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 7).Value = item.Quantity;                              // Quantity
             ws.Cell(row, 8).Value = item.UnitPrice;                             // Unit Price
             ws.Cell(row, 9).Value = item.AmountExclVat;                         // Amount excl VAT
-            ws.Cell(row, 10).Value = $"{item.VatRate}%";                        // VAT
+            ws.Cell(row, 10).Value = $"{item.VatRate:0.##}%";                        // VAT
             ws.Cell(row, 11).Value = item.AmountInclVat;                        // Amount incl VAT
             ws.Cell(row, 12).Value = item.Notes ?? "";                          // Note
             ws.Cell(row, 14).Value = item.Supplier ?? "";                       // NCC
@@ -846,12 +846,13 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 17).Value = item.Coefficient;                          // Coefficient
 
             // Format number cells
-            ws.Cell(row, 7).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 7).Style.NumberFormat.Format = "#";
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 9).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 11).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 16).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 17).Style.NumberFormat.Format = "0.##";
 
             // Copy borders from template row style
             ws.Range(row, 1, row, 17).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;

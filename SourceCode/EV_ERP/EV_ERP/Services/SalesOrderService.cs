@@ -695,7 +695,7 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 18).Value = item.ShippingFee ?? 0;
 
             // Format number cells
-            ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 5).Style.NumberFormat.Format = "#";
             ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 10).Style.NumberFormat.Format = "#,##0";
@@ -838,12 +838,12 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 23).Value = so.DeliveredAt?.ToString("dd/MM/yyyy") ?? ""; // W: Ngày BBGN
 
             // Number formats
-            ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 5).Style.NumberFormat.Format = "#";
             ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 7).Style.NumberFormat.Format = "0%";
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 12).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 13).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 13).Style.NumberFormat.Format = "#";
             ws.Cell(row, 14).Style.NumberFormat.Format = "0%";
             ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 17).Style.NumberFormat.Format = "#,##0";

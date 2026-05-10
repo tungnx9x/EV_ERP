@@ -22,7 +22,49 @@
             <i class="bi bi-arrow-left"></i>
         </a> *@
         <div>
-            <h5 class="mb-0 fw-bold">@Model.SalesOrderNo</h5>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <h5 class="mb-0 fw-bold">@Model.SalesOrderNo</h5>
+                @if (Model.Status == "DRAFT")
+                {
+                   <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId"
+                    class="text-success d-flex align-items-center"
+                    style="text-decoration: none;">
+                        <i class="bi bi-download me-1"></i>
+                        Xuất DNTU
+                   </a>
+                }
+                @if (Model.Status == "DELIVERED")
+                {
+                    <div class="dropdown">
+                        <a class="text-success d-flex align-items-center dropdown-toggle"
+                           href="#"
+                           role="button"
+                           data-bs-toggle="dropdown"
+                           aria-expanded="false"
+                           style="text-decoration: none;">
+                            <i class="bi bi-download me-1"></i>
+                            Xuất Excel
+                        </a>
+
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center"
+                                   href="/SalesOrder/ExportDnhu/@Model.SalesOrderId">
+                                    <i class="bi bi-download me-2 text-success"></i>
+                                    Xuất DNHU
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center"
+                                   href="/SalesOrder/ExportDntt/@Model.SalesOrderId">
+                                    <i class="bi bi-download me-2 text-success"></i>
+                                    Xuất DNTT
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                }
+            </div>
             <div class="text-muted small">
                 <span class="badge bg-@(Model.StatusBadge)-subtle text-@(Model.StatusBadge)-emphasis rounded-pill">
                     <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;vertical-align:middle;"></i>
@@ -51,10 +93,7 @@
         @if (canEdit)
         {
             @if (Model.Status == "DRAFT")
-            {
-                <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất DNTU
-                </a>
+            {           
                 @if (canManageStatus)
                 {
                     <button class="btn btn-sm btn-primary" onclick="showSubmitWaitModal()">
@@ -97,12 +136,6 @@
             }
             @if (Model.Status == "DELIVERED" && canManageStatus)
             {
-                <a href="/SalesOrder/ExportDnhu/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất ĐNHU
-                </a>
-                <a href="/SalesOrder/ExportDntt/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Xuất ĐNTT
-                </a>
                 <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
                     <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
                 </button>

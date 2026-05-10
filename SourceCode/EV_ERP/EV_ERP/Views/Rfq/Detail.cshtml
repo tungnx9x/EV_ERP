@@ -45,7 +45,40 @@
                     <i class="bi bi-pencil me-1"></i> Sửa
                 </a>
             }
-            @if (canCreate && Model.Quotations.Count == 0)
+            @if (canCreate || canManage)
+            {
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-lightning-charge me-1"></i> Xử lý yêu cầu
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        @if (Model.Quotations.Count == 0)
+                        {
+                            <li>
+                                <a href="/Quotation/Create?rfqId=@Model.RfqId" class="dropdown-item text-success">
+                                    <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-success" href="#" data-bs-toggle="modal" data-bs-target="#importQuotationModal">
+                                    <i class="bi bi-file-earmark-arrow-up me-1"></i> Import báo giá
+                                </a>
+                            </li>
+                        }
+                        @if (canManage)
+                        {
+                             <li>
+                                <a class="dropdown-item text-danger" href="#" onclick="doCancel()">
+                                    <i class="bi bi-x-circle me-1"></i> Hủy
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+            
+            @* @if (canCreate && Model.Quotations.Count == 0)
             {
                 <a href="/Quotation/Create?rfqId=@Model.RfqId" class="btn btn-sm btn-primary">
                     <i class="bi bi-file-earmark-plus me-1"></i> Tạo báo giá
@@ -59,7 +92,7 @@
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
                     <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
-            }
+            } *@
         </div>
     }
 </div>

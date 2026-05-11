@@ -59,9 +59,10 @@ namespace EV_ERP.Data
         public DbSet<StockCheck> StockChecks => Set<StockCheck>();
         public DbSet<StockCheckItem> StockCheckItems => Set<StockCheckItem>();
 
-        // ── Công nợ & Tạm ứng (2 bảng) ──────────────────
+        // ── Công nợ & Tạm ứng (3 bảng) ──────────────────
         public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
         public DbSet<AdvanceRequest> AdvanceRequests => Set<AdvanceRequest>();
+        public DbSet<AdvanceRequestItem> AdvanceRequestItems => Set<AdvanceRequestItem>();
 
         // ── PDF Template (3 bảng) ────────────────────────
         public DbSet<PdfTemplate> PdfTemplates => Set<PdfTemplate>();
@@ -426,6 +427,17 @@ namespace EV_ERP.Data
                 e.HasKey(x => x.SOItemId);
                 e.Property(x => x.Quantity).HasColumnType("decimal(18,3)");
                 e.Property(x => x.DeliveredQty).HasColumnType("decimal(18,3)");
+                // v2.2 — theo dõi nhập kho theo dòng
+                e.Property(x => x.ReceivedQty).HasColumnType("decimal(18,3)").HasDefaultValue(0m);
+                e.Property(x => x.RemainingReceiveQty)
+                 .HasColumnType("decimal(19,3)")
+                 .HasComputedColumnSql("[Quantity] - [ReceivedQty]", stored: false);
+                e.Property(x => x.InStockQty)
+                 .HasColumnType("decimal(19,3)")
+                 .HasComputedColumnSql("[ReceivedQty] - [DeliveredQty]", stored: false);
+                e.Property(x => x.RemainingDeliverQty)
+                 .HasColumnType("decimal(19,3)")
+                 .HasComputedColumnSql("[Quantity] - [DeliveredQty]", stored: false);
                 e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.PurchasePrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.ShippingFee).HasColumnType("decimal(18,2)");
@@ -512,6 +524,9 @@ namespace EV_ERP.Data
                 e.HasOne(x => x.Transaction).WithMany(t => t.Items).HasForeignKey(x => x.TransactionId);
                 e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.NoAction);
+                // v2.2 — liên kết với dòng SO
+                e.HasOne(x => x.SOItem).WithMany(i => i.StockTransactionItems)
+                 .HasForeignKey(x => x.SOItemId).OnDelete(DeleteBehavior.NoAction);
             });
 
             mb.Entity<StockCheck>(e =>
@@ -681,6 +696,21 @@ namespace EV_ERP.Data
                 e.HasOne(x => x.SettledByUser).WithMany().HasForeignKey(x => x.SettledBy).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.RejectedByUser).WithMany().HasForeignKey(x => x.RejectedBy).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // v2.2 — AdvanceRequestItem (tạm ứng theo dòng SO — hybrid model)
+            mb.Entity<AdvanceRequestItem>(e =>
+            {
+                e.HasKey(x => x.AdvanceRequestItemId);
+                e.HasIndex(x => x.AdvanceRequestId);
+                e.HasIndex(x => x.SOItemId).HasFilter("[SOItemId] IS NOT NULL");
+                e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+                e.Property(x => x.Purpose).HasMaxLength(500);
+                e.Property(x => x.Notes).HasMaxLength(500);
+                e.HasOne(x => x.AdvanceRequest).WithMany(r => r.Items)
+                 .HasForeignKey(x => x.AdvanceRequestId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.SOItem).WithMany(i => i.AdvanceRequestItems)
+                 .HasForeignKey(x => x.SOItemId).OnDelete(DeleteBehavior.NoAction);
             });
 
             // ─────────────────────────────────────────────

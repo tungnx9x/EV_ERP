@@ -1,6 +1,8 @@
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
+using EV_ERP.Models.Entities.Finance;
+using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Reference;
 using EV_ERP.Models.Entities.Templates;
@@ -166,11 +168,13 @@ public class SalesOrder : AuditableEntity
     public DateTime? BuyingAt { get; set; }
     public DateTime? ReceivedAt { get; set; }
 
-    // ── Tạm ứng ──
+    // ── Tạm ứng — [DEPRECATED v2.2] dùng AdvanceRequests + AdvanceRequestItems thay thế ──
     public decimal? AdvanceAmount { get; set; }
-    /// <summary>PENDING, APPROVED, RECEIVED, SETTLED</summary>
+    /// <summary>[DEPRECATED v2.2] Dùng AdvanceRequests.Status thay thế.</summary>
     public string? AdvanceStatus { get; set; }
+    /// <summary>[DEPRECATED v2.2] Dùng AdvanceRequests.ApprovedAt thay thế.</summary>
     public DateTime? AdvanceApprovedAt { get; set; }
+    /// <summary>[DEPRECATED v2.2] Dùng AdvanceRequests.ReceivedAt thay thế.</summary>
     public DateTime? AdvanceReceivedAt { get; set; }
 
     // ── Giá trị đơn hàng (bán cho KH) ──
@@ -234,6 +238,17 @@ public class SalesOrderItem
     public string UnitName { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal DeliveredQty { get; set; }
+    // v2.2 — theo dõi tiến độ nhập kho từng dòng
+    public decimal ReceivedQty { get; set; }
+    /// <summary>Computed: Quantity - ReceivedQty</summary>
+    public decimal RemainingReceiveQty { get; set; }
+    /// <summary>Computed: ReceivedQty - DeliveredQty</summary>
+    public decimal InStockQty { get; set; }
+    /// <summary>Computed: Quantity - DeliveredQty</summary>
+    public decimal RemainingDeliverQty { get; set; }
+    // v2.2 — ngày dự kiến riêng cho từng dòng (đợt về khác nhau)
+    public DateTime? ExpectedReceiveDate { get; set; }
+    public DateTime? ExpectedDeliveryDate { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal? PurchasePrice { get; set; }
     public decimal? ShippingFee { get; set; }
@@ -257,4 +272,6 @@ public class SalesOrderItem
     public virtual SalesOrder SalesOrder { get; set; } = null!;
     public virtual Product? Product { get; set; }
     public virtual Currency? PurchaseCurrencyRef { get; set; }
+    public virtual ICollection<StockTransactionItem> StockTransactionItems { get; set; } = [];
+    public virtual ICollection<AdvanceRequestItem> AdvanceRequestItems { get; set; } = [];
 }

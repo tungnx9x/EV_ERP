@@ -109,10 +109,13 @@ public class StockTransactionItem
     public decimal Quantity { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    // v2.2 — liên kết đợt nhập/xuất với dòng SO (để tổng hợp tiến độ chính xác)
+    public int? SOItemId { get; set; }
 
     public virtual StockTransaction Transaction { get; set; } = null!;
     public virtual Product Product { get; set; } = null!;
     public virtual WarehouseLocation? Location { get; set; }
+    public virtual SalesOrderItem? SOItem { get; set; }
 }
 
 // ─── STOCK CHECK (Kiểm kê) ──────────────────────────

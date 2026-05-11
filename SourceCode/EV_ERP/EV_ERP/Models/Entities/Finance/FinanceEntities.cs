@@ -38,6 +38,25 @@ public class AdvanceRequest
     public virtual User? SettledByUser { get; set; }
     public virtual User? RejectedByUser { get; set; }
     public virtual User CreatedByUser { get; set; } = null!;
+    // v2.2 — chi tiết tạm ứng theo dòng SO (hybrid model)
+    public virtual ICollection<AdvanceRequestItem> Items { get; set; } = [];
+}
+
+// ─── ADVANCE REQUEST ITEM (Tạm ứng theo dòng SO — v2.2) ─
+// SOItemId NULL  → tạm ứng cho cả đơn không gắn dòng cụ thể
+// SOItemId NOT NULL → tạm ứng cho dòng SO cụ thể
+public class AdvanceRequestItem
+{
+    public int AdvanceRequestItemId { get; set; }
+    public int AdvanceRequestId { get; set; }
+    public int? SOItemId { get; set; }
+    public decimal Amount { get; set; }
+    public string? Purpose { get; set; }
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public virtual AdvanceRequest AdvanceRequest { get; set; } = null!;
+    public virtual SalesOrderItem? SOItem { get; set; }
 }
 
 // ─── CUSTOMER PAYMENT (Phải thu - AR) ────────────────

@@ -18,19 +18,17 @@ public class SalesOrderService : ISalesOrderService
     private readonly IWebHostEnvironment _env;
     private readonly string _storageRoot;
     private readonly ISlaService _slaService;
-    private readonly IStockService _stockService;
     private readonly IProductAttributeService _attrService;
 
     public SalesOrderService(IUnitOfWork uow, ILogger<SalesOrderService> logger,
         IWebHostEnvironment env, IConfiguration config, ISlaService slaService,
-        IStockService stockService, IProductAttributeService attrService)
+        IProductAttributeService attrService)
     {
         _uow = uow;
         _logger = logger;
         _env = env;
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         _slaService = slaService;
-        _stockService = stockService;
         _attrService = attrService;
     }
 
@@ -190,7 +188,16 @@ public class SalesOrderService : ISalesOrderService
                 ImageUrl = i.ImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
+                ReceivedQty = i.ReceivedQty,
                 DeliveredQty = i.DeliveredQty,
+                RemainingReceiveQty = i.RemainingReceiveQty,
+                InStockQty = i.InStockQty,
+                RemainingDeliverQty = i.RemainingDeliverQty,
+                ExpectedReceiveDate = i.ExpectedReceiveDate,
+                ExpectedDeliveryDate = i.ExpectedDeliveryDate,
+                CancelledQty = i.CancelledQty,
+                CancelReason = i.CancelReason,
+                CancelledAt = i.CancelledAt,
                 UnitPrice = i.UnitPrice,
                 DiscountType = i.DiscountType,
                 DiscountValue = i.DiscountValue,
@@ -340,7 +347,7 @@ public class SalesOrderService : ISalesOrderService
         return (true, null);
     }
 
-    // WAIT → BUYING (chọn NCC, nhập giá mua)
+    // WAIT → BUYING (per-line: chọn nguồn, nhập giá mua, ngày dự kiến từng dòng)
     public async Task<(bool Success, string? ErrorMessage)> StartBuyingAsync(
         int salesOrderId, SalesOrderBuyingModel model, int userId)
     {
@@ -350,30 +357,48 @@ public class SalesOrderService : ISalesOrderService
 
         if (so == null) return (false, "Không tìm thấy đơn hàng");
         if (so.Status != "WAIT") return (false, "Chỉ có thể bắt đầu mua hàng ở trạng thái Chờ tạm ứng");
+        if (model.Items == null || model.Items.Count == 0)
+            return (false, "Vui lòng nhập thông tin mua cho ít nhất 1 dòng");
+        if (!model.Items.Any(i => i.IncludeInBatch))
+            return (false, "Vui lòng tích chọn ít nhất 1 dòng để bắt đầu mua");
 
         so.PurchaseSource = model.PurchaseSource?.Trim();
-        so.ExpectedReceiveDate = model.ExpectedReceiveDate;
         so.BuyingNotes = model.BuyingNotes?.Trim();
         so.BuyingAt = DateTime.Now;
         so.Status = "BUYING";
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
 
-        // Update purchase prices per item
+        // Update purchase prices + per-line expected date for every line the user touched.
+        // Lines NOT checked: still persist Source/Price if provided, but skip ExpectedReceiveDate
+        // (they stay NOT_STARTED until user opens "Bắt đầu mua dòng này" later).
         decimal totalCost = 0;
+        DateTime? earliestExpected = null;
+
         foreach (var itemModel in model.Items)
         {
             var item = so.Items.FirstOrDefault(i => i.SOItemId == itemModel.SOItemId);
-            if (item != null)
+            if (item == null) continue;
+
+            item.PurchasePrice = itemModel.PurchasePrice;
+            item.SourceUrl = itemModel.SourceUrl?.Trim();
+            item.SourceName = itemModel.SourceName?.Trim();
+            item.LineCost = item.Quantity * itemModel.PurchasePrice;
+
+            if (itemModel.IncludeInBatch)
             {
-                item.PurchasePrice = itemModel.PurchasePrice;
-                item.SourceUrl = itemModel.SourceUrl?.Trim();
-                item.SourceName = itemModel.SourceName?.Trim();
-                item.LineCost = item.Quantity * itemModel.PurchasePrice;
-                totalCost += item.LineCost ?? 0;
+                item.ExpectedReceiveDate = itemModel.ExpectedReceiveDate;
+                if (itemModel.ExpectedReceiveDate.HasValue &&
+                    (earliestExpected == null || itemModel.ExpectedReceiveDate < earliestExpected))
+                {
+                    earliestExpected = itemModel.ExpectedReceiveDate;
+                }
             }
+
+            totalCost += item.LineCost ?? 0;
         }
         so.PurchaseCost = totalCost;
+        so.ExpectedReceiveDate = earliestExpected;
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
@@ -382,82 +407,153 @@ public class SalesOrderService : ISalesOrderService
         await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "WAIT");
         await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "BUYING", so.CreatedBy);
 
-        _logger.LogInformation("SO started buying: {No} Source={Source} by UserId={UserId}",
-            so.SalesOrderNo, model.PurchaseSource, userId);
+        _logger.LogInformation("SO started buying: {No} by UserId={UserId} (lines={Count})",
+            so.SalesOrderNo, userId, model.Items.Count(i => i.IncludeInBatch));
         return (true, null);
     }
 
-    // BUYING → RECEIVED
-    public async Task<(bool Success, string? ErrorMessage)> ConfirmReceivedAsync(int salesOrderId, int userId)
+    // ══════════════════════════════════════════════════
+    // ROLL-UP STATUS (v2.2/2.3) — derive SO.Status from line quantities.
+    // Called from StockService after each INBOUND CONFIRMED / OUTBOUND DELIVERED.
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? NewStatus)> RollUpStatusAsync(int salesOrderId, int userId)
     {
-        var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
-        if (so == null) return (false, "Không tìm thấy đơn hàng");
-        if (so.Status != "BUYING") return (false, "Chỉ có thể xác nhận nhận hàng ở trạng thái Đang mua");
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, null);
 
-        so.Status = "RECEIVED";
-        so.ReceivedAt = DateTime.Now;
+        // Don't auto-roll out of DRAFT/WAIT/CANCELLED — those are user-driven.
+        if (so.Status is "DRAFT" or "WAIT" or "CANCELLED" or "COMPLETED" or "RETURNED" or "REPORTED")
+            return (true, so.Status);
+
+        var lines = so.Items.ToList();
+        if (lines.Count == 0) return (true, so.Status);
+
+        // EffectiveQty = Quantity - CancelledQty
+        decimal totalEff = lines.Sum(i => i.Quantity - i.CancelledQty);
+        decimal totalRecv = lines.Sum(i => i.ReceivedQty);
+        decimal totalDeliv = lines.Sum(i => i.DeliveredQty);
+
+        // If everything cancelled, leave it for the user (don't auto-cancel).
+        if (totalEff <= 0) return (true, so.Status);
+
+        string newStatus;
+        if (totalDeliv >= totalEff) newStatus = "DELIVERED";
+        else if (totalDeliv > 0) newStatus = "DELIVERING";
+        else if (totalRecv >= totalEff) newStatus = "RECEIVED";
+        else newStatus = "BUYING";
+
+        if (newStatus == so.Status) return (true, so.Status);
+
+        var oldStatus = so.Status;
+        so.Status = newStatus;
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        // Stamp first-time timestamps
+        if (newStatus == "RECEIVED" && so.ReceivedAt == null) so.ReceivedAt = DateTime.Now;
+        if (newStatus == "DELIVERING" && so.DeliveringAt == null) so.DeliveringAt = DateTime.Now;
+        if (newStatus == "DELIVERED" && so.DeliveredAt == null) so.DeliveredAt = DateTime.Now;
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        // SLA transitions
+        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, oldStatus);
+        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, newStatus, so.CreatedBy);
+
+        _logger.LogInformation("SO {No} roll-up: {Old} → {New} (recv={Recv}/{Eff}, deliv={Deliv})",
+            so.SalesOrderNo, oldStatus, newStatus, totalRecv, totalEff, totalDeliv);
+        return (true, newStatus);
+    }
+
+    // ══════════════════════════════════════════════════
+    // PER-LINE: Update purchase info (BUYING+)
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage)> UpdateItemPurchaseInfoAsync(
+        int salesOrderId, int soItemId, UpdateItemPurchaseModel model, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status is "DRAFT" or "WAIT" or "CANCELLED" or "COMPLETED" or "REPORTED")
+            return (false, "Chỉ sửa được khi đang trong luồng mua/giao");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+        if (item.CancelledQty >= item.Quantity) return (false, "Dòng đã hủy");
+
+        if (model.PurchasePrice.HasValue)
+        {
+            item.PurchasePrice = model.PurchasePrice;
+            item.LineCost = item.Quantity * model.PurchasePrice.Value;
+        }
+        if (model.SourceUrl != null) item.SourceUrl = model.SourceUrl.Trim();
+        if (model.SourceName != null) item.SourceName = model.SourceName.Trim();
+        if (model.ExpectedReceiveDate.HasValue) item.ExpectedReceiveDate = model.ExpectedReceiveDate;
+        if (model.ExpectedDeliveryDate.HasValue) item.ExpectedDeliveryDate = model.ExpectedDeliveryDate;
+        if (model.Notes != null) item.Notes = model.Notes.Trim();
+
+        // Recompute SO PurchaseCost from sum of line costs (alive lines only)
+        so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
+                                  .Sum(i => i.LineCost ?? 0);
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+        return (true, null);
+    }
+
+    // ══════════════════════════════════════════════════
+    // PER-LINE: Cancel (1 phần hoặc toàn bộ SL còn lại)
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage)> CancelItemAsync(
+        int salesOrderId, int soItemId, CancelItemModel model, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status is "DRAFT" or "WAIT" or "CANCELLED" or "COMPLETED" or "REPORTED")
+            return (false, "Chỉ hủy dòng được khi đang trong luồng mua/giao");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+
+        // Bao nhiêu chưa nhập về thì có thể hủy. Đã nhận về rồi → không cho hủy (phải đi luồng trả hàng).
+        var maxCancelable = item.Quantity - item.CancelledQty - item.ReceivedQty;
+        if (maxCancelable <= 0) return (false, "Dòng đã nhận hết, không thể hủy nữa");
+
+        var qty = model.CancelQty ?? maxCancelable;
+        if (qty <= 0) return (false, "Số lượng hủy phải lớn hơn 0");
+        if (qty > maxCancelable)
+            return (false, $"Tối đa có thể hủy {maxCancelable:N3} (chưa nhập về)");
+
+        item.CancelledQty += qty;
+        if (string.IsNullOrWhiteSpace(item.CancelReason))
+            item.CancelReason = model.Reason?.Trim();
+        else if (!string.IsNullOrWhiteSpace(model.Reason))
+            item.CancelReason += " | " + model.Reason.Trim();
+        item.CancelledAt = DateTime.Now;
+        item.CancelledBy = userId;
+
+        // Recompute SO PurchaseCost (alive lines)
+        so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
+                                  .Sum(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
 
-        // Auto-create INBOUND StockTransaction
-        var (stkOk, stkErr, stkId) = await _stockService.CreateFromSalesOrderAsync(salesOrderId, "INBOUND", userId);
-        if (!stkOk)
-            _logger.LogWarning("Failed to auto-create INBOUND for SO {No}: {Err}", so.SalesOrderNo, stkErr);
+        // Roll up — cancelling may push to RECEIVED/DELIVERED if remaining lines are complete
+        await RollUpStatusAsync(salesOrderId, userId);
 
-        // SLA: complete BUYING, start RECEIVED
-        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "BUYING");
-        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED", so.CreatedBy);
-
-        _logger.LogInformation("SO received: {No} by UserId={UserId}", so.SalesOrderNo, userId);
-        return (true, null);
-    }
-
-    // RECEIVED → DELIVERING (triggered by warehouse OUTBOUND stock note)
-    public async Task<(bool Success, string? ErrorMessage)> StartDeliveringAsync(int salesOrderId, int userId)
-    {
-        var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
-        if (so == null) return (false, "Không tìm thấy đơn hàng");
-        if (so.Status != "RECEIVED") return (false, "Chỉ có thể giao hàng ở trạng thái Đã nhận hàng");
-
-        so.Status = "DELIVERING";
-        so.DeliveringAt = DateTime.Now;
-        so.UpdatedBy = userId;
-        so.UpdatedAt = DateTime.Now;
-
-        _uow.Repository<SalesOrder>().Update(so);
-        await _uow.SaveChangesAsync();
-
-        // SLA: complete RECEIVED, start DELIVERING
-        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "RECEIVED");
-        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERING", so.CreatedBy);
-
-        _logger.LogInformation("SO delivering: {No} by UserId={UserId}", so.SalesOrderNo, userId);
-        return (true, null);
-    }
-
-    // DELIVERING → DELIVERED
-    public async Task<(bool Success, string? ErrorMessage)> ConfirmDeliveredAsync(int salesOrderId, int userId)
-    {
-        var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
-        if (so == null) return (false, "Không tìm thấy đơn hàng");
-        if (so.Status != "DELIVERING") return (false, "Chỉ có thể xác nhận giao hàng ở trạng thái Đang giao");
-
-        so.Status = "DELIVERED";
-        so.DeliveredAt = DateTime.Now;
-        so.UpdatedBy = userId;
-        so.UpdatedAt = DateTime.Now;
-
-        _uow.Repository<SalesOrder>().Update(so);
-        await _uow.SaveChangesAsync();
-
-        // SLA: complete DELIVERING, start DELIVERED
-        await _slaService.CompleteTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERING");
-        await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "DELIVERED", so.CreatedBy);
-
-        _logger.LogInformation("SO delivered: {No} by UserId={UserId}", so.SalesOrderNo, userId);
+        _logger.LogInformation("SO {No} cancel line {Item}: qty={Qty} by UserId={UserId}",
+            so.SalesOrderNo, item.ProductName, qty, userId);
         return (true, null);
     }
 

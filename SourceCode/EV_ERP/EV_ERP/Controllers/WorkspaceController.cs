@@ -452,48 +452,70 @@ public class WorkspaceController : Controller
         var trailingDays = (7 - ((leadingDays + DateTime.DaysInMonth(y, m)) % 7)) % 7;
         var gridEnd = monthEnd.AddDays(trailingDays);
 
-        // Pull SOs whose target date falls inside the visible grid (incl. leading/trailing).
-        var soQuery = _uow.Repository<SalesOrder>().Query()
-            .Include(s => s.Customer)
-            .Where(s => s.Status != "CANCELLED");
+        // v2.3 — calendar buckets are per SO-line, not per SO. Same order can appear on multiple
+        // days when its lines have different ExpectedReceive/Delivery dates.
+        var lineQuery = _uow.Repository<SalesOrderItem>().Query()
+            .Include(i => i.SalesOrder).ThenInclude(s => s.Customer)
+            .Where(i => i.SalesOrder.Status != "CANCELLED");
 
-        soQuery = mode == "incoming"
-            ? soQuery.Where(s => s.ExpectedReceiveDate != null
-                              && s.ExpectedReceiveDate >= gridStart
-                              && s.ExpectedReceiveDate <= gridEnd)
-            : soQuery.Where(s => s.ExpectedDeliveryDate != null
-                              && s.ExpectedDeliveryDate >= gridStart
-                              && s.ExpectedDeliveryDate <= gridEnd);
+        lineQuery = mode == "incoming"
+            ? lineQuery.Where(i => i.ExpectedReceiveDate != null
+                                && i.ExpectedReceiveDate >= gridStart
+                                && i.ExpectedReceiveDate <= gridEnd
+                                && i.RemainingReceiveQty > 0)
+            : lineQuery.Where(i => i.ExpectedDeliveryDate != null
+                                && i.ExpectedDeliveryDate >= gridStart
+                                && i.ExpectedDeliveryDate <= gridEnd
+                                && i.RemainingDeliverQty > 0);
 
-        var rawOrders = await soQuery
-            .Select(s => new
+        var rawLines = await lineQuery
+            .Select(i => new
             {
-                s.SalesOrderId,
-                s.SalesOrderNo,
-                CustomerName = s.Customer.CustomerName,
-                s.Status,
-                Date = mode == "incoming" ? s.ExpectedReceiveDate!.Value : s.ExpectedDeliveryDate!.Value,
-                ItemCount = s.Items.Count,
-                s.TotalAmount,
-                s.Currency
+                i.SOItemId,
+                i.SalesOrderId,
+                SalesOrderNo = i.SalesOrder.SalesOrderNo,
+                CustomerName = i.SalesOrder.Customer.CustomerName,
+                Status = i.SalesOrder.Status,
+                Currency = i.SalesOrder.Currency,
+                Date = (mode == "incoming" ? i.ExpectedReceiveDate : i.ExpectedDeliveryDate)!.Value,
+                i.ProductName,
+                i.UnitName,
+                i.LineTotal,
+                PendingQty = mode == "incoming" ? i.RemainingReceiveQty : i.RemainingDeliverQty
             })
-            .OrderBy(s => s.Date).ThenBy(s => s.SalesOrderNo)
             .ToListAsync();
 
-        var ordersByDate = rawOrders
-            .GroupBy(o => o.Date.Date)
-            .ToDictionary(g => g.Key, g => g.Select(o => new WarehouseCalendarOrder
-            {
-                SalesOrderId = o.SalesOrderId,
-                SalesOrderNo = o.SalesOrderNo,
-                CustomerName = o.CustomerName,
-                Status = o.Status,
-                StatusText = SoStatusText(o.Status),
-                StatusBadge = SoStatusBadge(o.Status),
-                ItemCount = o.ItemCount,
-                TotalAmount = o.TotalAmount,
-                Currency = o.Currency
-            }).ToList());
+        var ordersByDate = rawLines
+            .GroupBy(x => x.Date.Date)
+            .ToDictionary(g => g.Key, g => g
+                .GroupBy(x => x.SalesOrderId)
+                .Select(soGroup =>
+                {
+                    var head = soGroup.First();
+                    return new WarehouseCalendarOrder
+                    {
+                        SalesOrderId = head.SalesOrderId,
+                        SalesOrderNo = head.SalesOrderNo,
+                        CustomerName = head.CustomerName,
+                        Status = head.Status,
+                        StatusText = SoStatusText(head.Status),
+                        StatusBadge = SoStatusBadge(head.Status),
+                        ItemCount = soGroup.Count(),
+                        PendingQuantity = soGroup.Sum(l => l.PendingQty),
+                        TotalAmount = soGroup.Sum(l => l.LineTotal),
+                        Currency = head.Currency,
+                        Lines = soGroup
+                            .Select(l => new WarehouseCalendarLine
+                            {
+                                ProductName = l.ProductName,
+                                UnitName = l.UnitName,
+                                PendingQuantity = l.PendingQty
+                            })
+                            .ToList()
+                    };
+                })
+                .OrderBy(o => o.SalesOrderNo)
+                .ToList());
 
         var days = new List<WarehouseCalendarDay>();
         for (var d = gridStart; d <= gridEnd; d = d.AddDays(1))

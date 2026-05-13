@@ -27,9 +27,19 @@ public interface ISalesOrderService
     Task<(bool Success, string? ErrorMessage)> StartBuyingAsync(
         int salesOrderId, SalesOrderBuyingModel model, int userId);
 
-    Task<(bool Success, string? ErrorMessage)> ConfirmReceivedAsync(int salesOrderId, int userId);
-    Task<(bool Success, string? ErrorMessage)> StartDeliveringAsync(int salesOrderId, int userId);
-    Task<(bool Success, string? ErrorMessage)> ConfirmDeliveredAsync(int salesOrderId, int userId);
+    /// <summary>
+    /// v2.2/2.3 — Tự động roll-up trạng thái SO từ tổng SL ReceivedQty / DeliveredQty
+    /// của các SOItem. Được gọi từ StockService sau mỗi lần confirm phiếu nhập/xuất.
+    /// </summary>
+    Task<(bool Success, string? NewStatus)> RollUpStatusAsync(int salesOrderId, int userId);
+
+    /// <summary>Cập nhật thông tin mua hàng của 1 dòng (BUYING+).</summary>
+    Task<(bool Success, string? ErrorMessage)> UpdateItemPurchaseInfoAsync(
+        int salesOrderId, int soItemId, UpdateItemPurchaseModel model, int userId);
+
+    /// <summary>Hủy 1 phần hoặc toàn bộ SL còn lại của 1 dòng. KHÔNG xóa dòng.</summary>
+    Task<(bool Success, string? ErrorMessage)> CancelItemAsync(
+        int salesOrderId, int soItemId, CancelItemModel model, int userId);
 
     Task<(bool Success, string? ErrorMessage)> ReturnAsync(
         int salesOrderId, SalesOrderReturnModel model, int userId);

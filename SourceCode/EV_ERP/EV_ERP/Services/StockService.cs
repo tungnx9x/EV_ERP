@@ -17,13 +17,20 @@ namespace EV_ERP.Services
         private readonly IUnitOfWork _uow;
         private readonly ILogger<StockService> _logger;
         private readonly IWebHostEnvironment _env;
+        private readonly IServiceProvider _services;
 
-        public StockService(IUnitOfWork uow, ILogger<StockService> logger, IWebHostEnvironment env)
+        public StockService(IUnitOfWork uow, ILogger<StockService> logger,
+            IWebHostEnvironment env, IServiceProvider services)
         {
             _uow = uow;
             _logger = logger;
             _env = env;
+            _services = services;
         }
+
+        // Lazy resolve to avoid construction-time cycle with SalesOrderService.
+        private ISalesOrderService GetSalesOrderService() =>
+            _services.GetRequiredService<ISalesOrderService>();
 
         // ── List ─────────────────────────────────────────
         public async Task<StockTransactionListViewModel> GetListAsync(
@@ -438,6 +445,8 @@ namespace EV_ERP.Services
         }
 
         // ── Confirm Inbound (DRAFT → CONFIRMED) ─────────
+        // v2.2: cộng ReceivedQty vào từng SOItem (theo SOItemId trên StockTransactionItem)
+        // và roll-up trạng thái SO.
         public async Task<(bool Success, string? ErrorMessage)> ConfirmInboundAsync(long transactionId, int userId)
         {
             try
@@ -456,24 +465,40 @@ namespace EV_ERP.Services
                     await UpdateInventoryAsync(t.WarehouseId, item.ProductId, item.LocationId, item.Quantity);
                 }
 
+                // v2.2 — bump SOItem.ReceivedQty for any line linked via SOItemId
+                if (t.SalesOrderId.HasValue)
+                {
+                    var soItemIds = t.Items.Where(i => i.SOItemId.HasValue)
+                                           .Select(i => i.SOItemId!.Value).ToList();
+                    if (soItemIds.Count > 0)
+                    {
+                        var soItems = await _uow.Repository<SalesOrderItem>().Query()
+                            .Where(s => soItemIds.Contains(s.SOItemId))
+                            .ToListAsync();
+                        foreach (var sti in t.Items.Where(i => i.SOItemId.HasValue))
+                        {
+                            var line = soItems.FirstOrDefault(s => s.SOItemId == sti.SOItemId!.Value);
+                            if (line != null)
+                            {
+                                line.ReceivedQty += sti.Quantity;
+                                _uow.Repository<SalesOrderItem>().Update(line);
+                            }
+                        }
+                    }
+                }
+
                 t.Status = "CONFIRMED";
                 t.ConfirmedAt = DateTime.Now;
                 t.ConfirmedBy = userId;
                 _uow.Repository<StockTransaction>().Update(t);
 
-                // Update SO status if linked
+                await _uow.SaveChangesAsync();
+
+                // Roll-up SO status from per-line totals
                 if (t.SalesOrderId.HasValue)
                 {
-                    var so = await _uow.Repository<SalesOrder>().GetByIdAsync(t.SalesOrderId.Value);
-                    if (so != null && so.Status == "BUYING")
-                    {
-                        so.Status = "RECEIVED";
-                        so.ReceivedAt = DateTime.Now;
-                        _uow.Repository<SalesOrder>().Update(so);
-                    }
+                    await GetSalesOrderService().RollUpStatusAsync(t.SalesOrderId.Value, userId);
                 }
-
-                await _uow.SaveChangesAsync();
                 return (true, null);
             }
             catch (Exception ex)
@@ -484,6 +509,8 @@ namespace EV_ERP.Services
         }
 
         // ── Start Delivery (OUTBOUND DRAFT → DELIVERING) ─
+        // v2.2: cộng DeliveredQty vào từng SOItem (vì hàng đã rời kho)
+        // và roll-up trạng thái SO.
         public async Task<(bool Success, string? ErrorMessage)> StartDeliveryAsync(long transactionId, int userId)
         {
             try
@@ -519,22 +546,38 @@ namespace EV_ERP.Services
                     await UpdateInventoryAsync(t.WarehouseId, item.ProductId, item.LocationId, -item.Quantity);
                 }
 
-                t.Status = "DELIVERING";
-                _uow.Repository<StockTransaction>().Update(t);
-
-                // Update SO status if linked
+                // v2.2 — bump SOItem.DeliveredQty for any line linked via SOItemId
                 if (t.SalesOrderId.HasValue)
                 {
-                    var so = await _uow.Repository<SalesOrder>().GetByIdAsync(t.SalesOrderId.Value);
-                    if (so != null && so.Status == "RECEIVED")
+                    var soItemIds = t.Items.Where(i => i.SOItemId.HasValue)
+                                           .Select(i => i.SOItemId!.Value).ToList();
+                    if (soItemIds.Count > 0)
                     {
-                        so.Status = "DELIVERING";
-                        so.DeliveringAt = DateTime.Now;
-                        _uow.Repository<SalesOrder>().Update(so);
+                        var soItems = await _uow.Repository<SalesOrderItem>().Query()
+                            .Where(s => soItemIds.Contains(s.SOItemId))
+                            .ToListAsync();
+                        foreach (var sti in t.Items.Where(i => i.SOItemId.HasValue))
+                        {
+                            var line = soItems.FirstOrDefault(s => s.SOItemId == sti.SOItemId!.Value);
+                            if (line != null)
+                            {
+                                line.DeliveredQty += sti.Quantity;
+                                _uow.Repository<SalesOrderItem>().Update(line);
+                            }
+                        }
                     }
                 }
 
+                t.Status = "DELIVERING";
+                _uow.Repository<StockTransaction>().Update(t);
+
                 await _uow.SaveChangesAsync();
+
+                // Roll-up SO status
+                if (t.SalesOrderId.HasValue)
+                {
+                    await GetSalesOrderService().RollUpStatusAsync(t.SalesOrderId.Value, userId);
+                }
                 return (true, null);
             }
             catch (Exception ex)
@@ -545,6 +588,7 @@ namespace EV_ERP.Services
         }
 
         // ── Confirm Delivered (DELIVERING → DELIVERED) ───
+        // v2.2: DeliveredQty đã được cộng ở bước StartDelivery; bước này chỉ stamp chữ ký.
         public async Task<(bool Success, string? ErrorMessage)> ConfirmDeliveredAsync(
             long transactionId, DeliveryConfirmModel model, int userId)
         {
@@ -566,19 +610,14 @@ namespace EV_ERP.Services
                 t.ConfirmedBy = userId;
                 _uow.Repository<StockTransaction>().Update(t);
 
-                // Update SO status if linked
+                await _uow.SaveChangesAsync();
+
+                // Roll-up — at this point all DeliveredQty should already be counted from StartDelivery,
+                // so this call is mostly a no-op unless a manual confirm path skipped that.
                 if (t.SalesOrderId.HasValue)
                 {
-                    var so = await _uow.Repository<SalesOrder>().GetByIdAsync(t.SalesOrderId.Value);
-                    if (so != null && so.Status == "DELIVERING")
-                    {
-                        so.Status = "DELIVERED";
-                        so.DeliveredAt = DateTime.Now;
-                        _uow.Repository<SalesOrder>().Update(so);
-                    }
+                    await GetSalesOrderService().RollUpStatusAsync(t.SalesOrderId.Value, userId);
                 }
-
-                await _uow.SaveChangesAsync();
                 return (true, null);
             }
             catch (Exception ex)
@@ -609,70 +648,131 @@ namespace EV_ERP.Services
             }
         }
 
-        // ── Create from Sales Order ──────────────────────
-        public async Task<(bool Success, string? ErrorMessage, long? TransactionId)> CreateFromSalesOrderAsync(
-            int salesOrderId, string transactionType, int userId)
+        // ── Create batch INBOUND/OUTBOUND linked to specific SOItems ─
+        // v2.2 — replaces the old whole-order CreateFromSalesOrderAsync.
+        // Each entry in batchItems = { SOItemId, Quantity (partial allowed) }.
+        // Resulting transaction stays in DRAFT — warehouse user confirms it later via
+        // ConfirmInboundAsync / StartDeliveryAsync.
+        public async Task<(bool Success, string? ErrorMessage, long? TransactionId)>
+            CreateBatchForSalesOrderAsync(
+                int salesOrderId,
+                string transactionType,
+                List<(int SOItemId, decimal Quantity)> batchItems,
+                int? warehouseId,
+                DateTime? transactionDate,
+                string? notes,
+                StockBatchDeliveryOptions? delivery,
+                int userId)
         {
+            if (transactionType is not "INBOUND" and not "OUTBOUND")
+                return (false, "Loại phiếu không hợp lệ", null);
+            if (batchItems == null || batchItems.Count == 0)
+                return (false, "Chưa chọn dòng nào", null);
+
             try
             {
                 var so = await _uow.Repository<SalesOrder>().Query()
-                    .Include(s => s.Items).ThenInclude(i => i.Product).ThenInclude(p => p.Unit)
+                    .Include(s => s.Customer)
+                    .Include(s => s.Items).ThenInclude(i => i.Product)
                     .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
 
                 if (so == null) return (false, "Không tìm thấy đơn hàng", null);
 
-                // Get default warehouse (first active)
-                var defaultWarehouse = await _uow.Repository<Warehouse>().Query()
-                    .Where(w => w.IsActive && !w.IsVirtual)
-                    .OrderBy(w => w.WarehouseId)
-                    .FirstOrDefaultAsync();
+                Warehouse? warehouse;
+                if (warehouseId.HasValue && warehouseId > 0)
+                {
+                    warehouse = await _uow.Repository<Warehouse>().GetByIdAsync(warehouseId.Value);
+                    if (warehouse == null || !warehouse.IsActive)
+                        return (false, "Kho không hợp lệ", null);
+                }
+                else
+                {
+                    warehouse = await _uow.Repository<Warehouse>().Query()
+                        .Where(w => w.IsActive && !w.IsVirtual)
+                        .OrderBy(w => w.WarehouseId)
+                        .FirstOrDefaultAsync();
+                    if (warehouse == null)
+                        return (false, "Chưa có kho nào được thiết lập", null);
+                }
 
-                if (defaultWarehouse == null)
-                    return (false, "Chưa có kho nào được thiết lập. Vui lòng tạo kho trước.", null);
+                // Validate each line
+                var soItemMap = so.Items.ToDictionary(i => i.SOItemId);
+                foreach (var (soItemId, qty) in batchItems)
+                {
+                    if (!soItemMap.TryGetValue(soItemId, out var line))
+                        return (false, $"Dòng SP #{soItemId} không thuộc đơn này", null);
+                    if (line.ProductId == null)
+                        return (false, $"Dòng '{line.ProductName}' chưa gắn sản phẩm hệ thống", null);
+                    if (qty <= 0)
+                        return (false, $"Số lượng dòng '{line.ProductName}' phải > 0", null);
+
+                    if (transactionType == "INBOUND")
+                    {
+                        var remaining = line.Quantity - line.CancelledQty - line.ReceivedQty;
+                        if (qty > remaining)
+                            return (false,
+                                $"Dòng '{line.ProductName}': tối đa nhập {remaining:N3} (đã nhập {line.ReceivedQty:N3}/{line.Quantity:N3})",
+                                null);
+                    }
+                    else // OUTBOUND
+                    {
+                        var deliverable = line.ReceivedQty - line.DeliveredQty;
+                        if (qty > deliverable)
+                            return (false,
+                                $"Dòng '{line.ProductName}': tối đa giao {deliverable:N3} (còn trong kho)",
+                                null);
+                    }
+                }
 
                 var transNo = await GenerateTransactionNoAsync();
                 var entity = new StockTransaction
                 {
                     TransactionNo = transNo,
                     TransactionType = transactionType,
-                    WarehouseId = defaultWarehouse.WarehouseId,
+                    WarehouseId = warehouse.WarehouseId,
                     SalesOrderId = salesOrderId,
-                    TransactionDate = DateTime.Today,
+                    TransactionDate = transactionDate ?? DateTime.Today,
                     Status = "DRAFT",
-                    Notes = $"Tạo tự động từ đơn hàng {so.SalesOrderNo}",
+                    Notes = string.IsNullOrWhiteSpace(notes)
+                        ? $"Tạo từ đơn hàng {so.SalesOrderNo}"
+                        : notes.Trim(),
                     IsDropship = so.IsDropship,
                     CreatedAt = DateTime.Now,
                     CreatedBy = userId
                 };
 
-                // Copy delivery info from SO for OUTBOUND
                 if (transactionType == "OUTBOUND")
                 {
-                    entity.ReceiverName = so.Customer?.CustomerName;
+                    entity.ReceiverName = delivery?.ReceiverName?.Trim() ?? so.Customer?.CustomerName;
+                    entity.ReceiverPhone = delivery?.ReceiverPhone?.Trim();
+                    entity.DeliveryNote = delivery?.DeliveryNote?.Trim();
+                    entity.DeliveryPersonId = delivery?.DeliveryPersonId;
                 }
 
-                foreach (var item in so.Items.Where(i => i.ProductId.HasValue))
+                foreach (var (soItemId, qty) in batchItems)
                 {
+                    var line = soItemMap[soItemId];
                     entity.Items.Add(new StockTransactionItem
                     {
-                        ProductId = item.ProductId!.Value,
-                        Barcode = item.Product!.Barcode,
-                        Quantity = item.Quantity,
-                        UnitName = item.UnitName
+                        ProductId = line.ProductId!.Value,
+                        Barcode = line.Product?.Barcode,
+                        Quantity = qty,
+                        UnitName = line.UnitName,
+                        SOItemId = soItemId
                     });
                 }
 
                 await _uow.Repository<StockTransaction>().AddAsync(entity);
                 await _uow.SaveChangesAsync();
 
-                _logger.LogInformation("Auto-created {Type} {No} from SO {SoNo}",
-                    transactionType, transNo, so.SalesOrderNo);
+                _logger.LogInformation("Created {Type} {No} for SO {SoNo} — {Lines} lines",
+                    transactionType, transNo, so.SalesOrderNo, batchItems.Count);
 
                 return (true, null, entity.TransactionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating stock transaction from SO {Id}", salesOrderId);
+                _logger.LogError(ex, "Error creating batch stock transaction for SO {Id}", salesOrderId);
                 return (false, "Lỗi hệ thống khi tạo phiếu kho", null);
             }
         }

@@ -108,7 +108,20 @@ public class WarehouseCalendarOrder
     public string Status { get; set; } = string.Empty;
     public string StatusText { get; set; } = string.Empty;
     public string StatusBadge { get; set; } = "secondary";
+    /// <summary>Số dòng SO có ngày dự kiến rơi vào ngày này (v2.3: theo từng dòng).</summary>
     public int ItemCount { get; set; }
+    /// <summary>Tổng số lượng còn lại đang chờ nhập/giao cho các dòng thuộc bucket này.</summary>
+    public decimal PendingQuantity { get; set; }
+    /// <summary>Tổng LineTotal của các dòng thuộc bucket này (không phải tổng SO).</summary>
     public decimal TotalAmount { get; set; }
     public string Currency { get; set; } = "VND";
+    public List<WarehouseCalendarLine> Lines { get; set; } = [];
+}
+
+public class WarehouseCalendarLine
+{
+    public string ProductName { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
+    /// <summary>Số lượng còn lại cần xử lý của dòng (RemainingReceiveQty hoặc RemainingDeliverQty tùy mode).</summary>
+    public decimal PendingQuantity { get; set; }
 }

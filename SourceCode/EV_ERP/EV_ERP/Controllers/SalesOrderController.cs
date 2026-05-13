@@ -13,12 +13,17 @@ public class SalesOrderController : Controller
 {
     private readonly ISalesOrderService _salesOrderService;
     private readonly IProductService _productService;
+    private readonly IStockService _stockService;
     private readonly ILogger<SalesOrderController> _logger;
 
-    public SalesOrderController(ISalesOrderService salesOrderService, IProductService productService, ILogger<SalesOrderController> logger)
+    public SalesOrderController(ISalesOrderService salesOrderService,
+        IProductService productService,
+        IStockService stockService,
+        ILogger<SalesOrderController> logger)
     {
         _salesOrderService = salesOrderService;
         _productService = productService;
+        _stockService = stockService;
         _logger = logger;
     }
 
@@ -194,59 +199,103 @@ public class SalesOrderController : Controller
         }
     }
 
-    // ── Status: BUYING → RECEIVED ────────────────────
+    // ── v2.2: Per-line update purchase info ──────────
     [HttpPost]
-    public async Task<IActionResult> ConfirmReceived(int id)
+    public async Task<IActionResult> UpdateItemPurchase(int id, int soItemId, [FromBody] UpdateItemPurchaseModel model)
     {
         try
         {
             if (!await CanManageStatusAsync(id))
                 return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
-            var (success, error) = await _salesOrderService.ConfirmReceivedAsync(id, CurrentUserId);
-            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận nhận hàng" : error });
+            var (success, error) = await _salesOrderService.UpdateItemPurchaseInfoAsync(id, soItemId, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã cập nhật dòng" : error });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ConfirmReceived failed for SO #{Id}", id);
+            _logger.LogError(ex, "UpdateItemPurchase failed for SO #{Id} item #{ItemId}", id, soItemId);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }
 
-    // ── Status: RECEIVED → DELIVERING ────────────────
+    // ── v2.3: Per-line cancel ────────────────────────
     [HttpPost]
-    public async Task<IActionResult> StartDelivering(int id)
+    public async Task<IActionResult> CancelItem(int id, int soItemId, [FromBody] CancelItemModel model)
     {
         try
         {
             if (!await CanManageStatusAsync(id))
                 return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
-            var (success, error) = await _salesOrderService.StartDeliveringAsync(id, CurrentUserId);
-            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã bàn giao cho vận chuyển" : error });
+            var (success, error) = await _salesOrderService.CancelItemAsync(id, soItemId, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy dòng" : error });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "StartDelivering failed for SO #{Id}", id);
+            _logger.LogError(ex, "CancelItem failed for SO #{Id} item #{ItemId}", id, soItemId);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }
 
-    // ── Status: DELIVERING → DELIVERED ───────────────
+    // ── v2.2: Create batch INBOUND (1 phiếu nhập cho nhiều dòng) ─
     [HttpPost]
-    public async Task<IActionResult> ConfirmDelivered(int id)
+    public async Task<IActionResult> ReceiveBatch(int id, [FromBody] ReceiveBatchModel model)
     {
         try
         {
             if (!await CanManageStatusAsync(id))
                 return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
 
-            var (success, error) = await _salesOrderService.ConfirmDeliveredAsync(id, CurrentUserId);
-            return Json(new ApiResult<object> { Success = success, Message = success ? "Khách hàng đã nhận hàng" : error });
+            var batchItems = model.Items.Select(i => (i.SOItemId, i.Quantity)).ToList();
+            var (ok, err, transId) = await _stockService.CreateBatchForSalesOrderAsync(
+                id, "INBOUND", batchItems, model.WarehouseId,
+                model.TransactionDate, model.Notes, delivery: null, CurrentUserId);
+
+            return Json(new ApiResult<object>
+            {
+                Success = ok,
+                Message = ok ? "Đã tạo phiếu nhập kho (Nháp). Vào module Kho để xác nhận." : err,
+                Data = ok ? new { transactionId = transId } : null
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ConfirmDelivered failed for SO #{Id}", id);
+            _logger.LogError(ex, "ReceiveBatch failed for SO #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    // ── v2.2: Create batch OUTBOUND (1 phiếu xuất cho nhiều dòng) ─
+    [HttpPost]
+    public async Task<IActionResult> DeliverBatch(int id, [FromBody] DeliverBatchModel model)
+    {
+        try
+        {
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
+
+            var batchItems = model.Items.Select(i => (i.SOItemId, i.Quantity)).ToList();
+            var delivery = new Models.ViewModels.Stock.StockBatchDeliveryOptions
+            {
+                DeliveryPersonId = model.DeliveryPersonId,
+                ReceiverName = model.ReceiverName,
+                ReceiverPhone = model.ReceiverPhone,
+                DeliveryNote = model.DeliveryNote
+            };
+            var (ok, err, transId) = await _stockService.CreateBatchForSalesOrderAsync(
+                id, "OUTBOUND", batchItems, model.WarehouseId,
+                model.TransactionDate, model.Notes, delivery, CurrentUserId);
+
+            return Json(new ApiResult<object>
+            {
+                Success = ok,
+                Message = ok ? "Đã tạo phiếu xuất kho (Nháp). Vào module Kho để xác nhận." : err,
+                Data = ok ? new { transactionId = transId } : null
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DeliverBatch failed for SO #{Id}", id);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }

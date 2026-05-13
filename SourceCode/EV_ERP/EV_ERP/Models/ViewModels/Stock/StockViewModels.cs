@@ -200,6 +200,15 @@ namespace EV_ERP.Models.ViewModels.Stock
         public string? DeliveryNote { get; set; }
     }
 
+    // ── v2.2: optional delivery info when creating a batch OUTBOUND from SO Detail ──
+    public class StockBatchDeliveryOptions
+    {
+        public int? DeliveryPersonId { get; set; }
+        public string? ReceiverName { get; set; }
+        public string? ReceiverPhone { get; set; }
+        public string? DeliveryNote { get; set; }
+    }
+
     // ── Barcode lookup result ────────────────────────────
     public class BarcodeLookupResult
     {

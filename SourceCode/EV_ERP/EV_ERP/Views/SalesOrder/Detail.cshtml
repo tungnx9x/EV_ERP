@@ -113,25 +113,24 @@
                     <i class="bi bi-x-circle me-1"></i> Hủy
                 </button>
             }
-            @if (Model.Status == "BUYING" && canManageStatus)
+            @if (Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" && canManageStatus)
             {
-                <button class="btn btn-sm btn-primary" onclick="doSimpleAction('ConfirmReceived', 'Xác nhận hàng đã về kho?')">
-                    <i class="bi bi-box-seam me-1"></i> Xác nhận nhận hàng
-                </button>
+                @* Whole-order action removed — Nhận hàng / Giao hàng nay theo từng dòng (bảng bên dưới).
+                   Chỉ giữ "Hủy đơn" và batch shortcut. Trạng thái SO tự roll-up khi xác nhận phiếu kho. *@
+                if (Model.Items.Any(i => i.RemainingReceiveQty > 0))
+                {
+                    <button class="btn btn-sm btn-info text-white" onclick="showReceiveBatchModal()">
+                        <i class="bi bi-box-arrow-in-down me-1"></i> Nhận lô (nhiều dòng)
+                    </button>
+                }
+                if (Model.Items.Any(i => i.InStockQty > 0))
+                {
+                    <button class="btn btn-sm btn-warning" onclick="showDeliverBatchModal()">
+                        <i class="bi bi-truck me-1"></i> Giao lô (nhiều dòng)
+                    </button>
+                }
                 <button class="btn btn-sm btn-outline-danger" onclick="doCancel()">
-                    <i class="bi bi-x-circle me-1"></i> Hủy
-                </button>
-            }
-            @if (Model.Status == "RECEIVED")
-            {
-                <span class="badge bg-info-subtle text-info-emphasis py-2 px-3">
-                    <i class="bi bi-hourglass-split me-1"></i> Chờ kho xuất hàng
-                </span>
-            }
-            @if (Model.Status == "DELIVERING" && canManageStatus)
-            {
-                <button class="btn btn-sm btn-success" onclick="doSimpleAction('ConfirmDelivered', 'Xác nhận khách hàng đã nhận hàng?')">
-                    <i class="bi bi-check-circle me-1"></i> KH đã nhận hàng
+                    <i class="bi bi-x-circle me-1"></i> Hủy đơn
                 </button>
             }
             @if (Model.Status == "DELIVERED" && canManageStatus)
@@ -229,12 +228,11 @@
         </div>
     </div>
 </div>
-
+<!-- Info cards -->
 <div class="row g-3">
-    <!-- LEFT: Info cards -->
-    <div class="col-lg-4">
+    <div class="col-lg-6">
         <!-- Order info -->
-        <div class="card border-0 shadow-sm mb-3">
+        <div class="card border-0 shadow-sm mb-3 border-start border-4 border-info">
             <div class="card-body">
                 <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
                     Thông tin đơn hàng
@@ -284,47 +282,6 @@
             </div>
         </div>
 
-        <!-- PO KH editable (DRAFT only) -->
-        @if (canEdit && Model.Status == "DRAFT")
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-primary">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-file-earmark-text me-1"></i> PO Khách hàng
-                    </h6>
-                    <form id="draftInfoForm" enctype="multipart/form-data">
-                        <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">Mã PO khách hàng</label>
-                            <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
-                                   placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">Dự kiến giao hàng</label>
-                            <input type="date" id="draftExpectedDeliveryDate" class="form-control form-control-sm"
-                                   value="@(Model.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"))" />
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
-                            @if (Model.CustomerPoFile != null)
-                            {
-                                <div class="mb-1">
-                                    <a href="@Model.CustomerPoFile" target="_blank" class="text-primary small">
-                                        <i class="bi bi-file-earmark-arrow-down me-1"></i>File hiện tại
-                                    </a>
-                                </div>
-                            }
-                            <input type="file" id="draftCustomerPoFile" class="form-control form-control-sm"
-                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
-                            <div class="form-text" style="font-size:0.7rem;">PDF, ảnh, Word, Excel (tối đa 10MB)</div>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-primary w-100" onclick="saveDraftInfo()">
-                            <i class="bi bi-check-lg me-1"></i> Lưu thông tin PO
-                        </button>
-                    </form>
-                </div>
-            </div>
-        }
-
         <!-- Advance info -->
         @if (Model.AdvanceAmount > 0)
         {
@@ -346,192 +303,281 @@
                 </div>
             </div>
         }
-
-        <!-- Vendor / Buying info -->
-        @if (showBuyingInfo)
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-info">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-cart3 me-1"></i> Thông tin mua hàng
-                    </h6>
-                    <div class="row g-2 small">
-                        <div class="col-12">
-                            <div class="text-muted">Nhà cung cấp</div>
-                            <div class="fw-semibold">@(Model.PurchaseSource ?? "—")</div>
-                        </div>
-                        @if (Model.ExpectedReceiveDate.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Dự kiến về kho</div>
-                                <div class="fw-semibold">@Model.ExpectedReceiveDate.Value.ToString("dd/MM/yyyy")</div>
-                            </div>
-                        }
-                        @if (Model.BuyingAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Bắt đầu mua</div>
-                                <div class="fw-semibold">@Model.BuyingAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                        @if (Model.ReceivedAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Nhận hàng</div>
-                                <div class="fw-semibold text-success">@Model.ReceivedAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                        @if (!string.IsNullOrEmpty(Model.BuyingNotes))
-                        {
-                            <div class="col-12">
-                                <div class="text-muted">Ghi chú mua</div>
-                                <div style="white-space:pre-wrap;">@Model.BuyingNotes</div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Delivery timestamps -->
-        @if (Model.DeliveringAt.HasValue || Model.DeliveredAt.HasValue || Model.ReturnedAt.HasValue || Model.CompletedAt.HasValue || Model.ReportedAt.HasValue)
-        {
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-clock-history me-1"></i> Tiến trình
-                    </h6>
-                    <div class="row g-2 small">
-                        @if (Model.DeliveringAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Giao vận chuyển</div>
-                                <div class="fw-semibold">@Model.DeliveringAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                        @if (Model.DeliveredAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">KH nhận hàng</div>
-                                <div class="fw-semibold text-success">@Model.DeliveredAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                        @if (Model.ReturnedAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Trả hàng</div>
-                                <div class="fw-semibold text-warning">@Model.ReturnedAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                        @if (Model.CompletedAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Hoàn tất</div>
-                                <div class="fw-semibold text-success">@Model.CompletedAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                        @if (Model.ReportedAt.HasValue)
-                        {
-                            <div class="col-6">
-                                <div class="text-muted">Báo cáo KQKD</div>
-                                <div class="fw-semibold text-primary">@Model.ReportedAt.Value.ToString("dd/MM HH:mm")</div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Settlement -->
-        @if (Model.Status is "COMPLETED" or "REPORTED" or "RETURNED" && Model.ActualCost.HasValue)
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-calculator me-1"></i> Quyết toán
-                    </h6>
-                    <div class="row g-2 small">
-                        <div class="col-6">
-                            <div class="text-muted">Chi phí thực tế</div>
-                            <div class="fw-bold">@Model.ActualCost?.ToString("N0") @Model.Currency</div>
-                        </div>
-                        @if (!string.IsNullOrEmpty(Model.SettlementNotes))
-                        {
-                            <div class="col-12">
-                                <div class="text-muted">Ghi chú</div>
-                                <div>@Model.SettlementNotes</div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Cancel info -->
-        @if (Model.Status == "CANCELLED")
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-danger">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-x-circle me-1"></i> Thông tin hủy
-                    </h6>
-                    <div class="small">
-                        <div class="text-muted">Hủy lúc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
-                        @if (!string.IsNullOrEmpty(Model.CancelReason))
-                        {
-                            <div class="mt-1">Lý do: @Model.CancelReason</div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Return info -->
-        @if (Model.Status == "RETURNED" || Model.ReturnedAt.HasValue)
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-arrow-return-left me-1"></i> Trả hàng
-                    </h6>
-                    <div class="small">
-                        <div class="text-muted">Trả hàng lúc: @Model.ReturnedAt?.ToString("dd/MM/yyyy HH:mm")</div>
-                        @if (!string.IsNullOrEmpty(Model.ReturnReason))
-                        {
-                            <div class="mt-1">Lý do: @Model.ReturnReason</div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- Notes -->
-        @if (!string.IsNullOrEmpty(Model.Notes))
-        {
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        Ghi chú
-                    </h6>
-                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
-                </div>
-            </div>
-        }
-        @if (!string.IsNullOrEmpty(Model.InternalNotes))
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
-                    </h6>
-                    <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
-                </div>
-            </div>
-        }
     </div>
+    <div class="col-lg-6">
+         <!-- PO KH editable (DRAFT only) -->
+         @if (canEdit && Model.Status == "DRAFT")
+         {
+             <div class="card border-0 shadow-sm mb-3 border-start border-4 border-primary">
+                 <div class="card-body">
+                     <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                         <i class="bi bi-file-earmark-text me-1"></i> PO Khách hàng
+                     </h6>
+                     <form id="draftInfoForm" enctype="multipart/form-data">
+                         <div class="mb-2">
+                             <label class="form-label small fw-semibold mb-1">Mã PO khách hàng</label>
+                             <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
+                                    placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
+                         </div>
+                         <div class="mb-2">
+                             <label class="form-label small fw-semibold mb-1">Dự kiến giao hàng</label>
+                             <input type="date" id="draftExpectedDeliveryDate" class="form-control form-control-sm"
+                                    value="@(Model.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"))" />
+                         </div>
+                         <div class="mb-2">
+                             <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
+                             @if (Model.CustomerPoFile != null)
+                             {
+                                 <div class="mb-1">
+                                     <a href="@Model.CustomerPoFile" target="_blank" class="text-primary small">
+                                         <i class="bi bi-file-earmark-arrow-down me-1"></i>File hiện tại
+                                     </a>
+                                 </div>
+                             }
+                             <input type="file" id="draftCustomerPoFile" class="form-control form-control-sm"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
+                             <div class="form-text" style="font-size:0.7rem;">PDF, ảnh, Word, Excel (tối đa 10MB)</div>
+                         </div>
+                         <button type="button" class="btn btn-sm btn-primary w-100" onclick="saveDraftInfo()">
+                             <i class="bi bi-check-lg me-1"></i> Lưu thông tin PO
+                         </button>
+                     </form>
+                 </div>
+             </div>
+         }
+         <!-- Vendor / Buying info -->
+           @if (showBuyingInfo)
+           {
+               <div class="card border-0 shadow-sm mb-3">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                           <i class="bi bi-cart3 me-1"></i> Thông tin mua hàng
+                       </h6>
+                       <div class="row g-2 small">
+                           <div class="col-12">
+                               <div class="text-muted">Nhà cung cấp</div>
+                               <div class="fw-semibold">@(Model.PurchaseSource ?? "—")</div>
+                           </div>
+                           @if (Model.ExpectedReceiveDate.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Dự kiến về kho</div>
+                                   <div class="fw-semibold">@Model.ExpectedReceiveDate.Value.ToString("dd/MM/yyyy")</div>
+                               </div>
+                           }
+                           @if (Model.BuyingAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Bắt đầu mua</div>
+                                   <div class="fw-semibold">@Model.BuyingAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                           @if (Model.ReceivedAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Nhận hàng</div>
+                                   <div class="fw-semibold text-success">@Model.ReceivedAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                           @if (!string.IsNullOrEmpty(Model.BuyingNotes))
+                           {
+                               <div class="col-12">
+                                   <div class="text-muted">Ghi chú mua</div>
+                                   <div style="white-space:pre-wrap;">@Model.BuyingNotes</div>
+                               </div>
+                           }
+                       </div>
+                   </div>
+               </div>
+           }
 
-    <!-- RIGHT: Items + Totals -->
-    <div class="col-lg-8">
+           <!-- Delivery timestamps -->
+           @if (Model.DeliveringAt.HasValue || Model.DeliveredAt.HasValue || Model.ReturnedAt.HasValue || Model.CompletedAt.HasValue || Model.ReportedAt.HasValue)
+           {
+               <div class="card border-0 shadow-sm mb-3">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                           <i class="bi bi-clock-history me-1"></i> Tiến trình
+                       </h6>
+                       <div class="row g-2 small">
+                           @if (Model.DeliveringAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Giao vận chuyển</div>
+                                   <div class="fw-semibold">@Model.DeliveringAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                           @if (Model.DeliveredAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">KH nhận hàng</div>
+                                   <div class="fw-semibold text-success">@Model.DeliveredAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                           @if (Model.ReturnedAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Trả hàng</div>
+                                   <div class="fw-semibold text-warning">@Model.ReturnedAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                           @if (Model.CompletedAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Hoàn tất</div>
+                                   <div class="fw-semibold text-success">@Model.CompletedAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                           @if (Model.ReportedAt.HasValue)
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Báo cáo KQKD</div>
+                                   <div class="fw-semibold text-primary">@Model.ReportedAt.Value.ToString("dd/MM HH:mm")</div>
+                               </div>
+                           }
+                       </div>
+                   </div>
+               </div>
+           }
+
+           <!-- Settlement -->
+           @if (Model.Status is "COMPLETED" or "REPORTED" or "RETURNED" && Model.ActualCost.HasValue)
+           {
+               <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                           <i class="bi bi-calculator me-1"></i> Quyết toán
+                       </h6>
+                       <div class="row g-2 small">
+                           <div class="col-6">
+                               <div class="text-muted">Chi phí thực tế</div>
+                               <div class="fw-bold">@Model.ActualCost?.ToString("N0") @Model.Currency</div>
+                           </div>
+                           @if (!string.IsNullOrEmpty(Model.SettlementNotes))
+                           {
+                               <div class="col-12">
+                                   <div class="text-muted">Ghi chú</div>
+                                   <div>@Model.SettlementNotes</div>
+                               </div>
+                           }
+                       </div>
+                   </div>
+               </div>
+           }
+
+           <!-- Cancel info -->
+           @if (Model.Status == "CANCELLED")
+           {
+               <div class="card border-0 shadow-sm mb-3 border-start border-4 border-danger">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                           <i class="bi bi-x-circle me-1"></i> Thông tin hủy
+                       </h6>
+                       <div class="small">
+                           <div class="text-muted">Hủy lúc: @Model.CancelledAt?.ToString("dd/MM/yyyy HH:mm")</div>
+                           @if (!string.IsNullOrEmpty(Model.CancelReason))
+                           {
+                               <div class="mt-1">Lý do: @Model.CancelReason</div>
+                           }
+                       </div>
+                   </div>
+               </div>
+           }
+
+           <!-- Return info -->
+           @if (Model.Status == "RETURNED" || Model.ReturnedAt.HasValue)
+           {
+               <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
+                           <i class="bi bi-arrow-return-left me-1"></i> Trả hàng
+                       </h6>
+                       <div class="small">
+                           <div class="text-muted">Trả hàng lúc: @Model.ReturnedAt?.ToString("dd/MM/yyyy HH:mm")</div>
+                           @if (!string.IsNullOrEmpty(Model.ReturnReason))
+                           {
+                               <div class="mt-1">Lý do: @Model.ReturnReason</div>
+                           }
+                       </div>
+                   </div>
+               </div>
+           }
+
+           <!-- Notes -->
+           @if (!string.IsNullOrEmpty(Model.Notes))
+           {
+               <div class="card border-0 shadow-sm mb-3">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                           Ghi chú
+                       </h6>
+                       <p class="small mb-0" style="white-space:pre-wrap;">@Model.Notes</p>
+                   </div>
+               </div>
+           }
+           @if (!string.IsNullOrEmpty(Model.InternalNotes))
+           {
+               <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
+                   <div class="card-body">
+                       <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                           <i class="bi bi-lock me-1"></i> Ghi chú nội bộ
+                       </h6>
+                       <p class="small mb-0" style="white-space:pre-wrap;">@Model.InternalNotes</p>
+                   </div>
+               </div>
+           }
+        </div>
+</div>
+<!-- Items + Totals -->
+<div class="row g-3">
+    <div class="col-lg-12">
+        @{
+            bool showProgress = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "COMPLETED" or "REPORTED" or "RETURNED";
+            bool canAct = canManageStatus && Model.Status is "BUYING" or "RECEIVED" or "DELIVERING";
+            int totalLines = Model.Items.Count;
+            int doneRecv = Model.Items.Count(i => i.LineStatus is "RECEIVED_FULL" or "PARTIAL_DELIVERED" or "DELIVERED");
+            int doneDeliv = Model.Items.Count(i => i.LineStatus == "DELIVERED");
+            int partial = Model.Items.Count(i => i.LineStatus is "PARTIAL" or "PARTIAL_DELIVERED");
+            int notStarted = Model.Items.Count(i => i.LineStatus is "NOT_STARTED" or "BUYING");
+            int cancelledLines = Model.Items.Count(i => i.LineStatus == "CANCELLED");
+        }
+
+        @if (showProgress)
+        {
+            <!-- Per-line progress summary strip -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex flex-wrap gap-3 align-items-center small">
+                        <span class="text-muted">
+                            <i class="bi bi-box-arrow-in-down text-info me-1"></i>
+                            <strong>Mua/Nhận:</strong>
+                            <span class="badge bg-success-subtle text-success-emphasis">@doneRecv / @totalLines đã đủ</span>
+                            @if (partial > 0)
+                            {
+                                <span class="badge bg-warning-subtle text-warning-emphasis ms-1">@partial về 1 phần</span>
+                            }
+                            @if (notStarted > 0)
+                            {
+                                <span class="badge bg-light text-muted border ms-1">@notStarted chưa bắt đầu</span>
+                            }
+                        </span>
+                        <span class="text-muted">
+                            <i class="bi bi-truck text-warning me-1"></i>
+                            <strong>Giao KH:</strong>
+                            <span class="badge bg-success-subtle text-success-emphasis">@doneDeliv / @totalLines đã giao đủ</span>
+                        </span>
+                        @if (cancelledLines > 0)
+                        {
+                            <span class="text-muted">
+                                <i class="bi bi-x-circle text-danger me-1"></i>
+                                <span class="badge bg-danger-subtle text-danger-emphasis">@cancelledLines dòng đã hủy</span>
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom py-2">
                 <h6 class="mb-0 fw-semibold small text-uppercase">
@@ -558,6 +604,11 @@
                                 }
                                 <th>DVT</th>
                                 <th class="text-end">SL</th>
+                                @if (showProgress)
+                                {
+                                    <th class="text-center bg-info-subtle" style="min-width:140px;">Tiến độ mua/giao</th>
+                                    <th class="text-center bg-info-subtle" style="min-width:110px;">Dự kiến</th>
+                                }
                                 <th class="text-end bg-success-subtle">Đơn giá bán</th>
                                 <th class="text-end bg-success-subtle">Thành tiền</th>
                                 @if (showBuyingInfo)
@@ -566,15 +617,29 @@
                                     <th class="text-end bg-warning-subtle">Chi phí</th>
                                 }
                                 <th class="d-none d-md-table-cell">Ghi chú</th>
+                                @if (canAct)
+                                {
+                                    <th class="text-center" style="width:130px;">Hành động</th>
+                                }
                             </tr>
                         </thead>
                         <tbody>
                             @{ int idx = 1; }
                             @foreach (var item in Model.Items)
                             {
-                                <tr class="@(!item.IsProductMapped && Model.Status == "DRAFT" ? "table-warning" : "")">
+                                <tr class="@(!item.IsProductMapped && Model.Status == "DRAFT" ? "table-warning" : "") @(item.LineStatus == "CANCELLED" ? "text-decoration-line-through text-muted" : "")">
                                     <td class="text-center text-muted">@(idx++)</td>
-                                    <td class="fw-semibold">@item.ProductName</td>
+                                    <td class="fw-semibold">
+                                        @item.ProductName
+                                        @if (showProgress)
+                                        {
+                                            <span class="badge @item.LineStatusBadge ms-1" style="font-size:0.65rem;">@item.LineStatusText</span>
+                                            @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">Hủy @item.CancelledQty.ToString("N3")</span>
+                                            }
+                                        }
+                                    </td>
                                     @if (canEdit && Model.Status == "DRAFT")
                                     {
                                         <td class="text-center">
@@ -595,6 +660,47 @@
                                     }
                                     <td>@item.UnitName</td>
                                     <td class="text-end">@item.Quantity.ToString("N3")</td>
+                                    @if (showProgress)
+                                    {
+                                        <td class="text-center small">
+                                            <div>
+                                                <span class="text-muted">Nhận:</span>
+                                                <span class="fw-semibold @(item.RemainingReceiveQty > 0 ? "text-info-emphasis" : "text-success")">
+                                                    @item.ReceivedQty.ToString("N3") / @item.EffectiveQty.ToString("N3")
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span class="text-muted">Giao:</span>
+                                                <span class="fw-semibold @(item.RemainingDeliverQty > 0 ? "text-warning-emphasis" : "text-success")">
+                                                    @item.DeliveredQty.ToString("N3") / @item.EffectiveQty.ToString("N3")
+                                                </span>
+                                            </div>
+                                            @if (item.InStockQty > 0)
+                                            {
+                                                <div class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:0.65rem;">
+                                                    Trong kho: @item.InStockQty.ToString("N3")
+                                                </div>
+                                            }
+                                        </td>
+                                        <td class="text-center small">
+                                            @if (item.ExpectedReceiveDate.HasValue)
+                                            {
+                                                <div title="Dự kiến hàng về">
+                                                    <i class="bi bi-box-arrow-in-down text-info"></i> @item.ExpectedReceiveDate.Value.ToString("dd/MM")
+                                                </div>
+                                            }
+                                            @if (item.ExpectedDeliveryDate.HasValue)
+                                            {
+                                                <div title="Dự kiến giao KH">
+                                                    <i class="bi bi-truck text-warning"></i> @item.ExpectedDeliveryDate.Value.ToString("dd/MM")
+                                                </div>
+                                            }
+                                            @if (!item.ExpectedReceiveDate.HasValue && !item.ExpectedDeliveryDate.HasValue)
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                    }
                                     <td class="text-end">@item.UnitPrice.ToString("N0")</td>
                                     <td class="text-end fw-semibold text-success">@item.LineTotal.ToString("N0")</td>
                                     @if (showBuyingInfo)
@@ -603,6 +709,56 @@
                                         <td class="text-end text-warning-emphasis">@(item.LineCost?.ToString("N0") ?? "—")</td>
                                     }
                                     <td class="d-none d-md-table-cell text-muted small">@(item.Notes ?? "")</td>
+                                    @if (canAct)
+                                    {
+                                        <td class="text-center">
+                                            @if (item.LineStatus == "CANCELLED")
+                                            {
+                                                <span class="text-muted small">—</span>
+                                            }
+                                            else
+                                            {
+                                                <div class="btn-group btn-group-sm">
+                                                    @if (item.RemainingReceiveQty > 0)
+                                                    {
+                                                        <button type="button" class="btn btn-outline-info py-0 px-1"
+                                                                title="Nhận hàng cho dòng này"
+                                                                onclick="openReceiveItemModal(@item.SOItemId)">
+                                                            <i class="bi bi-box-arrow-in-down"></i>
+                                                        </button>
+                                                    }
+                                                    @if (item.InStockQty > 0)
+                                                    {
+                                                        <button type="button" class="btn btn-outline-warning py-0 px-1"
+                                                                title="Giao hàng dòng này"
+                                                                onclick="openDeliverItemModal(@item.SOItemId)">
+                                                            <i class="bi bi-truck"></i>
+                                                        </button>
+                                                    }
+                                                    <button type="button" class="btn btn-outline-secondary py-0 px-1 dropdown-toggle"
+                                                            data-bs-toggle="dropdown" aria-expanded="false" title="Khác">
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                        <li>
+                                                            <a class="dropdown-item small" href="#"
+                                                               onclick="openEditItemModal(@item.SOItemId); return false;">
+                                                                <i class="bi bi-pencil me-1"></i> Sửa giá / nguồn / ngày
+                                                            </a>
+                                                        </li>
+                                                        @if (item.RemainingReceiveQty > 0)
+                                                        {
+                                                            <li>
+                                                                <a class="dropdown-item small text-danger" href="#"
+                                                                   onclick="openCancelItemModal(@item.SOItemId); return false;">
+                                                                    <i class="bi bi-x-circle me-1"></i> Hủy dòng
+                                                                </a>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            }
+                                        </td>
+                                    }
                                 </tr>
                             }
                         </tbody>
@@ -724,57 +880,68 @@
 }
 
 
-<!-- Buying Modal (WAIT → BUYING) -->
+<!-- Buying Modal (WAIT → BUYING) — v2.2 per-line -->
 <div class="modal fade" id="buyingModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
                 <h6 class="modal-title fw-bold">Bắt đầu mua hàng</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info py-2 px-3 small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Tích chọn các dòng muốn bắt đầu mua. Có thể đặt <strong>ngày dự kiến về</strong> riêng cho từng dòng.
+                    Các dòng chưa tích vẫn lưu giá/nguồn nhưng giữ trạng thái <em>chưa bắt đầu</em>.
+                </div>
                 <div class="row g-3 mb-3">
-                    @* <div class="col-md-6">
-                        <label class="form-label small fw-semibold">Nguồn mua chung</label>
-                        <input type="text" id="inputPurchaseSource" class="form-control form-control-sm"
-                               placeholder="VD: Shopee + Lazada" />
-                    </div> *@
-                    <div class="col-md-6">
-                        <label class="form-label small fw-semibold">Dự kiến hàng về kho</label>
-                        <input type="date" id="inputExpectedReceiveDate" class="form-control form-control-sm" />
-                    </div>
                     <div class="col-12">
-                        <label class="form-label small fw-semibold">Ghi chú mua hàng</label>
+                        <label class="form-label small fw-semibold">Ghi chú mua hàng (chung)</label>
                         <textarea id="inputBuyingNotes" class="form-control form-control-sm" rows="2"
                                   placeholder="Ghi chú..."></textarea>
                     </div>
                 </div>
 
-                <h6 class="fw-semibold small mb-2">Giá mua từng sản phẩm</h6>
+                <h6 class="fw-semibold small mb-2">Thông tin mua từng dòng</h6>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
                         <thead class="table-light">
                             <tr>
+                                <th style="width:36px;" class="text-center">
+                                    <input type="checkbox" id="buyingCheckAll" checked title="Chọn/bỏ tất cả" />
+                                </th>
                                 <th>Sản phẩm</th>
-                                <th class="text-end" style="width:80px;">SL</th>
-                                <th class="text-end" style="width:140px;">Giá mua (nhập)</th>
-                                <th class="text-end" style="width:120px;">Chi phí</th>
-                                <th class="text-end" style="width:120px;">Giá bán</th>
+                                <th class="text-end" style="width:70px;">SL</th>
+                                <th class="text-end" style="width:130px;">Giá mua</th>
+                                <th class="text-end" style="width:110px;">Chi phí</th>
+                                <th style="width:140px;">Dự kiến về</th>
+                                <th style="width:160px;">Nguồn</th>
                             </tr>
                         </thead>
                         <tbody id="buyingItemsBody">
                             @foreach (var item in Model.Items)
                             {
-                                <tr>
+                                <tr data-item-id="@item.SOItemId">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="buying-include" checked />
+                                    </td>
                                     <td>@item.ProductName</td>
-                                    <td class="text-end">@item.Quantity.ToString("N3")</td>                                  
+                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end purchase-price-input"
                                                data-item-id="@item.SOItemId" data-qty="@item.Quantity"
                                                value="@(item.PurchasePrice ?? 0)" min="0" />
-                                    </td>                                   
+                                    </td>
                                     <td class="text-end line-cost-cell">0</td>
-                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
+                                    <td>
+                                        <input type="date" class="form-control form-control-sm expected-receive-input"
+                                               data-item-id="@item.SOItemId" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm source-url-input"
+                                               data-item-id="@item.SOItemId"
+                                               placeholder="URL" value="@item.SourceUrl" />
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -782,6 +949,7 @@
                             <tr class="fw-bold">
                                 <td colspan="4" class="text-end">Tổng chi phí mua:</td>
                                 <td class="text-end" id="totalPurchaseCost">0</td>
+                                <td colspan="2"></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -791,6 +959,229 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-info text-white" onclick="confirmBuying()">
                     <i class="bi bi-cart3 me-1"></i> Xác nhận mua hàng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- v2.2 PER-LINE MODALS                                -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<!-- Edit Item (purchase info) Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Sửa thông tin mua dòng <span id="editItemLabel" class="text-muted small ms-1"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editItemId" />
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold mb-1">Giá mua</label>
+                        <input type="number" id="editItemPrice" class="form-control form-control-sm text-end" min="0" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold mb-1">Dự kiến về</label>
+                        <input type="date" id="editItemExpReceive" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold mb-1">Dự kiến giao</label>
+                        <input type="date" id="editItemExpDeliver" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold mb-1">Tên nguồn</label>
+                        <input type="text" id="editItemSourceName" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold mb-1">URL nguồn</label>
+                        <input type="text" id="editItemSourceUrl" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold mb-1">Ghi chú</label>
+                        <textarea id="editItemNotes" class="form-control form-control-sm" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="confirmEditItem()">
+                    <i class="bi bi-check-lg me-1"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Item Modal -->
+<div class="modal fade" id="cancelItemModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Hủy dòng <span id="cancelItemLabel" class="text-muted small ms-1"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body small">
+                <input type="hidden" id="cancelItemId" />
+                <div class="alert alert-warning py-2 px-3 mb-2">
+                    Hủy phần SL chưa nhập về. Phần đã nhập về phải đi luồng trả hàng.
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold mb-1">SL cần hủy (để trống = hủy toàn bộ phần còn lại)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" id="cancelItemQty" class="form-control text-end" min="0" step="0.001" />
+                        <span class="input-group-text" id="cancelItemMax"></span>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label fw-semibold mb-1">Lý do</label>
+                    <textarea id="cancelItemReason" class="form-control form-control-sm" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="confirmCancelItem()">
+                    <i class="bi bi-x-circle me-1"></i> Xác nhận hủy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Receive Batch Modal -->
+<div class="modal fade" id="receiveBatchModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold"><i class="bi bi-box-arrow-in-down text-info me-1"></i> Nhận hàng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 px-3 small mb-3">
+                    Tạo phiếu Nhập kho (Nháp) chứa các dòng đã chọn. Bộ phận Kho sẽ vào module Kho để xác nhận.
+                </div>
+                <div class="row g-2 mb-3 small">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold mb-1">Ngày phiếu</label>
+                        <input type="date" id="recvBatchDate" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold mb-1">Ghi chú</label>
+                        <input type="text" id="recvBatchNotes" class="form-control form-control-sm" placeholder="Ghi chú phiếu..." />
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:36px;" class="text-center">
+                                    <input type="checkbox" id="recvBatchCheckAll" title="Chọn/bỏ tất cả" />
+                                </th>
+                                <th>Sản phẩm</th>
+                                <th class="text-end" style="width:110px;">Còn cần nhập</th>
+                                <th class="text-end" style="width:130px;">SL nhập đợt này</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recvBatchBody">
+                            @foreach (var item in Model.Items.Where(i => i.RemainingReceiveQty > 0))
+                            {
+                                <tr data-item-id="@item.SOItemId" data-max="@item.RemainingReceiveQty">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="recv-include" />
+                                    </td>
+                                    <td>@item.ProductName <span class="text-muted small">(@item.UnitName)</span></td>
+                                    <td class="text-end text-info-emphasis fw-semibold">@item.RemainingReceiveQty.ToString("N3")</td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm text-end recv-qty"
+                                               min="0" max="@item.RemainingReceiveQty" step="0.001"
+                                               value="@item.RemainingReceiveQty.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-info text-white" onclick="confirmReceiveBatch()">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Tạo phiếu nhập
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deliver Batch Modal -->
+<div class="modal fade" id="deliverBatchModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold"><i class="bi bi-truck text-warning me-1"></i> Giao hàng</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 px-3 small mb-3">
+                    Tạo phiếu Xuất kho (Nháp) chứa các dòng đã chọn. Bộ phận Kho sẽ vào module Kho để xuất giao.
+                </div>
+                <div class="row g-2 mb-3 small">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold mb-1">Ngày phiếu</label>
+                        <input type="date" id="delivBatchDate" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold mb-1">Người nhận</label>
+                        <input type="text" id="delivBatchReceiver" class="form-control form-control-sm"
+                               value="@Model.CustomerName" />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold mb-1">SĐT người nhận</label>
+                        <input type="text" id="delivBatchReceiverPhone" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold mb-1">Ghi chú</label>
+                        <input type="text" id="delivBatchNotes" class="form-control form-control-sm" />
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:36px;" class="text-center">
+                                    <input type="checkbox" id="delivBatchCheckAll" title="Chọn/bỏ tất cả" />
+                                </th>
+                                <th>Sản phẩm</th>
+                                <th class="text-end" style="width:110px;">Trong kho</th>
+                                <th class="text-end" style="width:130px;">SL giao đợt này</th>
+                            </tr>
+                        </thead>
+                        <tbody id="delivBatchBody">
+                            @foreach (var item in Model.Items.Where(i => i.InStockQty > 0))
+                            {
+                                <tr data-item-id="@item.SOItemId" data-max="@item.InStockQty">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="deliv-include" />
+                                    </td>
+                                    <td>@item.ProductName <span class="text-muted small">(@item.UnitName)</span></td>
+                                    <td class="text-end text-warning-emphasis fw-semibold">@item.InStockQty.ToString("N3")</td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm text-end deliv-qty"
+                                               min="0" max="@item.InStockQty" step="0.001"
+                                               value="@item.InStockQty.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="confirmDeliverBatch()">
+                    <i class="bi bi-truck me-1"></i> Tạo phiếu xuất
                 </button>
             </div>
         </div>
@@ -1231,23 +1622,35 @@
         input.addEventListener('input', recalcBuying);
     });
 
+    // Check-all toggle for buying modal
+    document.getElementById('buyingCheckAll')?.addEventListener('change', function (e) {
+        document.querySelectorAll('#buyingItemsBody .buying-include').forEach(function (cb) { cb.checked = e.target.checked; });
+    });
+
     function confirmBuying() {
         var items = [];
-        document.querySelectorAll('.purchase-price-input').forEach(function (input) {
-            var itemId = input.dataset.itemId;
-            var sourceNameEl = document.querySelector('.source-name-input[data-item-id="' + itemId + '"]');
-            var sourceUrlEl = document.querySelector('.source-url-input[data-item-id="' + itemId + '"]');
+        var checkedAny = false;
+        document.querySelectorAll('#buyingItemsBody tr').forEach(function (tr) {
+            var itemId = parseInt(tr.dataset.itemId);
+            var include = tr.querySelector('.buying-include').checked;
+            if (include) checkedAny = true;
+            var priceEl = tr.querySelector('.purchase-price-input');
+            var sourceUrlEl = tr.querySelector('.source-url-input');
+            var expRecvEl = tr.querySelector('.expected-receive-input');
             items.push({
-                SOItemId: parseInt(itemId),
-                PurchasePrice: parseFloat(input.value) || 0,
-                SourceName: sourceNameEl ? sourceNameEl.value.trim() : null,
-                SourceUrl: sourceUrlEl ? sourceUrlEl.value.trim() : null
+                SOItemId: itemId,
+                IncludeInBatch: include,
+                PurchasePrice: parseFloat(priceEl.value) || 0,
+                SourceName: null,
+                SourceUrl: sourceUrlEl ? sourceUrlEl.value.trim() : null,
+                ExpectedReceiveDate: expRecvEl && expRecvEl.value ? expRecvEl.value : null
             });
         });
 
+        if (!checkedAny) { alert('Tích chọn ít nhất 1 dòng để bắt đầu mua'); return; }
+
         var body = {
             PurchaseSource: null,
-            ExpectedReceiveDate: document.getElementById('inputExpectedReceiveDate').value || null,
             BuyingNotes: document.getElementById('inputBuyingNotes').value.trim(),
             Items: items
         };
@@ -1255,6 +1658,179 @@
         postAction('/SalesOrder/StartBuying/' + soId, body, function (data) {
             if (data.Success) location.reload();
             else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ══════════════════════════════════════════════════
+    // PER-LINE: Edit / Cancel / Receive (single + batch) / Deliver (single + batch)
+    // ══════════════════════════════════════════════════
+    var soItemsCache = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Items.Select(i => new {
+            id = i.SOItemId,
+            name = i.ProductName,
+            qty = i.Quantity,
+            cancelledQty = i.CancelledQty,
+            receivedQty = i.ReceivedQty,
+            deliveredQty = i.DeliveredQty,
+            remainingReceive = i.RemainingReceiveQty,
+            inStock = i.InStockQty,
+            price = i.PurchasePrice,
+            sourceName = i.SourceName,
+            sourceUrl = i.SourceUrl,
+            expReceive = i.ExpectedReceiveDate?.ToString("yyyy-MM-dd"),
+            expDeliver = i.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"),
+            notes = i.Notes
+        })));
+    function findItem(id) { return soItemsCache.find(function (i) { return i.id === id; }); }
+
+    // ── Edit purchase info ───────────────────────────
+    function openEditItemModal(soItemId) {
+        var it = findItem(soItemId); if (!it) return;
+        document.getElementById('editItemId').value = soItemId;
+        document.getElementById('editItemLabel').textContent = '— ' + it.name;
+        document.getElementById('editItemPrice').value = it.price ?? '';
+        document.getElementById('editItemExpReceive').value = it.expReceive ?? '';
+        document.getElementById('editItemExpDeliver').value = it.expDeliver ?? '';
+        document.getElementById('editItemSourceName').value = it.sourceName ?? '';
+        document.getElementById('editItemSourceUrl').value = it.sourceUrl ?? '';
+        document.getElementById('editItemNotes').value = it.notes ?? '';
+        new bootstrap.Modal(document.getElementById('editItemModal')).show();
+    }
+    function confirmEditItem() {
+        var id = parseInt(document.getElementById('editItemId').value);
+        var body = {
+            PurchasePrice: parseFloat(document.getElementById('editItemPrice').value) || null,
+            ExpectedReceiveDate: document.getElementById('editItemExpReceive').value || null,
+            ExpectedDeliveryDate: document.getElementById('editItemExpDeliver').value || null,
+            SourceName: document.getElementById('editItemSourceName').value.trim(),
+            SourceUrl: document.getElementById('editItemSourceUrl').value.trim(),
+            Notes: document.getElementById('editItemNotes').value.trim()
+        };
+        postAction('/SalesOrder/UpdateItemPurchase/' + soId + '?soItemId=' + id, body, function (data) {
+            if (data.Success) location.reload(); else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ── Cancel line ──────────────────────────────────
+    function openCancelItemModal(soItemId) {
+        var it = findItem(soItemId); if (!it) return;
+        var maxCancel = it.qty - it.cancelledQty - it.receivedQty;
+        document.getElementById('cancelItemId').value = soItemId;
+        document.getElementById('cancelItemLabel').textContent = '— ' + it.name;
+        document.getElementById('cancelItemQty').value = '';
+        document.getElementById('cancelItemQty').max = maxCancel;
+        document.getElementById('cancelItemMax').textContent = '/ tối đa ' + maxCancel.toLocaleString('vi-VN');
+        document.getElementById('cancelItemReason').value = '';
+        new bootstrap.Modal(document.getElementById('cancelItemModal')).show();
+    }
+    function confirmCancelItem() {
+        var id = parseInt(document.getElementById('cancelItemId').value);
+        var qtyVal = document.getElementById('cancelItemQty').value;
+        var body = {
+            CancelQty: qtyVal ? parseFloat(qtyVal) : null,
+            Reason: document.getElementById('cancelItemReason').value.trim()
+        };
+        postAction('/SalesOrder/CancelItem/' + soId + '?soItemId=' + id, body, function (data) {
+            if (data.Success) location.reload(); else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ── Receive (single line) — opens batch modal with only this row checked ─
+    function openReceiveItemModal(soItemId) {
+        var modal = document.getElementById('receiveBatchModal');
+        modal.querySelectorAll('.recv-include').forEach(function (cb) {
+            cb.checked = (parseInt(cb.closest('tr').dataset.itemId) === soItemId);
+        });
+        document.getElementById('recvBatchDate').value = new Date().toISOString().slice(0, 10);
+        new bootstrap.Modal(modal).show();
+    }
+    function showReceiveBatchModal() {
+        var modal = document.getElementById('receiveBatchModal');
+        modal.querySelectorAll('.recv-include').forEach(function (cb) { cb.checked = true; });
+        document.getElementById('recvBatchDate').value = new Date().toISOString().slice(0, 10);
+        new bootstrap.Modal(modal).show();
+    }
+    document.getElementById('recvBatchCheckAll')?.addEventListener('change', function (e) {
+        document.querySelectorAll('#recvBatchBody .recv-include').forEach(function (cb) { cb.checked = e.target.checked; });
+    });
+    function confirmReceiveBatch() {
+        var rows = document.querySelectorAll('#recvBatchBody tr');
+        var items = [];
+        var bad = null;
+        rows.forEach(function (tr) {
+            if (!tr.querySelector('.recv-include').checked) return;
+            var soItemId = parseInt(tr.dataset.itemId);
+            var max = parseFloat(tr.dataset.max);
+            var qty = parseFloat(tr.querySelector('.recv-qty').value);
+            if (!qty || qty <= 0) { bad = 'Số lượng phải > 0'; return; }
+            if (qty > max) { bad = 'SL nhập (' + qty + ') vượt quá còn cần nhận (' + max + ')'; return; }
+            items.push({ SOItemId: soItemId, Quantity: qty });
+        });
+        if (bad) { alert(bad); return; }
+        if (items.length === 0) { alert('Chưa chọn dòng nào'); return; }
+
+        var body = {
+            WarehouseId: 0,
+            TransactionDate: document.getElementById('recvBatchDate').value || null,
+            Notes: document.getElementById('recvBatchNotes').value.trim(),
+            Items: items
+        };
+        postAction('/SalesOrder/ReceiveBatch/' + soId, body, function (data) {
+            if (data.Success) {
+                alert(data.Message || 'Đã tạo phiếu nhập');
+                location.reload();
+            } else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ── Deliver (single line) — opens batch modal with only this row checked ─
+    function openDeliverItemModal(soItemId) {
+        var modal = document.getElementById('deliverBatchModal');
+        modal.querySelectorAll('.deliv-include').forEach(function (cb) {
+            cb.checked = (parseInt(cb.closest('tr').dataset.itemId) === soItemId);
+        });
+        document.getElementById('delivBatchDate').value = new Date().toISOString().slice(0, 10);
+        new bootstrap.Modal(modal).show();
+    }
+    function showDeliverBatchModal() {
+        var modal = document.getElementById('deliverBatchModal');
+        modal.querySelectorAll('.deliv-include').forEach(function (cb) { cb.checked = true; });
+        document.getElementById('delivBatchDate').value = new Date().toISOString().slice(0, 10);
+        new bootstrap.Modal(modal).show();
+    }
+    document.getElementById('delivBatchCheckAll')?.addEventListener('change', function (e) {
+        document.querySelectorAll('#delivBatchBody .deliv-include').forEach(function (cb) { cb.checked = e.target.checked; });
+    });
+    function confirmDeliverBatch() {
+        var rows = document.querySelectorAll('#delivBatchBody tr');
+        var items = [];
+        var bad = null;
+        rows.forEach(function (tr) {
+            if (!tr.querySelector('.deliv-include').checked) return;
+            var soItemId = parseInt(tr.dataset.itemId);
+            var max = parseFloat(tr.dataset.max);
+            var qty = parseFloat(tr.querySelector('.deliv-qty').value);
+            if (!qty || qty <= 0) { bad = 'Số lượng phải > 0'; return; }
+            if (qty > max) { bad = 'SL giao (' + qty + ') vượt quá tồn trong kho (' + max + ')'; return; }
+            items.push({ SOItemId: soItemId, Quantity: qty });
+        });
+        if (bad) { alert(bad); return; }
+        if (items.length === 0) { alert('Chưa chọn dòng nào'); return; }
+
+        var body = {
+            WarehouseId: 0,
+            TransactionDate: document.getElementById('delivBatchDate').value || null,
+            ReceiverName: document.getElementById('delivBatchReceiver').value.trim(),
+            ReceiverPhone: document.getElementById('delivBatchReceiverPhone').value.trim(),
+            DeliveryNote: document.getElementById('delivBatchNotes').value.trim(),
+            Notes: document.getElementById('delivBatchNotes').value.trim(),
+            Items: items
+        };
+        postAction('/SalesOrder/DeliverBatch/' + soId, body, function (data) {
+            if (data.Success) {
+                alert(data.Message || 'Đã tạo phiếu xuất');
+                location.reload();
+            } else alert(data.Message || 'Lỗi');
         });
     }
 

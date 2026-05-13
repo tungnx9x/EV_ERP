@@ -33,9 +33,17 @@ namespace EV_ERP.Services.Interfaces
         /// <summary>DRAFT → CANCELLED</summary>
         Task<(bool Success, string? ErrorMessage)> CancelAsync(long transactionId, int userId);
 
-        // ── Auto-create from Sales Order ─────────────────
-        Task<(bool Success, string? ErrorMessage, long? TransactionId)> CreateFromSalesOrderAsync(
-            int salesOrderId, string transactionType, int userId);
+        // ── v2.2: Create batch INBOUND/OUTBOUND linked to specific SO lines ─
+        Task<(bool Success, string? ErrorMessage, long? TransactionId)>
+            CreateBatchForSalesOrderAsync(
+                int salesOrderId,
+                string transactionType,
+                List<(int SOItemId, decimal Quantity)> batchItems,
+                int? warehouseId,
+                DateTime? transactionDate,
+                string? notes,
+                StockBatchDeliveryOptions? delivery,
+                int userId);
 
         // ── Barcode lookup ───────────────────────────────
         Task<BarcodeLookupResult?> LookupBarcodeAsync(string barcode, int? warehouseId = null);

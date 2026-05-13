@@ -429,15 +429,18 @@ namespace EV_ERP.Data
                 e.Property(x => x.DeliveredQty).HasColumnType("decimal(18,3)");
                 // v2.2 — theo dõi nhập kho theo dòng
                 e.Property(x => x.ReceivedQty).HasColumnType("decimal(18,3)").HasDefaultValue(0m);
+                // v2.3 — hủy 1 phần / toàn bộ dòng
+                e.Property(x => x.CancelledQty).HasColumnType("decimal(18,3)").HasDefaultValue(0m);
+                e.Property(x => x.CancelReason).HasMaxLength(500);
                 e.Property(x => x.RemainingReceiveQty)
                  .HasColumnType("decimal(19,3)")
-                 .HasComputedColumnSql("[Quantity] - [ReceivedQty]", stored: false);
+                 .HasComputedColumnSql("([Quantity] - [CancelledQty]) - [ReceivedQty]", stored: false);
                 e.Property(x => x.InStockQty)
                  .HasColumnType("decimal(19,3)")
                  .HasComputedColumnSql("[ReceivedQty] - [DeliveredQty]", stored: false);
                 e.Property(x => x.RemainingDeliverQty)
                  .HasColumnType("decimal(19,3)")
-                 .HasComputedColumnSql("[Quantity] - [DeliveredQty]", stored: false);
+                 .HasComputedColumnSql("([Quantity] - [CancelledQty]) - [DeliveredQty]", stored: false);
                 e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.PurchasePrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.ShippingFee).HasColumnType("decimal(18,2)");

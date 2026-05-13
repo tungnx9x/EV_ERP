@@ -195,7 +195,19 @@ public class SalesOrderItemDetailViewModel
     public string? ImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
+    // v2.2 — tiến độ
+    public decimal ReceivedQty { get; set; }
     public decimal DeliveredQty { get; set; }
+    public decimal RemainingReceiveQty { get; set; }
+    public decimal InStockQty { get; set; }
+    public decimal RemainingDeliverQty { get; set; }
+    public DateTime? ExpectedReceiveDate { get; set; }
+    public DateTime? ExpectedDeliveryDate { get; set; }
+    // v2.3 — hủy dòng
+    public decimal CancelledQty { get; set; }
+    public string? CancelReason { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public decimal EffectiveQty => Quantity - CancelledQty;
     // Bán
     public decimal UnitPrice { get; set; }
     public string? DiscountType { get; set; }
@@ -209,6 +221,47 @@ public class SalesOrderItemDetailViewModel
     public string? SourceName { get; set; }
     public string? Notes { get; set; }
     public bool IsProductMapped { get; set; }
+
+    /// <summary>Derived line status — matches vw_OrderItemProgress.LineStatus.</summary>
+    public string LineStatus
+    {
+        get
+        {
+            if (CancelledQty >= Quantity && Quantity > 0) return "CANCELLED";
+            var eff = EffectiveQty;
+            if (eff <= 0) return "CANCELLED";
+            if (DeliveredQty >= eff) return "DELIVERED";
+            if (DeliveredQty > 0) return "PARTIAL_DELIVERED";
+            if (ReceivedQty >= eff) return "RECEIVED_FULL";
+            if (ReceivedQty > 0) return "PARTIAL";
+            if (PurchasePrice.HasValue || ExpectedReceiveDate.HasValue) return "BUYING";
+            return "NOT_STARTED";
+        }
+    }
+
+    public string LineStatusBadge => LineStatus switch
+    {
+        "NOT_STARTED" => "bg-light text-muted border",
+        "BUYING" => "bg-info-subtle text-info-emphasis",
+        "PARTIAL" => "bg-warning-subtle text-warning-emphasis",
+        "RECEIVED_FULL" => "bg-primary-subtle text-primary-emphasis",
+        "PARTIAL_DELIVERED" => "bg-warning-subtle text-warning-emphasis",
+        "DELIVERED" => "bg-success-subtle text-success-emphasis",
+        "CANCELLED" => "bg-danger-subtle text-danger-emphasis",
+        _ => "bg-light text-muted border"
+    };
+
+    public string LineStatusText => LineStatus switch
+    {
+        "NOT_STARTED" => "Chưa bắt đầu",
+        "BUYING" => "Đang mua",
+        "PARTIAL" => "Về 1 phần",
+        "RECEIVED_FULL" => "Đã về đủ",
+        "PARTIAL_DELIVERED" => "Giao 1 phần",
+        "DELIVERED" => "Đã giao đủ",
+        "CANCELLED" => "Đã hủy",
+        _ => LineStatus
+    };
 }
 
 // ══════════════════════════════════════════════════════
@@ -223,7 +276,6 @@ public class SalesOrderDraftModel
 public class SalesOrderBuyingModel
 {
     public string? PurchaseSource { get; set; }
-    public DateTime? ExpectedReceiveDate { get; set; }
     public string? BuyingNotes { get; set; }
     public List<SalesOrderItemPurchaseModel> Items { get; set; } = [];
 }
@@ -231,9 +283,61 @@ public class SalesOrderBuyingModel
 public class SalesOrderItemPurchaseModel
 {
     public int SOItemId { get; set; }
+    /// <summary>true = bắt đầu mua dòng này ngay; false = chỉ lưu thông tin, chưa BUYING dòng.</summary>
+    public bool IncludeInBatch { get; set; } = true;
     public decimal PurchasePrice { get; set; }
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
+    public DateTime? ExpectedReceiveDate { get; set; }
+}
+
+// ── Per-line operations (v2.2 BUYING+) ──────────────
+public class UpdateItemPurchaseModel
+{
+    public decimal? PurchasePrice { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? SourceName { get; set; }
+    public DateTime? ExpectedReceiveDate { get; set; }
+    public DateTime? ExpectedDeliveryDate { get; set; }
+    public string? Notes { get; set; }
+}
+
+public class CancelItemModel
+{
+    public decimal? CancelQty { get; set; }   // null = hủy hết phần còn lại
+    public string? Reason { get; set; }
+}
+
+public class ReceiveBatchItemModel
+{
+    public int SOItemId { get; set; }
+    public decimal Quantity { get; set; }
+}
+
+public class ReceiveBatchModel
+{
+    public int WarehouseId { get; set; }
+    public DateTime? TransactionDate { get; set; }
+    public string? Notes { get; set; }
+    public List<ReceiveBatchItemModel> Items { get; set; } = [];
+}
+
+public class DeliverBatchItemModel
+{
+    public int SOItemId { get; set; }
+    public decimal Quantity { get; set; }
+}
+
+public class DeliverBatchModel
+{
+    public int WarehouseId { get; set; }
+    public DateTime? TransactionDate { get; set; }
+    public int? DeliveryPersonId { get; set; }
+    public string? ReceiverName { get; set; }
+    public string? ReceiverPhone { get; set; }
+    public string? DeliveryNote { get; set; }
+    public string? Notes { get; set; }
+    public List<DeliverBatchItemModel> Items { get; set; } = [];
 }
 
 public class SalesOrderCompleteModel

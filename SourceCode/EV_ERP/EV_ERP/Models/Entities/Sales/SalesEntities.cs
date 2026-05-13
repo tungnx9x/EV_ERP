@@ -240,11 +240,16 @@ public class SalesOrderItem
     public decimal DeliveredQty { get; set; }
     // v2.2 — theo dõi tiến độ nhập kho từng dòng
     public decimal ReceivedQty { get; set; }
-    /// <summary>Computed: Quantity - ReceivedQty</summary>
+    // v2.3 — hủy 1 phần / toàn bộ dòng (KHÔNG xóa, giữ snapshot báo giá)
+    public decimal CancelledQty { get; set; }
+    public string? CancelReason { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public int? CancelledBy { get; set; }
+    /// <summary>Computed: (Quantity - CancelledQty) - ReceivedQty</summary>
     public decimal RemainingReceiveQty { get; set; }
     /// <summary>Computed: ReceivedQty - DeliveredQty</summary>
     public decimal InStockQty { get; set; }
-    /// <summary>Computed: Quantity - DeliveredQty</summary>
+    /// <summary>Computed: (Quantity - CancelledQty) - DeliveredQty</summary>
     public decimal RemainingDeliverQty { get; set; }
     // v2.2 — ngày dự kiến riêng cho từng dòng (đợt về khác nhau)
     public DateTime? ExpectedReceiveDate { get; set; }

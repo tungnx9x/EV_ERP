@@ -159,6 +159,21 @@ public class QuotationItemFormModel
     public decimal Shipping { get; set; }
     public decimal Coefficient { get; set; } = 1;
 
+    // v2.4 — Popup máy tính Giá nhập
+    public string PurchaseMode { get; set; } = "OFFICIAL";
+    public decimal? PurchaseQuantity { get; set; }
+    public decimal? BasePrice { get; set; }
+    public decimal? PurchaseTax { get; set; }
+    public decimal? InspectionFee { get; set; }
+    public decimal? BankingFee { get; set; }
+    public decimal? OtherCosts { get; set; }
+    public decimal? OfficialShipping { get; set; }
+    public decimal? UnofficialDomesticShipping { get; set; }
+    public decimal? UnofficialWeightKg { get; set; }
+    public decimal? UnofficialCostPerKg { get; set; }
+    public decimal? UnofficialHandCarryFee { get; set; }
+    public decimal? UnofficialW2WShipping { get; set; }
+
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
@@ -274,8 +289,22 @@ public class QuotationItemDetailViewModel
     public string? SourceUrl { get; set; }
     public decimal ImportPrice { get; set; }
     public decimal ExchangeRate { get; set; } = 1;
+    public string? PurchaseCurrency { get; set; } = "VND";
     public decimal Shipping { get; set; }
     public decimal Coefficient { get; set; }
+    public string PurchaseMode { get; set; } = "OFFICIAL";
+    public decimal? PurchaseQuantity { get; set; }
+    public decimal? BasePrice { get; set; }
+    public decimal? PurchaseTax { get; set; }
+    public decimal? InspectionFee { get; set; }
+    public decimal? BankingFee { get; set; }
+    public decimal? OtherCosts { get; set; }
+    public decimal? OfficialShipping { get; set; }
+    public decimal? UnofficialDomesticShipping { get; set; }
+    public decimal? UnofficialWeightKg { get; set; }
+    public decimal? UnofficialCostPerKg { get; set; }
+    public decimal? UnofficialHandCarryFee { get; set; }
+    public decimal? UnofficialW2WShipping { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }

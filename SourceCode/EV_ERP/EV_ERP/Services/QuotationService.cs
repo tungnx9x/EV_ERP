@@ -204,7 +204,20 @@ public class QuotationService : IQuotationService
                 Notes = i.Notes,
                 IsProductMapped = i.IsProductMapped,
                 PurchaseCurrency = i.PurchaseCurrency ?? "VND",
-                ExchangeRate = i.PurchaseExchangeRate ?? 1
+                ExchangeRate = i.PurchaseExchangeRate ?? 1,
+                PurchaseMode = string.IsNullOrEmpty(i.PurchaseMode) ? "OFFICIAL" : i.PurchaseMode,
+                PurchaseQuantity = i.PurchaseQuantity,
+                BasePrice = i.BasePrice,
+                PurchaseTax = i.PurchaseTax,
+                InspectionFee = i.InspectionFee,
+                BankingFee = i.BankingFee,
+                OtherCosts = i.OtherCosts,
+                OfficialShipping = i.OfficialShipping,
+                UnofficialDomesticShipping = i.UnofficialDomesticShipping,
+                UnofficialWeightKg = i.UnofficialWeightKg,
+                UnofficialCostPerKg = i.UnofficialCostPerKg,
+                UnofficialHandCarryFee = i.UnofficialHandCarryFee,
+                UnofficialW2WShipping = i.UnofficialW2WShipping
             }).ToList(),
             Customers = customers,
             SalesPersons = salesPersons,
@@ -286,7 +299,20 @@ public class QuotationService : IQuotationService
                 Notes = item.Notes?.Trim(),
                 IsProductMapped = hasProduct,
                 PurchaseCurrency = string.IsNullOrWhiteSpace(item.PurchaseCurrency) ? "VND" : item.PurchaseCurrency.Trim().ToUpperInvariant(),
-                PurchaseExchangeRate = item.ExchangeRate > 0 ? item.ExchangeRate : 1
+                PurchaseExchangeRate = item.ExchangeRate > 0 ? item.ExchangeRate : 1,
+                PurchaseMode = NormalizePurchaseMode(item.PurchaseMode),
+                PurchaseQuantity = item.PurchaseQuantity,
+                BasePrice = item.BasePrice,
+                PurchaseTax = item.PurchaseTax,
+                InspectionFee = item.InspectionFee,
+                BankingFee = item.BankingFee,
+                OtherCosts = item.OtherCosts,
+                OfficialShipping = item.OfficialShipping,
+                UnofficialDomesticShipping = item.UnofficialDomesticShipping,
+                UnofficialWeightKg = item.UnofficialWeightKg,
+                UnofficialCostPerKg = item.UnofficialCostPerKg,
+                UnofficialHandCarryFee = item.UnofficialHandCarryFee,
+                UnofficialW2WShipping = item.UnofficialW2WShipping
             });
 
             subTotal += lineTotal;
@@ -394,7 +420,20 @@ public class QuotationService : IQuotationService
                 Notes = item.Notes?.Trim(),
                 IsProductMapped = hasProduct,
                 PurchaseCurrency = string.IsNullOrWhiteSpace(item.PurchaseCurrency) ? "VND" : item.PurchaseCurrency.Trim().ToUpperInvariant(),
-                PurchaseExchangeRate = item.ExchangeRate > 0 ? item.ExchangeRate : 1
+                PurchaseExchangeRate = item.ExchangeRate > 0 ? item.ExchangeRate : 1,
+                PurchaseMode = NormalizePurchaseMode(item.PurchaseMode),
+                PurchaseQuantity = item.PurchaseQuantity,
+                BasePrice = item.BasePrice,
+                PurchaseTax = item.PurchaseTax,
+                InspectionFee = item.InspectionFee,
+                BankingFee = item.BankingFee,
+                OtherCosts = item.OtherCosts,
+                OfficialShipping = item.OfficialShipping,
+                UnofficialDomesticShipping = item.UnofficialDomesticShipping,
+                UnofficialWeightKg = item.UnofficialWeightKg,
+                UnofficialCostPerKg = item.UnofficialCostPerKg,
+                UnofficialHandCarryFee = item.UnofficialHandCarryFee,
+                UnofficialW2WShipping = item.UnofficialW2WShipping
             });
 
             subTotal += lineTotal;
@@ -508,7 +547,21 @@ public class QuotationService : IQuotationService
                 Supplier = i.SourceName,
                 SourceUrl = i.SourceUrl,
                 Notes = i.Notes,
-                IsProductMapped = i.IsProductMapped
+                IsProductMapped = i.IsProductMapped,
+                PurchaseCurrency = i.PurchaseCurrency ?? "VND",
+                PurchaseMode = string.IsNullOrEmpty(i.PurchaseMode) ? "OFFICIAL" : i.PurchaseMode,
+                PurchaseQuantity = i.PurchaseQuantity,
+                BasePrice = i.BasePrice,
+                PurchaseTax = i.PurchaseTax,
+                InspectionFee = i.InspectionFee,
+                BankingFee = i.BankingFee,
+                OtherCosts = i.OtherCosts,
+                OfficialShipping = i.OfficialShipping,
+                UnofficialDomesticShipping = i.UnofficialDomesticShipping,
+                UnofficialWeightKg = i.UnofficialWeightKg,
+                UnofficialCostPerKg = i.UnofficialCostPerKg,
+                UnofficialHandCarryFee = i.UnofficialHandCarryFee,
+                UnofficialW2WShipping = i.UnofficialW2WShipping
             }).ToList()
         };
     }
@@ -664,7 +717,22 @@ public class QuotationService : IQuotationService
                 SourceName = item.SourceName,
                 SortOrder = item.SortOrder,
                 Notes = item.Notes,
-                IsProductMapped = item.IsProductMapped
+                IsProductMapped = item.IsProductMapped,
+                PurchaseCurrency = item.PurchaseCurrency,
+                PurchaseExchangeRate = item.PurchaseExchangeRate,
+                PurchaseMode = string.IsNullOrEmpty(item.PurchaseMode) ? "OFFICIAL" : item.PurchaseMode,
+                PurchaseQuantity = item.PurchaseQuantity,
+                BasePrice = item.BasePrice,
+                PurchaseTax = item.PurchaseTax,
+                InspectionFee = item.InspectionFee,
+                BankingFee = item.BankingFee,
+                OtherCosts = item.OtherCosts,
+                OfficialShipping = item.OfficialShipping,
+                UnofficialDomesticShipping = item.UnofficialDomesticShipping,
+                UnofficialWeightKg = item.UnofficialWeightKg,
+                UnofficialCostPerKg = item.UnofficialCostPerKg,
+                UnofficialHandCarryFee = item.UnofficialHandCarryFee,
+                UnofficialW2WShipping = item.UnofficialW2WShipping
             });
         }
 
@@ -1074,6 +1142,13 @@ public class QuotationService : IQuotationService
         return discountType == "PERCENT"
             ? Math.Round(subTotal * discountValue.Value / 100m, 0)
             : Math.Min(discountValue.Value, subTotal);
+    }
+
+    private static string NormalizePurchaseMode(string? mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode)) return "OFFICIAL";
+        var u = mode.Trim().ToUpperInvariant();
+        return u == "UNOFFICIAL" ? "UNOFFICIAL" : "OFFICIAL";
     }
 
     // ══════════════════════════════════════════════════

@@ -375,6 +375,19 @@ namespace EV_ERP.Data
                 e.Property(x => x.PurchaseCurrency).HasMaxLength(3).HasDefaultValue("VND");
                 e.Property(x => x.PurchaseExchangeRate).HasColumnType("decimal(18,6)");
                 e.Property(x => x.RequiredImageUrl).HasMaxLength(1000);
+                e.Property(x => x.PurchaseMode).HasMaxLength(20).HasDefaultValue("OFFICIAL");
+                e.Property(x => x.PurchaseQuantity).HasColumnType("decimal(18,3)");
+                e.Property(x => x.BasePrice).HasColumnType("decimal(18,2)");
+                e.Property(x => x.PurchaseTax).HasColumnType("decimal(18,2)");
+                e.Property(x => x.InspectionFee).HasColumnType("decimal(18,2)");
+                e.Property(x => x.BankingFee).HasColumnType("decimal(18,2)");
+                e.Property(x => x.OtherCosts).HasColumnType("decimal(18,2)");
+                e.Property(x => x.OfficialShipping).HasColumnType("decimal(18,2)");
+                e.Property(x => x.UnofficialDomesticShipping).HasColumnType("decimal(18,2)");
+                e.Property(x => x.UnofficialWeightKg).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialCostPerKg).HasColumnType("decimal(18,2)");
+                e.Property(x => x.UnofficialHandCarryFee).HasColumnType("decimal(18,2)");
+                e.Property(x => x.UnofficialW2WShipping).HasColumnType("decimal(18,2)");
                 e.HasOne(x => x.Quotation).WithMany(q => q.Items).HasForeignKey(x => x.QuotationId);
                 e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.PurchaseCurrencyRef).WithMany()

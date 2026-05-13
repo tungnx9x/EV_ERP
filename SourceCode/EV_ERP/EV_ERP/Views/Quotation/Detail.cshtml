@@ -270,7 +270,7 @@
                             <th class="text-end">Sau VAT</th>
                             <th>Link</th>
                             <th class="text-end">Gia nhap</th>
-                            <th>Ty gia</th>
+                            <th class="text-center">Cach tinh</th>
                             <th class="text-end">Shipping</th>
                             <th class="text-center">He so</th>
                         </tr>
@@ -319,7 +319,30 @@
                                     }
                                 </td>
                                 <td class="text-end">@item.ImportPrice.ToString("N0")</td>
-                                <td class="text-center">@(item.ExchangeRate > 0 ? item.ExchangeRate.ToString("N0") : "—")</td>
+                                <td class="text-center">
+                                    @{
+                                        var isUnofficial = string.Equals(item.PurchaseMode, "UNOFFICIAL", StringComparison.OrdinalIgnoreCase);
+                                        var modeLabel = isUnofficial ? "Khong CT" : "Chinh thuc";
+                                        var modeCss = isUnofficial ? "bg-warning-subtle text-warning" : "bg-primary-subtle text-primary";
+                                        var tooltipParts = new List<string>();
+                                        if (item.ExchangeRate > 1)
+                                            tooltipParts.Add($"Ty gia: {item.ExchangeRate:N0} {(string.IsNullOrEmpty(item.PurchaseCurrency) ? "" : item.PurchaseCurrency)}");
+                                        if (isUnofficial)
+                                        {
+                                            if (item.UnofficialDomesticShipping.HasValue) tooltipParts.Add($"VC noi dia: {item.UnofficialDomesticShipping:N0}");
+                                            if (item.UnofficialWeightKg.HasValue) tooltipParts.Add($"Can: {item.UnofficialWeightKg:N3} kg");
+                                            if (item.UnofficialCostPerKg.HasValue) tooltipParts.Add($"Phi/kg: {item.UnofficialCostPerKg:N0}");
+                                            if (item.UnofficialHandCarryFee.HasValue) tooltipParts.Add($"Xach tay: {item.UnofficialHandCarryFee:N0}");
+                                            if (item.UnofficialW2WShipping.HasValue) tooltipParts.Add($"Kho-Kho: {item.UnofficialW2WShipping:N0}");
+                                        }
+                                        else if (item.OfficialShipping.HasValue)
+                                        {
+                                            tooltipParts.Add($"VC: {item.OfficialShipping:N0}");
+                                        }
+                                        var tooltip = string.Join(" | ", tooltipParts);
+                                    }
+                                    <span class="badge @modeCss" style="font-size:0.65rem;" title="@tooltip">@modeLabel</span>
+                                </td>
                                 <td class="text-end">@item.Shipping.ToString("N0")</td>
                                 <td class="text-center">@item.Coefficient</td>
                             </tr>

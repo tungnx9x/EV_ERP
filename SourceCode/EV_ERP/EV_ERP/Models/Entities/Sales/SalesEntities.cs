@@ -119,6 +119,21 @@ public class QuotationItem
     public decimal? PurchaseExchangeRate { get; set; } = 1;
     public string? RequiredImageUrl { get; set; }
 
+    // v2.4 — Popup máy tính Giá nhập: chế độ Official/Unofficial + breakdown
+    public string PurchaseMode { get; set; } = "OFFICIAL";
+    public decimal? PurchaseQuantity { get; set; }
+    public decimal? BasePrice { get; set; }
+    public decimal? PurchaseTax { get; set; }
+    public decimal? InspectionFee { get; set; }
+    public decimal? BankingFee { get; set; }
+    public decimal? OtherCosts { get; set; }
+    public decimal? OfficialShipping { get; set; }
+    public decimal? UnofficialDomesticShipping { get; set; }
+    public decimal? UnofficialWeightKg { get; set; }
+    public decimal? UnofficialCostPerKg { get; set; }
+    public decimal? UnofficialHandCarryFee { get; set; }
+    public decimal? UnofficialW2WShipping { get; set; }
+
     public virtual Quotation Quotation { get; set; } = null!;
     public virtual Product? Product { get; set; }
     public virtual Currency? PurchaseCurrencyRef { get; set; }

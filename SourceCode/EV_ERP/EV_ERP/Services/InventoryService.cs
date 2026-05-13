@@ -1,5 +1,6 @@
 using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
+using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.Stock;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
@@ -168,6 +169,76 @@ namespace EV_ERP.Services
                 }).ToList(),
                 RecentTransactions = recentTx
             };
+        }
+
+        // ── SO Inventory Lookup (per-line receive progress) ──
+        public async Task<SalesOrderInventoryLookupResult?> LookupSalesOrderInventoryAsync(string? soCode)
+        {
+            if (string.IsNullOrWhiteSpace(soCode)) return null;
+
+            var code = soCode.Trim();
+
+            var so = await _uow.Repository<SalesOrder>().Query()
+                .Include(s => s.Customer)
+                .Include(s => s.Items.OrderBy(i => i.SortOrder))
+                    .ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(s => s.SalesOrderNo == code);
+
+            if (so == null) return null;
+
+            var lines = so.Items.Select(i => new SalesOrderInventoryLineRow
+            {
+                SOItemId = i.SOItemId,
+                ProductId = i.ProductId,
+                ProductName = i.ProductName,
+                ProductCode = i.Product?.ProductCode,
+                Barcode = i.Product?.Barcode,
+                ImageUrl = i.Product?.ImageUrl ?? i.ImageUrl,
+                UnitName = i.UnitName,
+                Quantity = i.Quantity,
+                ReceivedQty = i.ReceivedQty,
+                DeliveredQty = i.DeliveredQty,
+                CancelledQty = i.CancelledQty,
+                RemainingReceiveQty = i.RemainingReceiveQty,
+                InStockQty = i.InStockQty,
+                ExpectedReceiveDate = i.ExpectedReceiveDate
+            }).ToList();
+
+            var result = new SalesOrderInventoryLookupResult
+            {
+                SalesOrderId = so.SalesOrderId,
+                SalesOrderNo = so.SalesOrderNo,
+                CustomerName = so.Customer?.CustomerName,
+                OrderDate = so.OrderDate,
+                ExpectedReceiveDate = so.ExpectedReceiveDate,
+                Status = so.Status,
+                StatusText = so.Status switch
+                {
+                    "DRAFT" => "Nháp",
+                    "WAIT" => "Chờ tạm ứng",
+                    "BUYING" => "Đang mua",
+                    "RECEIVED" => "Đã nhận hàng",
+                    "DELIVERING" => "Đang giao",
+                    "DELIVERED" => "Đã giao",
+                    "COMPLETED" => "Hoàn tất",
+                    "RETURNED" => "Trả hàng",
+                    "REPORTED" => "Đã báo cáo KQKD",
+                    "CANCELLED" => "Đã hủy",
+                    _ => so.Status
+                },
+                TotalLines = lines.Count,
+                FullyReceivedLines = lines.Count(l => l.LineStatus == "RECEIVED"),
+                PartialLines = lines.Count(l => l.LineStatus == "PARTIAL"),
+                NotStartedLines = lines.Count(l => l.LineStatus == "NOT_STARTED"),
+                CancelledLines = lines.Count(l => l.LineStatus == "CANCELLED"),
+                TotalOrderedQty = lines.Sum(l => l.Quantity),
+                TotalReceivedQty = lines.Sum(l => l.ReceivedQty),
+                TotalRemainingQty = lines.Sum(l => l.RemainingReceiveQty),
+                TotalCancelledQty = lines.Sum(l => l.CancelledQty),
+                Lines = lines
+            };
+
+            return result;
         }
 
         // ── Quick Barcode Lookup ─────────────────────────

@@ -45,5 +45,23 @@ namespace EV_ERP.Controllers
 
             return Json(ApiResult<BarcodeLookupResult>.Ok(result));
         }
+
+        // ── SO Receive Progress Lookup (Ajax) ────────────
+        [HttpGet]
+        public async Task<IActionResult> LookupSalesOrder(string? soCode)
+        {
+            try
+            {
+                var result = await _inventoryService.LookupSalesOrderInventoryAsync(soCode);
+                if (result == null)
+                    return Json(ApiResult<object>.Fail("Không tìm thấy đơn hàng"));
+
+                return Json(ApiResult<SalesOrderInventoryLookupResult>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+            }
+        }
     }
 }

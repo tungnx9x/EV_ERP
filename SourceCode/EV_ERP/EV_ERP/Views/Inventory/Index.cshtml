@@ -10,19 +10,22 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
-        <p class="text-muted small mb-0">
+        <p class="text-muted small mb-0" id="productViewSummary">
             @Model.TotalProducts sản phẩm — Tổng tồn: <strong>@Model.TotalQuantity.ToString("N0")</strong>
         </p>
     </div>
-    <div class="d-flex gap-1">
-        <a href="/Stock" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-archive me-1"></i> Phiếu kho
-        </a>
-        <a href="/Warehouse" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-building me-1"></i> Quản lý kho
-        </a>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Chọn cách tra cứu">
+        <button type="button" class="btn btn-primary" id="viewBtnProduct" onclick="switchView('product')">
+            <i class="bi bi-box-seam me-1"></i> Theo sản phẩm
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="viewBtnOrder" onclick="switchView('order')">
+            <i class="bi bi-receipt me-1"></i> Theo đơn hàng
+        </button>
     </div>
 </div>
+
+<!-- ── PRODUCT VIEW ────────────────────────────────── -->
+<div id="productView">
 
 <!-- Barcode quick lookup -->
 <div class="card border-1 border-primary mb-3" style="border-style:dashed !important;">
@@ -186,12 +189,71 @@
     </div>
 </div>
 
+</div><!-- /#productView -->
+
+<!-- ── ORDER VIEW ──────────────────────────────────── -->
+<div id="orderView" style="display:none;">
+    <div class="card border-1 border-success mb-3" style="border-style:dashed !important;">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-success text-white"><i class="bi bi-clipboard-check"></i></span>
+                        <input type="text" id="soLookupInput" class="form-control"
+                               placeholder="Nhập mã đơn hàng (vd: SO-202605-001) để xem tiến độ nhận hàng theo từng dòng..."
+                               autocomplete="off" />
+                        <button class="btn btn-success btn-sm" onclick="doSoLookup()">
+                            <i class="bi bi-search me-1"></i> Tra cứu
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearSoLookup()" title="Xóa kết quả">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="soLookupResult" class="mt-2" style="display:none;"></div>
+        </div>
+    </div>
+</div><!-- /#orderView -->
+
 <style>
     .link-hover:hover { color: #2563eb !important; }
     #quickBarcode:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.25); border-color: #3b82f6; }
+    #soLookupInput:focus { box-shadow: 0 0 0 3px rgba(25,135,84,0.25); border-color: #198754; }
 </style>
 
 <script>
+    // ── View Switcher (Product / Order) ─────────────────
+    function switchView(mode) {
+        var productView = document.getElementById('productView');
+        var orderView = document.getElementById('orderView');
+        var btnP = document.getElementById('viewBtnProduct');
+        var btnO = document.getElementById('viewBtnOrder');
+        var summary = document.getElementById('productViewSummary');
+
+        if (mode === 'order') {
+            productView.style.display = 'none';
+            orderView.style.display = '';
+            btnP.classList.remove('btn-primary'); btnP.classList.add('btn-outline-primary');
+            btnO.classList.remove('btn-outline-primary'); btnO.classList.add('btn-primary');
+            if (summary) summary.style.display = 'none';
+            setTimeout(function () { document.getElementById('soLookupInput').focus(); }, 50);
+        } else {
+            productView.style.display = '';
+            orderView.style.display = 'none';
+            btnO.classList.remove('btn-primary'); btnO.classList.add('btn-outline-primary');
+            btnP.classList.remove('btn-outline-primary'); btnP.classList.add('btn-primary');
+            if (summary) summary.style.display = '';
+        }
+        try { localStorage.setItem('inventoryView', mode); } catch (e) { }
+    }
+
+    (function () {
+        var saved = null;
+        try { saved = localStorage.getItem('inventoryView'); } catch (e) { }
+        if (saved === 'order') switchView('order');
+    })();
+
     document.getElementById('quickBarcode').addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); doQuickLookup(); }
     });
@@ -240,6 +302,198 @@
                 input.value = '';
                 input.focus();
             });
+    }
+
+    // ── SO Receive Progress Lookup ──────────────────────
+    document.getElementById('soLookupInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); doSoLookup(); }
+    });
+
+    function clearSoLookup() {
+        document.getElementById('soLookupInput').value = '';
+        var r = document.getElementById('soLookupResult');
+        r.innerHTML = '';
+        r.style.display = 'none';
+    }
+
+    function doSoLookup() {
+        var input = document.getElementById('soLookupInput');
+        var code = input.value.trim();
+        var resultDiv = document.getElementById('soLookupResult');
+        if (!code) {
+            resultDiv.style.display = 'none';
+            return;
+        }
+
+        resultDiv.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Đang tra cứu...</div>';
+        resultDiv.style.display = 'block';
+
+        fetch('/Inventory/LookupSalesOrder?soCode=' + encodeURIComponent(code))
+            .then(r => r.json())
+            .then(data => {
+                if (!data.Success) {
+                    resultDiv.innerHTML = '<div class="alert alert-warning py-2 small mb-0">' +
+                        '<i class="bi bi-exclamation-triangle me-1"></i>' + data.Message + '</div>';
+                    return;
+                }
+                renderSoLookup(data.Data, resultDiv);
+            })
+            .catch(err => {
+                resultDiv.innerHTML = '<div class="alert alert-danger py-2 small mb-0">' +
+                    '<i class="bi bi-x-circle me-1"></i>Lỗi: ' + err + '</div>';
+            });
+    }
+
+    function fmtNum(n) { return (n || 0).toLocaleString('vi-VN'); }
+    function fmtDate(s) {
+        if (!s) return '—';
+        var d = new Date(s);
+        if (isNaN(d.getTime())) return '—';
+        return d.getDate().toString().padStart(2,'0') + '/' +
+               (d.getMonth()+1).toString().padStart(2,'0') + '/' +
+               d.getFullYear();
+    }
+    function lineStatusBadge(status, text) {
+        var css = ({
+            'RECEIVED': 'bg-success',
+            'PARTIAL': 'bg-warning text-dark',
+            'NOT_STARTED': 'bg-secondary',
+            'CANCELLED': 'bg-dark'
+        })[status] || 'bg-light text-dark';
+        return '<span class="badge ' + css + '">' + text + '</span>';
+    }
+    function soStatusBadge(status, text) {
+        var css = ({
+            'DRAFT': 'bg-light text-dark border',
+            'WAIT': 'bg-secondary',
+            'BUYING': 'bg-info',
+            'RECEIVED': 'bg-primary',
+            'DELIVERING': 'bg-warning text-dark',
+            'DELIVERED': 'bg-success',
+            'COMPLETED': 'bg-success',
+            'RETURNED': 'bg-secondary',
+            'REPORTED': 'bg-primary',
+            'CANCELLED': 'bg-danger'
+        })[status] || 'bg-secondary';
+        return '<span class="badge ' + css + '">' + text + '</span>';
+    }
+
+    function renderSoLookup(d, target) {
+        var ratioPct = d.TotalLines > 0
+            ? Math.round((d.FullyReceivedLines + d.CancelledLines) * 100 / d.TotalLines)
+            : 0;
+        var overallBadge = d.IsFullyReceived
+            ? '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Đã nhận đủ toàn bộ</span>'
+            : '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Chưa nhận đủ</span>';
+
+        var html =
+            '<div class="card border-success shadow-sm">' +
+              '<div class="card-header bg-success bg-opacity-10 py-2">' +
+                '<div class="d-flex flex-wrap align-items-center gap-2 justify-content-between">' +
+                  '<div>' +
+                    '<a href="/SalesOrder/Detail/' + d.SalesOrderId + '" class="fw-bold text-decoration-none">' +
+                       '<i class="bi bi-receipt me-1"></i>' + d.SalesOrderNo +
+                    '</a>' +
+                    ' &middot; <span class="text-muted small">' + (d.CustomerName || '—') + '</span>' +
+                    ' &middot; <span class="text-muted small">Đặt: ' + fmtDate(d.OrderDate) + '</span>' +
+                    (d.ExpectedReceiveDate ? ' &middot; <span class="text-muted small">Dự kiến nhận: ' + fmtDate(d.ExpectedReceiveDate) + '</span>' : '') +
+                  '</div>' +
+                  '<div class="d-flex gap-1">' +
+                    soStatusBadge(d.Status, d.StatusText) +
+                    overallBadge +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+
+              '<div class="card-body py-2">' +
+                // summary row
+                '<div class="row g-2 mb-2">' +
+                  '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center">' +
+                    '<div class="text-muted small">Đã nhận đủ</div>' +
+                    '<div class="fw-bold text-success">' + d.FullyReceivedLines + ' / ' + d.TotalLines + ' dòng</div>' +
+                  '</div></div>' +
+                  '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center">' +
+                    '<div class="text-muted small">Nhận một phần</div>' +
+                    '<div class="fw-bold text-warning">' + d.PartialLines + ' dòng</div>' +
+                  '</div></div>' +
+                  '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center">' +
+                    '<div class="text-muted small">Chưa nhận</div>' +
+                    '<div class="fw-bold text-secondary">' + d.NotStartedLines + ' dòng</div>' +
+                  '</div></div>' +
+                  '<div class="col-6 col-md-3"><div class="border rounded p-2 text-center">' +
+                    '<div class="text-muted small">Đã hủy</div>' +
+                    '<div class="fw-bold text-dark">' + d.CancelledLines + ' dòng</div>' +
+                  '</div></div>' +
+                '</div>' +
+
+                // progress bar
+                '<div class="progress mb-2" style="height:6px;">' +
+                  '<div class="progress-bar bg-success" role="progressbar" style="width:' + ratioPct + '%"></div>' +
+                '</div>' +
+                '<div class="d-flex justify-content-between small text-muted mb-2">' +
+                  '<div>Tổng SL đặt: <strong>' + fmtNum(d.TotalOrderedQty) + '</strong>' +
+                  ' &middot; Đã nhận: <strong class="text-success">' + fmtNum(d.TotalReceivedQty) + '</strong>' +
+                  ' &middot; Còn lại: <strong class="text-warning">' + fmtNum(d.TotalRemainingQty) + '</strong>' +
+                  (d.TotalCancelledQty > 0 ? ' &middot; Đã hủy: <strong>' + fmtNum(d.TotalCancelledQty) + '</strong>' : '') +
+                  '</div>' +
+                  '<div>' + ratioPct + '% hoàn thành</div>' +
+                '</div>' +
+
+                // items table
+                '<div class="table-responsive">' +
+                  '<table class="table table-sm table-hover align-middle mb-0" style="font-size:0.825rem;">' +
+                    '<thead class="table-light">' +
+                      '<tr>' +
+                        '<th style="width:40px;">#</th>' +
+                        '<th style="width:44px;"></th>' +
+                        '<th>Sản phẩm</th>' +
+                        '<th class="text-end">SL đặt</th>' +
+                        '<th class="text-end">Đã nhận</th>' +
+                        '<th class="text-end">Còn lại</th>' +
+                        '<th class="text-end">Đã hủy</th>' +
+                        '<th class="text-end">Trong kho</th>' +
+                        '<th class="d-none d-md-table-cell">Dự kiến</th>' +
+                        '<th>Trạng thái</th>' +
+                      '</tr>' +
+                    '</thead>' +
+                    '<tbody>';
+
+        d.Lines.forEach(function (l, i) {
+            var imgHtml = l.ImageUrl
+                ? '<img src="' + l.ImageUrl + '" class="rounded" style="width:32px;height:32px;object-fit:cover;" />'
+                : '<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:32px;height:32px;"><i class="bi bi-box text-muted"></i></div>';
+            var prodLink = l.ProductId
+                ? '<a href="/Inventory/ProductDetail/' + l.ProductId + '" class="fw-semibold text-decoration-none text-dark">' + l.ProductName + '</a>'
+                : '<span class="fw-semibold">' + l.ProductName + '</span>';
+            var codeStr = l.ProductCode ? '<div class="text-muted small">' + l.ProductCode + (l.Barcode ? ' · ' + l.Barcode : '') + '</div>' : '';
+            var rowClass = l.LineStatus === 'CANCELLED' ? 'text-muted' :
+                           l.LineStatus === 'RECEIVED' ? 'table-success' :
+                           l.LineStatus === 'PARTIAL' ? 'table-warning' : '';
+
+            html +=
+                '<tr class="' + rowClass + '">' +
+                  '<td class="text-muted small">' + (i + 1) + '</td>' +
+                  '<td>' + imgHtml + '</td>' +
+                  '<td>' + prodLink + codeStr + '</td>' +
+                  '<td class="text-end">' + fmtNum(l.Quantity) + ' <span class="text-muted small">' + l.UnitName + '</span></td>' +
+                  '<td class="text-end fw-semibold text-success">' + fmtNum(l.ReceivedQty) + '</td>' +
+                  '<td class="text-end fw-semibold ' + (l.RemainingReceiveQty > 0 ? 'text-warning' : 'text-muted') + '">' + fmtNum(l.RemainingReceiveQty) + '</td>' +
+                  '<td class="text-end ' + (l.CancelledQty > 0 ? 'text-dark fw-semibold' : 'text-muted') + '">' + fmtNum(l.CancelledQty) + '</td>' +
+                  '<td class="text-end">' + fmtNum(l.InStockQty) + '</td>' +
+                  '<td class="d-none d-md-table-cell text-muted small">' + fmtDate(l.ExpectedReceiveDate) + '</td>' +
+                  '<td>' + lineStatusBadge(l.LineStatus, l.LineStatusText) + '</td>' +
+                '</tr>';
+        });
+
+        html +=
+                    '</tbody>' +
+                  '</table>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+
+        target.innerHTML = html;
+        target.style.display = 'block';
     }
 
     // ── Camera Barcode Scanner ──────────────────────────

@@ -9,5 +9,8 @@ namespace EV_ERP.Services.Interfaces
 
         /// <summary>Barcode lookup: search by barcode or product code, return inventory info</summary>
         Task<BarcodeLookupResult?> QuickLookupAsync(string barcode);
+
+        /// <summary>Lookup SO by SalesOrderNo and return per-line receive progress (v2.3 fields).</summary>
+        Task<SalesOrderInventoryLookupResult?> LookupSalesOrderInventoryAsync(string? soCode);
     }
 }

@@ -19,10 +19,12 @@ public class SalesOrderService : ISalesOrderService
     private readonly string _storageRoot;
     private readonly ISlaService _slaService;
     private readonly IProductAttributeService _attrService;
+    private readonly IAdvanceRequestService _advanceService;
 
     public SalesOrderService(IUnitOfWork uow, ILogger<SalesOrderService> logger,
         IWebHostEnvironment env, IConfiguration config, ISlaService slaService,
-        IProductAttributeService attrService)
+        IProductAttributeService attrService,
+        IAdvanceRequestService advanceService)
     {
         _uow = uow;
         _logger = logger;
@@ -30,6 +32,7 @@ public class SalesOrderService : ISalesOrderService
         _storageRoot = config["FileStorage:RootPath"] ?? Path.Combine(env.ContentRootPath, "ERP_Files");
         _slaService = slaService;
         _attrService = attrService;
+        _advanceService = advanceService;
     }
 
     // ══════════════════════════════════════════════════
@@ -122,6 +125,9 @@ public class SalesOrderService : ISalesOrderService
 
         if (s == null) return null;
 
+        var advanceSummary = await _advanceService.GetForSalesOrderAsync(salesOrderId);
+        var advancedByItem = await _advanceService.GetAdvancedByItemAsync(salesOrderId);
+
         return new SalesOrderDetailViewModel
         {
             SalesOrderId = s.SalesOrderId,
@@ -208,8 +214,10 @@ public class SalesOrderService : ISalesOrderService
                 SourceUrl = i.SourceUrl,
                 SourceName = i.SourceName,
                 Notes = i.Notes,
-                IsProductMapped = i.IsProductMapped
-            }).ToList()
+                IsProductMapped = i.IsProductMapped,
+                AdvancedAmount = advancedByItem.TryGetValue(i.SOItemId, out var adv) ? adv : 0
+            }).ToList(),
+            AdvanceSummary = advanceSummary
         };
     }
 
@@ -517,8 +525,8 @@ public class SalesOrderService : ISalesOrderService
             .Include(s => s.Items)
             .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
         if (so == null) return (false, "Không tìm thấy đơn hàng");
-        if (so.Status is "DRAFT" or "WAIT" or "CANCELLED" or "COMPLETED" or "REPORTED")
-            return (false, "Chỉ hủy dòng được khi đang trong luồng mua/giao");
+        if (so.Status is "CANCELLED" or "COMPLETED" or "REPORTED" or "RETURNED")
+            return (false, "Không thể hủy dòng ở trạng thái này");
 
         var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
         if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
@@ -543,14 +551,66 @@ public class SalesOrderService : ISalesOrderService
         // Recompute SO PurchaseCost (alive lines)
         so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
                                   .Sum(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
+
+        // DRAFT/WAIT: sell-side totals not locked yet → recompute from alive (proportional) line totals
+        if (so.Status is "DRAFT" or "WAIT")
+        {
+            decimal subTotal = 0;
+            foreach (var line in so.Items)
+            {
+                if (line.Quantity <= 0) continue;
+                var aliveQty = line.Quantity - line.CancelledQty;
+                if (aliveQty <= 0) continue;
+                subTotal += line.LineTotal * aliveQty / line.Quantity;
+            }
+
+            decimal orderDiscount;
+            if (so.DiscountType == null || !so.DiscountValue.HasValue || so.DiscountValue <= 0)
+                orderDiscount = 0;
+            else if (so.DiscountType == "PERCENT")
+                orderDiscount = Math.Round(subTotal * so.DiscountValue.Value / 100m, 0);
+            else
+                orderDiscount = Math.Min(so.DiscountValue.Value, subTotal);
+
+            var afterDiscount = subTotal - orderDiscount;
+            var taxAmount = Math.Round(afterDiscount * so.TaxRate / 100m, 0);
+
+            so.SubTotal = subTotal;
+            so.DiscountAmount = orderDiscount;
+            so.TaxAmount = taxAmount;
+            so.TotalAmount = afterDiscount + taxAmount;
+        }
+
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
 
         _uow.Repository<SalesOrder>().Update(so);
         await _uow.SaveChangesAsync();
 
-        // Roll up — cancelling may push to RECEIVED/DELIVERED if remaining lines are complete
-        await RollUpStatusAsync(salesOrderId, userId);
+        // Auto-cancel whole SO when every line is fully cancelled — customer dropped everything.
+        bool allCancelled = so.Items.Count > 0 && so.Items.All(i => i.CancelledQty >= i.Quantity);
+        if (allCancelled && so.Status != "CANCELLED")
+        {
+            var oldStatus = so.Status;
+            so.Status = "CANCELLED";
+            so.CancelledAt = DateTime.Now;
+            if (string.IsNullOrWhiteSpace(so.CancelReason))
+                so.CancelReason = "Tự động hủy: tất cả sản phẩm đã được bỏ khỏi đơn";
+            so.UpdatedBy = userId;
+            so.UpdatedAt = DateTime.Now;
+            _uow.Repository<SalesOrder>().Update(so);
+            await _uow.SaveChangesAsync();
+
+            await _slaService.SkipTrackingAsync("SALES_ORDER", salesOrderId);
+
+            _logger.LogInformation("SO {No} auto-cancelled (all lines cancelled): {Old} → CANCELLED by UserId={UserId}",
+                so.SalesOrderNo, oldStatus, userId);
+        }
+        else
+        {
+            // Roll up — cancelling may push to RECEIVED/DELIVERED if remaining lines are complete
+            await RollUpStatusAsync(salesOrderId, userId);
+        }
 
         _logger.LogInformation("SO {No} cancel line {Item}: qty={Qty} by UserId={UserId}",
             so.SalesOrderNo, item.ProductName, qty, userId);

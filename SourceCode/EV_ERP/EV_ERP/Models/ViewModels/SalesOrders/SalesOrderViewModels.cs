@@ -184,6 +184,9 @@ public class SalesOrderDetailViewModel
     // Computed: any item not yet mapped to a real Product
     public bool HasUnmappedProducts => Items.Any(i => !i.IsProductMapped);
     public int UnmappedProductCount => Items.Count(i => !i.IsProductMapped);
+
+    // v2.2 Advance requests (multi-row)
+    public Models.ViewModels.Finance.SalesOrderAdvanceSummary? AdvanceSummary { get; set; }
 }
 
 public class SalesOrderItemDetailViewModel
@@ -221,6 +224,9 @@ public class SalesOrderItemDetailViewModel
     public string? SourceName { get; set; }
     public string? Notes { get; set; }
     public bool IsProductMapped { get; set; }
+
+    // v2.2 — tổng đã tạm ứng cho dòng này (Σ AdvanceRequestItem.Amount, non-rejected)
+    public decimal AdvancedAmount { get; set; }
 
     /// <summary>Derived line status — matches vw_OrderItemProgress.LineStatus.</summary>
     public string LineStatus

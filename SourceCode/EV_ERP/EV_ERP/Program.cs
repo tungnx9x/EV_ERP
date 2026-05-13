@@ -54,6 +54,7 @@ builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IAttachmentService, AttachmentService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IAdvanceRequestService, AdvanceRequestService>();
 
 // SignalR
 builder.Services.AddSignalR();

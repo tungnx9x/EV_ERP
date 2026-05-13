@@ -282,27 +282,7 @@
             </div>
         </div>
 
-        <!-- Advance info -->
-        @if (Model.AdvanceAmount > 0)
-        {
-            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning">
-                <div class="card-body">
-                    <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
-                        <i class="bi bi-cash-stack me-1"></i> Tạm ứng
-                    </h6>
-                    <div class="row g-2 small">
-                        <div class="col-6">
-                            <div class="text-muted">Số tiền</div>
-                            <div class="fw-bold text-warning">@Model.AdvanceAmount?.ToString("N0") @Model.Currency</div>
-                        </div>
-                        <div class="col-6">
-                            <div class="text-muted">Trạng thái</div>
-                            <div class="fw-semibold">@(Model.AdvanceStatus ?? "—")</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
+        @* Advance info — moved to dedicated full-width card below items/totals (v2.2 multi-advance) *@
     </div>
     <div class="col-lg-6">
          <!-- PO KH editable (DRAFT only) -->
@@ -534,6 +514,9 @@
         @{
             bool showProgress = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "COMPLETED" or "REPORTED" or "RETURNED";
             bool canAct = canManageStatus && Model.Status is "BUYING" or "RECEIVED" or "DELIVERING";
+            bool canCancelEarly = canManageStatus && Model.Status is "DRAFT" or "WAIT";
+            bool showActionsCol = canAct || canCancelEarly;
+            bool showAdvanceCol = Model.Status is not "DRAFT" and not "CANCELLED";
             int totalLines = Model.Items.Count;
             int doneRecv = Model.Items.Count(i => i.LineStatus is "RECEIVED_FULL" or "PARTIAL_DELIVERED" or "DELIVERED");
             int doneDeliv = Model.Items.Count(i => i.LineStatus == "DELIVERED");
@@ -616,8 +599,12 @@
                                     <th class="text-end bg-warning-subtle">Giá mua</th>
                                     <th class="text-end bg-warning-subtle">Chi phí</th>
                                 }
+                                @if (showAdvanceCol)
+                                {
+                                    <th class="text-end" style="background-color:#fff7e6;min-width:110px;" title="Tổng tạm ứng đã ghi nhận cho dòng này">Đã tạm ứng</th>
+                                }
                                 <th class="d-none d-md-table-cell">Ghi chú</th>
-                                @if (canAct)
+                                @if (showActionsCol)
                                 {
                                     <th class="text-center" style="width:130px;">Hành động</th>
                                 }
@@ -708,13 +695,34 @@
                                         <td class="text-end">@(item.PurchasePrice?.ToString("N0") ?? "—")</td>
                                         <td class="text-end text-warning-emphasis">@(item.LineCost?.ToString("N0") ?? "—")</td>
                                     }
+                                    @if (showAdvanceCol)
+                                    {
+                                        <td class="text-end" style="background-color:#fffaf0;">
+                                            @if (item.AdvancedAmount > 0)
+                                            {
+                                                <span class="fw-semibold text-warning-emphasis">@item.AdvancedAmount.ToString("N0")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">—</span>
+                                            }
+                                        </td>
+                                    }
                                     <td class="d-none d-md-table-cell text-muted small">@(item.Notes ?? "")</td>
-                                    @if (canAct)
+                                    @if (showActionsCol)
                                     {
                                         <td class="text-center">
                                             @if (item.LineStatus == "CANCELLED")
                                             {
                                                 <span class="text-muted small">—</span>
+                                            }
+                                            else if (canCancelEarly)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                                                        title="Bỏ sản phẩm này khỏi đơn (khách không mua)"
+                                                        onclick="openCancelItemModal(@item.SOItemId)">
+                                                    <i class="bi bi-x-circle me-1"></i> Bỏ
+                                                </button>
                                             }
                                             else
                                             {
@@ -822,6 +830,124 @@
         </div>
     </div>
 </div>
+
+@{
+    bool showAdvanceSection = Model.Status is not "DRAFT" and not "CANCELLED";
+    bool canManageAdvance = canManageStatus && Model.Status is not "DRAFT" and not "CANCELLED" and not "REPORTED";
+    var adv = Model.AdvanceSummary;
+}
+@if (showAdvanceSection && adv != null)
+{
+    <div class="card border-0 shadow-sm mt-3 border-start border-4 border-warning">
+        <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h6 class="mb-0 fw-semibold small text-uppercase">
+                <i class="bi bi-cash-stack text-warning me-1"></i> Tạm ứng
+                <span class="badge bg-warning text-dark rounded-pill ms-1">@adv.Requests.Count</span>
+            </h6>
+            @if (canManageAdvance)
+            {
+                <button type="button" class="btn btn-sm btn-warning" onclick="openCreateAdvanceModal()">
+                    <i class="bi bi-plus-circle me-1"></i> Tạm ứng mới
+                </button>
+            }
+        </div>
+        <div class="card-body">
+            <!-- Summary strip -->
+            <div class="row g-2 mb-3 small">
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center bg-light">
+                        <div class="text-muted" style="font-size:0.72rem;">Chi phí mua dự kiến</div>
+                        <div class="fw-bold">@adv.PurchaseCost.ToString("N0") <span class="text-muted small">@adv.Currency</span></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center bg-info-subtle">
+                        <div class="text-muted" style="font-size:0.72rem;">Tổng đã yêu cầu</div>
+                        <div class="fw-bold text-info-emphasis">@adv.TotalRequested.ToString("N0")</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center bg-success-subtle">
+                        <div class="text-muted" style="font-size:0.72rem;">Đã nhận tiền</div>
+                        <div class="fw-bold text-success-emphasis">@adv.TotalReceived.ToString("N0")</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="border rounded p-2 text-center @(adv.RemainingVsCost > 0 ? "bg-warning-subtle" : "bg-success-subtle")">
+                        <div class="text-muted" style="font-size:0.72rem;">Còn lại (so chi phí mua)</div>
+                        <div class="fw-bold @(adv.RemainingVsCost > 0 ? "text-warning-emphasis" : "text-success-emphasis")">
+                            @adv.RemainingVsCost.ToString("N0")
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (adv.Requests.Count == 0)
+            {
+                <div class="text-center py-4 text-muted small">
+                    <i class="bi bi-inboxes" style="font-size:1.8rem;opacity:.3;"></i>
+                    <div class="mt-1">Chưa có đề nghị tạm ứng nào</div>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.825rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th>Số phiếu</th>
+                                <th>Ngày</th>
+                                <th>Mục đích</th>
+                                <th>Phân bổ</th>
+                                <th class="text-end">Số tiền</th>
+                                <th>Trạng thái</th>
+                                <th class="d-none d-md-table-cell">Người tạo</th>
+                                @if (canManageAdvance)
+                                {
+                                    <th style="width:50px;"></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ int aIdx = 1; }
+                            @foreach (var r in adv.Requests)
+                            {
+                                <tr>
+                                    <td class="text-muted small">@(aIdx++)</td>
+                                    <td class="fw-semibold">@r.RequestNo</td>
+                                    <td>@r.RequestDate.ToString("dd/MM/yyyy")</td>
+                                    <td class="small">@r.Purpose</td>
+                                    <td class="small">
+                                        @foreach (var li in r.Items)
+                                        {
+                                            <div>
+                                                <span class="@(li.SOItemId.HasValue ? "" : "text-muted fst-italic")">@li.ProductName</span>
+                                                <span class="text-muted">— @li.Amount.ToString("N0")</span>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="text-end fw-semibold text-warning-emphasis">@r.RequestedAmount.ToString("N0")</td>
+                                    <td><span class="badge @r.StatusBadge">@r.StatusText</span></td>
+                                    <td class="d-none d-md-table-cell small text-muted">@r.CreatedByName</td>
+                                    @if (canManageAdvance)
+                                    {
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" title="Xóa"
+                                                    onclick="deleteAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
 
 <!-- Comment Panel -->
 @await Html.PartialAsync("_TaskComments", new ViewDataDictionary(ViewData) {
@@ -1114,6 +1240,109 @@
         </div>
     </div>
 </div>
+
+<!-- Create Advance Request Modal -->
+@if (canManageAdvance)
+{
+    <div class="modal fade" id="createAdvanceModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold"><i class="bi bi-cash-stack text-warning me-1"></i> Tạm ứng mới</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2 mb-3 small">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold mb-1">Ngày yêu cầu</label>
+                            <input type="date" id="advDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold mb-1">Trạng thái</label>
+                            <select id="advStatus" class="form-select form-select-sm">
+                                <option value="RECEIVED" selected>Đã nhận tiền</option>
+                                <option value="APPROVED">Đã duyệt</option>
+                                <option value="PENDING">Chờ duyệt</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold mb-1">Tổng cộng</label>
+                            <input type="text" id="advTotalDisplay" class="form-control form-control-sm text-end fw-bold" readonly value="0" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold mb-1">Mục đích</label>
+                            <input type="text" id="advPurpose" class="form-control form-control-sm" placeholder="VD: Tạm ứng mua hàng đợt 1..." />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold mb-1">Ghi chú</label>
+                            <textarea id="advNotes" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="small fw-semibold mb-1">Phân bổ theo dòng sản phẩm</div>
+                    <div class="text-muted small mb-2">
+                        Nhập số tiền cho từng dòng cần tạm ứng. Dòng "Phân bổ chung" dùng cho phần không gắn vào sản phẩm cụ thể.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Sản phẩm</th>
+                                    <th class="text-end" style="width:130px;">SL × Giá mua</th>
+                                    <th class="text-end" style="width:130px;">Đã ứng</th>
+                                    <th class="text-end" style="width:150px;">Số tiền tạm ứng</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model.Items.Where(i => i.LineStatus != "CANCELLED"))
+                                {
+                                    <tr data-so-item-id="@item.SOItemId">
+                                        <td>
+                                            <div class="fw-semibold">@item.ProductName</div>
+                                            <div class="text-muted small">@item.UnitName · SL @item.Quantity.ToString("N3")</div>
+                                        </td>
+                                        <td class="text-end small text-muted">
+                                            @if (item.PurchasePrice.HasValue && item.PurchasePrice > 0)
+                                            {
+                                                @((item.Quantity * item.PurchasePrice.Value).ToString("N0"))
+                                            }
+                                            else
+                                            {
+                                                <span>—</span>
+                                            }
+                                        </td>
+                                        <td class="text-end small @(item.AdvancedAmount > 0 ? "text-warning-emphasis fw-semibold" : "text-muted")">
+                                            @(item.AdvancedAmount > 0 ? item.AdvancedAmount.ToString("N0") : "—")
+                                        </td>
+                                        <td>
+                                            <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                                   data-so-item-id="@item.SOItemId" placeholder="0" />
+                                        </td>
+                                    </tr>
+                                }
+                                <tr class="table-light">
+                                    <td class="fst-italic text-muted">Phân bổ chung cho cả đơn</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td>
+                                        <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                               data-so-item-id="" placeholder="0" />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmCreateAdvance()">
+                        <i class="bi bi-check-circle me-1"></i> Tạo phiếu tạm ứng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Deliver Batch Modal -->
 <div class="modal fade" id="deliverBatchModal" tabindex="-1">
@@ -1883,6 +2112,82 @@
             } else {
                 alert(data.Message || 'Lỗi');
             }
+        });
+    }
+
+    // ══════════════════════════════════════════════════
+    // ADVANCE REQUEST (v2.2 multi-advance)
+    // ══════════════════════════════════════════════════
+    function openCreateAdvanceModal() {
+        var modal = document.getElementById('createAdvanceModal');
+        if (!modal) return;
+        document.getElementById('advDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('advStatus').value = 'RECEIVED';
+        document.getElementById('advPurpose').value = '';
+        document.getElementById('advNotes').value = '';
+        document.querySelectorAll('.adv-line-amount').forEach(function (el) { el.value = ''; });
+        updateAdvTotal();
+        new bootstrap.Modal(modal).show();
+    }
+
+    function updateAdvTotal() {
+        var total = 0;
+        document.querySelectorAll('.adv-line-amount').forEach(function (el) {
+            var v = parseFloat(el.value);
+            if (!isNaN(v) && v > 0) total += v;
+        });
+        document.getElementById('advTotalDisplay').value = total.toLocaleString('vi-VN');
+    }
+    document.querySelectorAll('.adv-line-amount').forEach(function (el) {
+        el.addEventListener('input', updateAdvTotal);
+    });
+
+    function confirmCreateAdvance() {
+        var items = [];
+        document.querySelectorAll('.adv-line-amount').forEach(function (el) {
+            var v = parseFloat(el.value);
+            if (!isNaN(v) && v > 0) {
+                var raw = el.getAttribute('data-so-item-id');
+                items.push({
+                    SOItemId: raw ? parseInt(raw) : null,
+                    Amount: v
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            alert('Nhập ít nhất 1 dòng có số tiền > 0');
+            return;
+        }
+        var purpose = document.getElementById('advPurpose').value.trim();
+        if (!purpose) {
+            alert('Vui lòng nhập Mục đích');
+            return;
+        }
+
+        var body = {
+            RequestDate: document.getElementById('advDate').value || null,
+            Purpose: purpose,
+            Status: document.getElementById('advStatus').value,
+            Notes: document.getElementById('advNotes').value.trim(),
+            Items: items
+        };
+
+        postAction('/AdvanceRequest/Create?salesOrderId=' + soId, body, function (data) {
+            if (data.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('createAdvanceModal')).hide();
+                location.reload();
+            } else {
+                alert(data.Message || 'Lỗi');
+            }
+        });
+    }
+
+    function deleteAdvance(advId, advNo) {
+        if (!confirm('Xóa đề nghị tạm ứng ' + advNo + '?')) return;
+        postAction('/AdvanceRequest/Delete?id=' + advId + '&salesOrderId=' + soId, null, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Lỗi');
         });
     }
 </script>

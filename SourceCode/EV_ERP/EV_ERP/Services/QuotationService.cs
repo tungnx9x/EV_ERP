@@ -185,6 +185,7 @@ public class QuotationService : IQuotationService
                 ProductName = i.ProductName,
                 Proposal = i.ProductDescription,
                 ImageUrl = i.ImageUrl ?? i.Product?.ImageUrl,
+                RequiredImageUrl = i.RequiredImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
@@ -280,6 +281,7 @@ public class QuotationService : IQuotationService
                 ProductName = item.ProductName.Trim(),
                 ProductDescription = item.Proposal?.Trim(),
                 ImageUrl = item.ImageUrl,
+                RequiredImageUrl = item.RequiredImageUrl,
                 UnitName = item.UnitName.Trim(),
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -401,6 +403,7 @@ public class QuotationService : IQuotationService
                 ProductName = item.ProductName.Trim(),
                 ProductDescription = item.Proposal?.Trim(),
                 ImageUrl = item.ImageUrl,
+                RequiredImageUrl = item.RequiredImageUrl,
                 UnitName = item.UnitName.Trim(),
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -700,6 +703,7 @@ public class QuotationService : IQuotationService
                 ProductName = item.ProductName,
                 ProductDescription = item.ProductDescription,
                 ImageUrl = item.ImageUrl,
+                RequiredImageUrl = item.RequiredImageUrl,
                 UnitName = item.UnitName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -807,6 +811,7 @@ public class QuotationService : IQuotationService
                 ProductName = i.ProductName,
                 Proposal = i.ProductDescription,
                 ImageUrl = i.ImageUrl,
+                RequiredImageUrl = i.RequiredImageUrl,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
@@ -871,10 +876,36 @@ public class QuotationService : IQuotationService
             ws.Range(row, 2, row, 3).Merge();
 
             ws.Cell(row, 1).Value = i + 1;                                     // STT
-            ws.Cell(row, 2).Value = item.ProductName;                           // Request
+            ws.Cell(row, 2).Value = item.ProductName;                           // Request (text)
+            ws.Cell(row, 2).Style.Alignment.WrapText = true;
+            ws.Cell(row, 2).Style.Alignment.Vertical = XLAlignmentVerticalValues.Bottom;
             ws.Cell(row, 4).Value = item.Proposal ?? "";                        // Proposal
             ws.Cell(row, 4).Style.Alignment.WrapText = true;
             ws.Cell(row, 4).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+            // Column 2 (merged B:C) = Request — embed customer-required image above the product name
+            if (!string.IsNullOrEmpty(item.RequiredImageUrl))
+            {
+                var reqImgPath = ResolveImagePath(item.RequiredImageUrl);
+                if (reqImgPath != null && File.Exists(reqImgPath))
+                {
+                    try
+                    {
+                        var pic = ws.AddPicture(reqImgPath);
+                        pic.MoveTo(ws.Cell(row, 2));
+                        const int maxSize = 80;
+                        double scaleW = (double)maxSize / pic.Width;
+                        double scaleH = (double)maxSize / pic.Height;
+                        double scale = Math.Min(scaleW, scaleH);
+                        pic.WithSize((int)(pic.Width * scale), (int)(pic.Height * scale));
+                        ws.Row(row).Height = Math.Max(ws.Row(row).Height, 65);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to embed required image {Url} in Excel export", item.RequiredImageUrl);
+                    }
+                }
+            }
 
             // Column 5 = Image — embed product image if available
             if (!string.IsNullOrEmpty(item.ImageUrl))
@@ -892,7 +923,7 @@ public class QuotationService : IQuotationService
                         double scaleH = (double)maxSize / pic.Height;
                         double scale = Math.Min(scaleW, scaleH);
                         pic.WithSize((int)(pic.Width * scale), (int)(pic.Height * scale));
-                        ws.Row(row).Height = 65;
+                        ws.Row(row).Height = Math.Max(ws.Row(row).Height, 65);
                     }
                     catch (Exception ex)
                     {

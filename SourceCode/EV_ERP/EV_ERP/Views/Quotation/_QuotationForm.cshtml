@@ -397,12 +397,29 @@
 
     .qi-img-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 12px;
         padding: 8px 0;
         margin: 4px 0;
         border-top: 1px solid #f1f5f9;
         /* border-bottom: 1px solid #f1f5f9; */
+    }
+    .qi-img-group {
+        display: flex; flex-direction: column;
+        gap: 4px; flex-shrink: 0;
+    }
+    .qi-img-group-title {
+        font-size: 0.65rem; color: #64748b;
+        font-weight: 600; text-transform: uppercase;
+        letter-spacing: .03em;
+    }
+    .qi-img-cell-row {
+        display: flex; align-items: center; gap: 8px;
+    }
+    .qi-img-cell {
+        display: inline-block;
+        border-radius: 8px;
+        flex-shrink: 0;
     }
     .qi-img-preview {
         width: 80px; height: 80px;
@@ -411,6 +428,7 @@
         border: 1px solid #e2e8f0;
         background: #f8fafc;
         flex-shrink: 0;
+        display: block;
     }
     .qi-img-empty-lg {
         width: 80px; height: 80px;
@@ -445,7 +463,7 @@
         cursor: pointer;
     }
     .qi-img-remove-btn:hover { color: #dc2626; }
-    .qi-img-paste-target { box-shadow: 0 0 0 2px #3b82f6; border-radius: 6px; }
+    .qi-img-paste-target { box-shadow: 0 0 0 2px #3b82f6; border-radius: 8px; }
 
     .qi-badge-mapped {
         font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
@@ -601,6 +619,7 @@
             ProductName: '',
             Proposal: '',
             ImageUrl: '',
+            RequiredImageUrl: '',
             UnitName: '',
             Quantity: 1,
             UnitPrice: 0,
@@ -658,7 +677,7 @@
             var badge = document.getElementById('badge_' + idx);
             if (badge) {
                 badge.className = 'qi-badge-mapped qi-badge-tmp';
-                badge.textContent = 'Tam';
+                badge.textContent = 'SP moi';
                 badge.title = 'SP nhap tay (chua co trong he thong)';
             }
         }
@@ -768,9 +787,9 @@
         container.innerHTML = pageItems.map(function (item, localIdx) {
             var idx = startIdx + localIdx;
             var badgeClass = item.IsProductMapped ? 'qi-badge-ht' : 'qi-badge-tmp';
-            var badgeText = item.IsProductMapped ? 'HT' : 'Tam';
+            var badgeText = item.IsProductMapped ? 'OK' : 'SP moi';
             var badgeTitle = item.IsProductMapped ? 'SP trong he thong' : 'SP nhap tay (chua co trong he thong)';
-            var showBadge = item.IsProductMapped || item.ProductName;
+            var showBadge = !item.IsProductMapped /* || item.ProductName */;
 
             return '<div class="qi-card">' +
                 // ── HEADER: Number + Search + Badge + Delete ──
@@ -788,35 +807,68 @@
                 '</div>' +
 
                 '<div class="qi-body">' +
-                    // ── ROW 1: Image + Description + Unit + Purchase Link ──
-                    '<div class="qi-img-row" data-paste-idx="' + idx + '">' +
-                        (item.IsProductMapped
-                            ? (item.ImageUrl
-                                ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
-                                : '<div class="qi-img-empty-lg qi-img-readonly"><i class="bi bi-image" style="font-size:1.5rem;"></i><span>Khong co anh</span></div>') +
-                              '<div class="qi-img-actions">' +
-                                  '<div class="text-muted" style="font-size:0.68rem;"><i class="bi bi-lock me-1"></i>Anh tu he thong</div>' +
-                              '</div>'
-                            : (item.ImageUrl
-                                ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
-                                : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
-                                    '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
-                                    '<span>Click + Ctrl+V</span>' +
-                                    '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
-                                  '</div>') +
-                              '<div class="qi-img-actions">' +
-                                  '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this)" />' +
-                                  '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ')">' +
-                                      '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
-                                  '</button>' +
-                                  (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
-                                  '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
-                              '</div>'
-                        ) +
+                    // ── ROW 1: [Product image] [Required image] + Description + Unit + Purchase Link ──
+                    '<div class="qi-img-row">' +
+                        // ── Product image cell ──
+                        '<div class="qi-img-group">' +
+                            '<div class="qi-img-group-title">Anh SP</div>' +
+                            '<div class="qi-img-cell-row">' +
+                                (item.IsProductMapped
+                                    ? '<div class="qi-img-cell">' +
+                                        (item.ImageUrl
+                                            ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
+                                            : '<div class="qi-img-empty-lg qi-img-readonly"><i class="bi bi-image" style="font-size:1.5rem;"></i><span>Khong co anh</span></div>') +
+                                      '</div>' +
+                                      '<div class="qi-img-actions">' +
+                                          '<div class="text-muted" style="font-size:0.68rem;"><i class="bi bi-lock me-1"></i>Anh tu he thong</div>' +
+                                      '</div>'
+                                    : '<div class="qi-img-cell" data-paste-idx="' + idx + '" data-paste-kind="product">' +
+                                        (item.ImageUrl
+                                            ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
+                                            : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
+                                                '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
+                                                '<span>Click + Ctrl+V</span>' +
+                                                '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
+                                              '</div>') +
+                                      '</div>' +
+                                      '<div class="qi-img-actions">' +
+                                          '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this, \'product\')" />' +
+                                          '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ', \'product\')">' +
+                                              '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
+                                          '</button>' +
+                                          (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'product\')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
+                                          '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
+                                      '</div>'
+                                ) +
+                            '</div>' +
+                        '</div>' +
+                        // ── Customer required image cell (always editable) ──
+                        '<div class="qi-img-group">' +
+                            '<div class="qi-img-group-title">Anh KH yeu cau</div>' +
+                            '<div class="qi-img-cell-row">' +
+                                '<div class="qi-img-cell" data-paste-idx="' + idx + '" data-paste-kind="required">' +
+                                    (item.RequiredImageUrl
+                                        ? '<img src="' + escapeHtml(item.RequiredImageUrl) + '" class="qi-img-preview" alt="" />'
+                                        : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
+                                            '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
+                                            '<span>Click + Ctrl+V</span>' +
+                                            '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
+                                          '</div>') +
+                                '</div>' +
+                                '<div class="qi-img-actions">' +
+                                    '<input type="file" id="reqImgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this, \'required\')" />' +
+                                    '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ', \'required\')">' +
+                                        '<i class="bi bi-upload"></i> ' + (item.RequiredImageUrl ? 'Doi anh' : 'Chon anh') +
+                                    '</button>' +
+                                    (item.RequiredImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'required\')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
+                                    '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
                         '<div class="qi-grid qi-grid-row1" style="flex:1;">' +
                             '<div>' +
                                 '<div class="qi-label">Mo ta / De xuat</div>' +
-                                '<textarea rows="1" class="form-control form-control-sm"' +
+                                '<textarea rows="3" class="form-control form-control-sm"' +
                                     'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham...">' + escapeHtml(item.Proposal || '') + '</textarea>' +
                             '</div>' +
                             '<div>' +
@@ -1061,31 +1113,33 @@
     }
 
     // ══════════════════════════════════════════════
-    // IMAGE UPLOAD
+    // IMAGE UPLOAD (kind = 'product' | 'required')
     // ══════════════════════════════════════════════
-    var activePasteIdx = null;
+    var activePasteTarget = null; // { idx, kind } or null
 
-    function triggerUpload(idx) {
-        document.getElementById('imgFile_' + idx).click();
+    function _imgField(kind) { return kind === 'required' ? 'RequiredImageUrl' : 'ImageUrl'; }
+
+    function triggerUpload(idx, kind) {
+        var inputId = (kind === 'required' ? 'reqImgFile_' : 'imgFile_') + idx;
+        document.getElementById(inputId).click();
     }
 
-    function uploadItemImage(idx, inputEl) {
+    function uploadItemImage(idx, inputEl, kind) {
         var file = inputEl.files[0];
         if (!file) return;
-        _doUploadItemImage(idx, file);
+        _doUploadItemImage(idx, file, kind);
     }
 
-    function _doUploadItemImage(idx, file) {
+    function _doUploadItemImage(idx, file, kind) {
         if (!file) return;
         if (!/^image\//i.test(file.type)) { alert('File khong phai la anh'); return; }
 
         var formData = new FormData();
         formData.append('file', file, file.name || ('paste-' + Date.now() + '.png'));
 
-        // Show loading state on the image cell of this row
-        var rowEl = document.querySelector('.qi-img-row[data-paste-idx="' + idx + '"]');
-        var firstChild = rowEl ? rowEl.firstElementChild : null;
-        if (firstChild) firstChild.style.opacity = '0.5';
+        // Show loading state on the targeted image cell
+        var cellEl = document.querySelector('.qi-img-cell[data-paste-idx="' + idx + '"][data-paste-kind="' + kind + '"]');
+        if (cellEl) cellEl.style.opacity = '0.5';
 
         fetch('/Quotation/UploadItemImage', {
             method: 'POST',
@@ -1095,41 +1149,45 @@
         .then(function (r) { return r.json(); })
         .then(function (res) {
             if (res.Success && res.Data && res.Data.url) {
-                items[idx].ImageUrl = res.Data.url;
+                items[idx][_imgField(kind)] = res.Data.url;
                 renderItems();
             } else {
                 alert(res.Message || 'Upload that bai');
-                if (firstChild) firstChild.style.opacity = '1';
+                if (cellEl) cellEl.style.opacity = '1';
             }
         })
         .catch(function () {
             alert('Loi ket noi khi upload');
-            if (firstChild) firstChild.style.opacity = '1';
+            if (cellEl) cellEl.style.opacity = '1';
         });
     }
 
     // Track which image cell is the paste target — set on click, drawn with a blue ring.
     document.addEventListener('click', function (e) {
-        var row = e.target.closest('.qi-img-row[data-paste-idx]');
+        var cell = e.target.closest('.qi-img-cell[data-paste-idx]');
         // Clear any previous ring
         document.querySelectorAll('.qi-img-paste-target').forEach(function (el) {
             el.classList.remove('qi-img-paste-target');
         });
-        if (!row) { activePasteIdx = null; return; }
+        if (!cell) { activePasteTarget = null; return; }
 
-        var idx = parseInt(row.dataset.pasteIdx, 10);
+        var idx = parseInt(cell.dataset.pasteIdx, 10);
+        var kind = cell.dataset.pasteKind || 'product';
         var item = items[idx];
-        // Mapped items can't change image (system avatar) — skip activation.
-        if (!item || item.IsProductMapped) { activePasteIdx = null; return; }
+        if (!item) { activePasteTarget = null; return; }
+        // Mapped product image can't be replaced (system avatar). Required image is always editable.
+        if (kind === 'product' && item.IsProductMapped) { activePasteTarget = null; return; }
 
-        activePasteIdx = idx;
-        row.classList.add('qi-img-paste-target');
+        activePasteTarget = { idx: idx, kind: kind };
+        cell.classList.add('qi-img-paste-target');
     });
 
     // Document-level paste handler — fires when the user presses Ctrl+V anywhere.
     document.addEventListener('paste', function (e) {
-        if (activePasteIdx === null || activePasteIdx === undefined) return;
-        if (!items[activePasteIdx] || items[activePasteIdx].IsProductMapped) return;
+        if (!activePasteTarget) return;
+        var idx = activePasteTarget.idx, kind = activePasteTarget.kind;
+        if (!items[idx]) return;
+        if (kind === 'product' && items[idx].IsProductMapped) return;
 
         var cd = e.clipboardData || window.clipboardData;
         if (!cd || !cd.items) return;
@@ -1140,15 +1198,15 @@
                 var file = it.getAsFile();
                 if (file) {
                     e.preventDefault();
-                    _doUploadItemImage(activePasteIdx, file);
+                    _doUploadItemImage(idx, file, kind);
                     return;
                 }
             }
         }
     });
 
-    function removeImage(idx) {
-        items[idx].ImageUrl = '';
+    function removeImage(idx, kind) {
+        items[idx][_imgField(kind || 'product')] = '';
         renderItems();
     }
 

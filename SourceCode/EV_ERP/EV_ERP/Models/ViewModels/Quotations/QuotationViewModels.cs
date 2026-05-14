@@ -136,6 +136,7 @@ public class QuotationItemFormModel
     public string ProductName { get; set; } = string.Empty;
     public string? Proposal { get; set; }
     public string? ImageUrl { get; set; }
+    public string? RequiredImageUrl { get; set; }
     public string UnitName { get; set; } = string.Empty;
     public bool IsProductMapped { get; set; }
 

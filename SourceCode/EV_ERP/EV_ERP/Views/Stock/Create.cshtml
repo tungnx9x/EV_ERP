@@ -179,9 +179,9 @@
                     <tr>
                         <th style="width:36px;">#</th>
                         <th style="width:44px;"></th>
-                        <th style="min-width:200px;">Sản phẩm</th>
-                        <th style="width:140px;">Barcode</th>
-                        <th style="width:160px;">Vị trí</th>
+                        <th style="min-width:100px;">Sản phẩm</th>
+                        <th style="width:160px;">Barcode</th>
+                        <th style="width:240px;">Vị trí</th>
                         <th style="width:100px;" class="text-end">Số lượng</th>
                         <th style="width:80px;">ĐVT</th>
                         <th style="width:140px;">Ghi chú</th>
@@ -489,7 +489,7 @@
             var locOptions = '<option value="">—</option>';
             locations.forEach(function (l) {
                 var sel = (item.LocationId === l.LocationId) ? ' selected' : '';
-                locOptions += '<option value="' + l.LocationId + '"' + sel + '>' + l.LocationCode + '</option>';
+                locOptions += '<option value="' + l.LocationId + '"' + sel + '>' + l.LocationName + '</option>';
             });
 
             var row = '<tr>' +

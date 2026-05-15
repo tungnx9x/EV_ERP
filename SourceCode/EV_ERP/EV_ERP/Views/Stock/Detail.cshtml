@@ -228,8 +228,14 @@
                                     <td class="d-none d-md-table-cell">
                                         @if (!string.IsNullOrEmpty(item.Barcode))
                                         {
-                                            <span class="font-monospace small bg-light px-2 py-1 rounded">
+                                            <span class="font-monospace small bg-light px-2 py-1 rounded barcode-print-trigger"
+                                                  style="cursor:pointer;"
+                                                  title="Bấm để in barcode"
+                                                  data-barcode="@item.Barcode"
+                                                  data-product-name="@item.ProductName"
+                                                  data-product-code="@item.ProductCode">
                                                 <i class="bi bi-upc me-1"></i>@item.Barcode
+                                                <i class="bi bi-printer ms-1 text-muted"></i>
                                             </span>
                                         }
                                         else
@@ -306,6 +312,33 @@
     </div>
 </div>
 
+<!-- Print Barcode Modal -->
+<div class="modal fade" id="printBarcodeModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-printer me-1"></i> In Barcode</h6>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2 small">
+                    <div class="fw-semibold" id="pbm_productName"></div>
+                    <div class="font-monospace text-muted" id="pbm_barcode"></div>
+                </div>
+                <label class="form-label fw-semibold small">Số lượng tem in</label>
+                <input type="number" id="printQty" class="form-control" value="1" min="1" max="500" />
+                <div class="form-text small">Tối đa 500 tem mỗi lần in</div>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button class="btn btn-sm btn-primary" onclick="printBarcode()">
+                    <i class="bi bi-printer me-1"></i> In
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delivered Confirmation Modal -->
 <div class="modal fade" id="deliveredModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -357,8 +390,90 @@
     .text-danger-emphasis { color: #991b1b !important; }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script>
     var transId = @Model.TransactionId;
+
+    // ── Barcode print ───────────────────────────────
+    var _pbmCurrent = null;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.barcode-print-trigger').forEach(function (el) {
+            el.addEventListener('click', function () {
+                openPrintDialog({
+                    barcode: el.getAttribute('data-barcode'),
+                    productName: el.getAttribute('data-product-name'),
+                    productCode: el.getAttribute('data-product-code')
+                });
+            });
+        });
+    });
+
+    function openPrintDialog(info) {
+        _pbmCurrent = info;
+        document.getElementById('pbm_productName').textContent = info.productName || '';
+        document.getElementById('pbm_barcode').textContent = info.barcode || '';
+        document.getElementById('printQty').value = 1;
+        new bootstrap.Modal(document.getElementById('printBarcodeModal')).show();
+    }
+
+    function printBarcode() {
+        if (!_pbmCurrent || !_pbmCurrent.barcode) return;
+
+        var qty = parseInt(document.getElementById('printQty').value) || 1;
+        qty = Math.max(1, Math.min(qty, 500));
+
+        bootstrap.Modal.getInstance(document.getElementById('printBarcodeModal')).hide();
+
+        // Render barcode SVG off-screen, then clone its markup into the print window
+        var tmpSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        try {
+            JsBarcode(tmpSvg, _pbmCurrent.barcode, {
+                format: 'CODE128',
+                width: 2,
+                height: 60,
+                displayValue: false,
+                margin: 5
+            });
+        } catch (e) {
+            alert('Không tạo được barcode: ' + e.message);
+            return;
+        }
+
+        var productName = _pbmCurrent.productName || '';
+        var productCode = _pbmCurrent.productCode || '';
+        var barcodeText = _pbmCurrent.barcode;
+        var svgHtml = tmpSvg.outerHTML;
+
+        var labelHtml = '<div class="label">' +
+            '<div class="product-name">' + productName + '<\/div>' +
+            svgHtml +
+            '<div class="barcode-text">' + barcodeText + '<\/div>' +
+            '<\/div>';
+
+        var allLabels = '';
+        for (var i = 0; i < qty; i++) {
+            allLabels += labelHtml;
+        }
+
+        var printWin = window.open('', '_blank', 'width=800,height=600');
+        var doc = printWin.document;
+        doc.open();
+        doc.write('<html><head><title>Barcode - ' + productCode + ' x' + qty + '<\/title>');
+        doc.write('<style>');
+        doc.write('body { margin:0; padding:10px; font-family:monospace; }');
+        doc.write('.labels { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }');
+        doc.write('.label { text-align:center; border:1px dashed #ccc; padding:8px 12px; page-break-inside:avoid; }');
+        doc.write('.product-name { font-size:10px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }');
+        doc.write('.barcode-text { font-size:12px; letter-spacing:1px; margin-top:3px; }');
+        doc.write('@@media print { .label { border:none; } }');
+        doc.write('<\/style><\/head><body>');
+        doc.write('<div class="labels">' + allLabels + '<\/div>');
+        doc.write('<\/body><\/html>');
+        doc.close();
+        printWin.focus();
+        printWin.print();
+    }
 
     function confirmInbound() {
         if (!confirm('Xác nhận nhập kho? Tồn kho sẽ được cập nhật.')) return;

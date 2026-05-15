@@ -244,7 +244,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom py-2">
             <h6 class="mb-0 fw-semibold small text-uppercase">
-                <i class="bi bi-box-seam me-1"></i> Chi tiet san pham
+                <i class="bi bi-box-seam me-1"></i> Chi tiết sản phẩm
                 <span class="badge bg-primary rounded-pill ms-1">@Model.Items.Count</span>
             </h6>
         </div>
@@ -254,24 +254,24 @@
                     <thead class="table-light">
                         <tr>
                             <th rowspan="2" style="width:30px;" class="text-center align-middle">STT</th>
-                            <th colspan="4" class="text-center bg-primary-subtle">Thong tin san pham</th>
-                            <th colspan="5" class="text-center bg-success-subtle">Bao gia khach hang</th>
-                            <th colspan="5" class="text-center bg-warning-subtle">Thong tin noi bo</th>
+                            <th colspan="4" class="text-center bg-primary-subtle">Thông tin sản phẩm</th>
+                            <th colspan="5" class="text-center bg-success-subtle">Báo giá khách hàng</th>
+                            <th colspan="5" class="text-center bg-warning-subtle">Thông tin nội bộ</th>
                         </tr>
                         <tr>
-                            <th>Yeu cau</th>
-                            <th>De xuat</th>
-                            <th style="width:60px;">Hinh</th>
+                            <th>Yêu cầu</th>
+                            <th>Đề xuất</th>
+                            <th style="width:60px;">Ảnh</th>
                             <th>DVT</th>
                             <th class="text-end">SL</th>
-                            <th class="text-end">Don gia</th>
-                            <th class="text-end">Truoc VAT</th>
+                            <th class="text-end">Đơn giá</th>
+                            <th class="text-end">Trước VAT</th>
                             <th class="text-center">VAT</th>
                             <th class="text-end">Sau VAT</th>
                             <th>Link</th>
-                            <th class="text-end">Gia nhap</th>
+                            <th class="text-end">Giá nhập</th>
                             <th class="text-end">Shipping</th>
-                            <th class="text-center">He so</th>
+                            <th class="text-center">Hệ số</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -285,7 +285,7 @@
                                     @if (!item.IsProductMapped)
                                     {
                                         <span class="badge bg-warning-subtle text-warning ms-1" style="font-size:0.6rem;"
-                                              title="SP nhap tay - chua co trong he thong">SP mới</span>
+                                              title="SP nhập tay - chưa có trong hệ thống">SP mới</span>
                                     }
                                 </td>
                                 <td class="text-muted small">@(item.Proposal ?? "—")</td>

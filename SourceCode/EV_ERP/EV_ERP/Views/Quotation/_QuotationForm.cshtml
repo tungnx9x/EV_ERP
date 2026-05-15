@@ -95,7 +95,7 @@
                 <i class="bi bi-plus-lg me-1"></i> Thêm sản phẩm
             </button>
             <button type="button" class="btn btn-sm btn-success" onclick="submitForm(true)" id="btnQuickSave">
-                <i class="bi bi-save me-1"></i> Lưu báo giá
+                <i class="bi bi-save me-1"></i> Lưu nhanh
             </button>
         </div>
 
@@ -734,18 +734,16 @@
     }
 
     function selectProduct(idx, product) {
-        var globalCoeff = parseFloat(document.getElementById('frm_coefficient').value) || 1;
-        var importPrice = product.DefaultPurchasePrice || 0;
-        var coeff = items[idx].Coefficient || globalCoeff;
-        var unitPrice = coeff > 0 ? Math.round(importPrice / coeff) : importPrice;
-
         items[idx].ProductId = product.ProductId;
         items[idx].ProductName = product.ProductName;
         items[idx].Proposal = product.Description || '';
         items[idx].ImageUrl = product.ImageUrl || '';
         items[idx].UnitName = product.UnitName || '';
-        items[idx].ImportPrice = importPrice;
-        items[idx].UnitPrice = unitPrice;
+        items[idx].SourceUrl = product.SourceUrl || '';
+        // Purchase price + currency seed the calc popup (Base unit price + Currency),
+        // not the outer "Giá nhập" — that value comes from the popup's confirm.
+        items[idx].BasePrice = product.DefaultPurchasePrice || null;
+        items[idx].PurchaseCurrency = product.DefaultPurchaseCurrency || 'VND';
         items[idx].IsProductMapped = true;
 
         recalcItemLine(idx);
@@ -1322,7 +1320,7 @@
         var quickBtn = document.getElementById('btnQuickSave');
         var activeBtn = stayOnPage ? quickBtn : primaryBtn;
         var primaryLabel = '<i class="bi bi-check-lg me-1"></i> ' + 'Hoàn tất';
-        var quickLabel = '<i class="bi bi-save me-1"></i> Lưu báo giá';
+        var quickLabel = '<i class="bi bi-save me-1"></i> Lưu nhanh';
 
         function setBusy(busy) {
             [primaryBtn, quickBtn].forEach(function (b) { if (b) b.disabled = busy; });

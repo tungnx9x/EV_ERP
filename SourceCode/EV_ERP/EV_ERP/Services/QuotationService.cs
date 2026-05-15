@@ -844,10 +844,10 @@ public class QuotationService : IQuotationService
         var ws = wb.Worksheet(1);
 
         // Fill customer info (Row 7-11, merged A:L)
-        ws.Cell("A7").Value = $"Khach hang: {customer.CustomerName}";
-        ws.Cell("A8").Value = $"Dia chi: {customer.Address ?? ""}";
-        ws.Cell("A9").Value = "Nguoi lien he: ";
-        ws.Cell("A10").Value = $"SDT: {customer.Phone ?? ""}";
+        ws.Cell("A7").Value = $"Khách hàng: {customer.CustomerName}";
+        ws.Cell("A8").Value = $"Địa chỉ: {customer.Address ?? ""}";
+        ws.Cell("A9").Value = "Người liên hệ: ";
+        ws.Cell("A10").Value = $"SĐT: {customer.Phone ?? ""}";
         ws.Cell("A11").Value = $"Email: {customer.Email ?? ""}";
 
         // Update request column header with customer name
@@ -939,7 +939,7 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 10).Value = $"{item.VatRate:0.##}%";                        // VAT
             ws.Cell(row, 11).Value = item.AmountInclVat;                        // Amount incl VAT
             ws.Cell(row, 12).Value = item.Notes ?? "";                          // Note
-            ws.Cell(row, 14).Value = item.Supplier ?? "";                       // NCC
+            ws.Cell(row, 14).Value = item.SourceUrl ?? "";                       // NCC
             ws.Cell(row, 15).Value = item.ImportPrice;                          // Import Price
             ws.Cell(row, 16).Value = item.Shipping;                             // Shipping
             ws.Cell(row, 17).Value = item.Coefficient;                          // Coefficient
@@ -964,7 +964,7 @@ public class QuotationService : IQuotationService
         // Totals row (after data rows)
         int totalRow = dataStartRow + itemCount;
         ws.Range(totalRow, 1, totalRow, 8).Merge();
-        ws.Cell(totalRow, 1).Value = "TONG GIA TRI (VND)";
+        ws.Cell(totalRow, 1).Value = "TỔNG GIÁ TRỊ (VND)";
         ws.Cell(totalRow, 1).Style.Font.Bold = true;
         ws.Cell(totalRow, 9).Value = totalExclVat;
         ws.Cell(totalRow, 9).Style.NumberFormat.Format = "#,##0";
@@ -982,7 +982,7 @@ public class QuotationService : IQuotationService
             var cellVal = ws.Cell(r, 7).GetFormattedString();
             if (cellVal.Contains("Ngay") || cellVal.Contains("ngày") || cellVal.Contains("Ngày"))
             {
-                ws.Cell(r, 7).Value = $"Ha noi, Ngay {now:dd} Thang {now:MM} Nam {now:yyyy}";
+                ws.Cell(r, 7).Value = $"Hà Nội, Ngày {now:dd} Tháng {now:MM} Năm {now:yyyy}";
                 break;
             }
         }
@@ -1051,7 +1051,9 @@ public class QuotationService : IQuotationService
                 ImageUrl = p.ImageUrl,
                 UnitName = p.Unit.UnitName,
                 DefaultSalePrice = p.DefaultSalePrice,
-                DefaultPurchasePrice = p.DefaultPurchasePrice
+                DefaultPurchasePrice = p.DefaultPurchasePrice,
+                DefaultPurchaseCurrency = p.DefaultPurchaseCurrency,
+                SourceUrl = p.SourceUrl
             })
             .ToListAsync();
     }

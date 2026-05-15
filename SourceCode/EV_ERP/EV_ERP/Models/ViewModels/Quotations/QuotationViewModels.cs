@@ -367,4 +367,6 @@ public class ProductSearchResult
     public string UnitName { get; set; } = string.Empty;
     public decimal? DefaultSalePrice { get; set; }
     public decimal? DefaultPurchasePrice { get; set; }
+    public string? DefaultPurchaseCurrency { get; set; }
+    public string? SourceUrl { get; set; }
 }

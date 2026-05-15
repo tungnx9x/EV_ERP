@@ -49,6 +49,13 @@ namespace EV_ERP.Models.ViewModels.Products
         public string UnitName { get; set; } = string.Empty;
     }
 
+    public class CurrencyOptionViewModel
+    {
+        public string CurrencyCode { get; set; } = string.Empty;
+        public string CurrencyName { get; set; } = string.Empty;
+        public string? Symbol { get; set; }
+    }
+
     // ── Form (Create / Edit) ─────────────────────────────
     public class ProductFormViewModel
     {
@@ -81,8 +88,12 @@ namespace EV_ERP.Models.ViewModels.Products
         public decimal? DefaultSalePrice { get; set; }
 
         [Range(0, double.MaxValue, ErrorMessage = "Giá mua phải >= 0")]
-        [Display(Name = "Giá mua mặc định (VNĐ)")]
+        [Display(Name = "Giá mua mặc định")]
         public decimal? DefaultPurchasePrice { get; set; }
+
+        [MaxLength(3)]
+        [Display(Name = "Tiền tệ mua mặc định")]
+        public string? DefaultPurchaseCurrency { get; set; } = "VND";
 
         [Range(0, int.MaxValue, ErrorMessage = "Tồn kho tối thiểu phải >= 0")]
         [Display(Name = "Tồn kho tối thiểu")]
@@ -117,6 +128,7 @@ namespace EV_ERP.Models.ViewModels.Products
         // Dropdown options
         public List<CategoryOptionViewModel> Categories { get; set; } = [];
         public List<UnitOptionViewModel> Units { get; set; } = [];
+        public List<CurrencyOptionViewModel> Currencies { get; set; } = [];
         // SKU attribute config for selected category (populated by service)
         public List<SkuAttributeFormItem> SkuAttributes { get; set; } = [];
 
@@ -147,6 +159,7 @@ namespace EV_ERP.Models.ViewModels.Products
         public string? ImageUrl { get; set; }
         public decimal? DefaultSalePrice { get; set; }
         public decimal? DefaultPurchasePrice { get; set; }
+        public string? DefaultPurchaseCurrency { get; set; } = "VND";
         public int MinStockLevel { get; set; }
         public decimal? Weight { get; set; }
         public string? WeightUnit { get; set; }

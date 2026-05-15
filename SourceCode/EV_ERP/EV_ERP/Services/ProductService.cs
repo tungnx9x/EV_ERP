@@ -1,4 +1,5 @@
 using EV_ERP.Models.Entities.Products;
+using EV_ERP.Models.Entities.Reference;
 using EV_ERP.Models.ViewModels.Products;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
@@ -92,13 +93,14 @@ namespace EV_ERP.Services
         {
             var categories = await GetCategoryOptionsAsync();
             var units = await GetUnitOptionsAsync();
+            var currencies = await GetCurrencyOptionsAsync();
 
             if (!productId.HasValue || productId <= 0)
-                return new ProductFormViewModel { Categories = categories, Units = units };
+                return new ProductFormViewModel { Categories = categories, Units = units, Currencies = currencies };
 
             var product = await _uow.Repository<Product>().GetByIdAsync(productId.Value);
             if (product == null)
-                return new ProductFormViewModel { Categories = categories, Units = units };
+                return new ProductFormViewModel { Categories = categories, Units = units, Currencies = currencies };
 
             var images = await _uow.Repository<ProductImage>().Query()
                 .Where(i => i.ProductId == productId.Value)
@@ -128,6 +130,7 @@ namespace EV_ERP.Services
                 BarcodeType = product.BarcodeType,
                 DefaultSalePrice = product.DefaultSalePrice,
                 DefaultPurchasePrice = product.DefaultPurchasePrice,
+                DefaultPurchaseCurrency = product.DefaultPurchaseCurrency ?? "VND",
                 MinStockLevel = product.MinStockLevel,
                 Weight = product.Weight,
                 WeightUnit = product.WeightUnit,
@@ -136,6 +139,7 @@ namespace EV_ERP.Services
                 Images = images,
                 Categories = categories,
                 Units = units,
+                Currencies = currencies,
                 SkuAttributes = skuAttributes
             };
         }
@@ -228,6 +232,8 @@ namespace EV_ERP.Services
                 BarcodeType = model.BarcodeType,
                 DefaultSalePrice = model.DefaultSalePrice,
                 DefaultPurchasePrice = model.DefaultPurchasePrice,
+                DefaultPurchaseCurrency = string.IsNullOrWhiteSpace(model.DefaultPurchaseCurrency)
+                    ? "VND" : model.DefaultPurchaseCurrency.Trim().ToUpperInvariant(),
                 MinStockLevel = model.MinStockLevel,
                 Weight = model.Weight,
                 WeightUnit = model.WeightUnit?.Trim(),
@@ -354,6 +360,8 @@ namespace EV_ERP.Services
             product.BarcodeType = model.BarcodeType;
             product.DefaultSalePrice = model.DefaultSalePrice;
             product.DefaultPurchasePrice = model.DefaultPurchasePrice;
+            product.DefaultPurchaseCurrency = string.IsNullOrWhiteSpace(model.DefaultPurchaseCurrency)
+                ? "VND" : model.DefaultPurchaseCurrency.Trim().ToUpperInvariant();
             product.MinStockLevel = model.MinStockLevel;
             product.Weight = model.Weight;
             product.WeightUnit = model.WeightUnit?.Trim();
@@ -467,6 +475,7 @@ namespace EV_ERP.Services
                 ImageUrl = product.ImageUrl,
                 DefaultSalePrice = product.DefaultSalePrice,
                 DefaultPurchasePrice = product.DefaultPurchasePrice,
+                DefaultPurchaseCurrency = product.DefaultPurchaseCurrency,
                 MinStockLevel = product.MinStockLevel,
                 Weight = product.Weight,
                 WeightUnit = product.WeightUnit,
@@ -643,6 +652,20 @@ namespace EV_ERP.Services
                     UnitId = u.UnitId,
                     UnitCode = u.UnitCode,
                     UnitName = u.UnitName
+                })
+                .ToListAsync();
+        }
+
+        private async Task<List<CurrencyOptionViewModel>> GetCurrencyOptionsAsync()
+        {
+            return await _uow.Repository<Currency>().Query()
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.CurrencyCode)
+                .Select(c => new CurrencyOptionViewModel
+                {
+                    CurrencyCode = c.CurrencyCode,
+                    CurrencyName = c.CurrencyName,
+                    Symbol = c.Symbol
                 })
                 .ToListAsync();
         }

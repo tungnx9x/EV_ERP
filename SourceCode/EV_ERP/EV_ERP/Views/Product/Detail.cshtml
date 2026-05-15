@@ -136,13 +136,13 @@
                     <div class="col-6">
                         <div class="text-muted">Giá bán</div>
                         <div class="fw-semibold text-success">
-                            @(Model.DefaultSalePrice.HasValue ? Model.DefaultSalePrice.Value.ToString("N0") + " ₫" : "—")
+                            @(Model.DefaultSalePrice.HasValue ? Model.DefaultSalePrice.Value.ToString("N0") + Model.DefaultPurchaseCurrency : "—")
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="text-muted">Giá mua</div>
                         <div class="fw-semibold text-primary">
-                            @(Model.DefaultPurchasePrice.HasValue ? Model.DefaultPurchasePrice.Value.ToString("N0") + " ₫" : "—")
+                            @(Model.DefaultPurchasePrice.HasValue ? Model.DefaultPurchasePrice.Value.ToString("N0") + Model.DefaultPurchaseCurrency : "—")
                         </div>
                     </div>
                     <div class="col-6">

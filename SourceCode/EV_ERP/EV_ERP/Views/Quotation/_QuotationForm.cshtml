@@ -1420,7 +1420,7 @@
         var opts = '';
         for (var i = 0; i < currencies.length; i++) {
             var c = currencies[i];
-            opts += '<option value="' + escapeHtml(c.CurrencyCode) + '">' + escapeHtml(c.CurrencyCode) + '</option>';
+            opts += '<option value="' + escapeHtml(c.CurrencyCode) + '">' + escapeHtml(c.CurrencyCode) + ' - ' + escapeHtml(c.CurrencyName) + '</option>';
         }
         sel.innerHTML = opts;
 

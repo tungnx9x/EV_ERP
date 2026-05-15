@@ -417,7 +417,7 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 10,
-            Title = "Chờ báo cáo KQKD",
+            Title = "Báo cáo KQKD",
             Icon = "bi-file-earmark-bar-graph",
             BadgeColor = "primary",
             Tasks = soCompletedTasks

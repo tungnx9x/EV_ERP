@@ -873,12 +873,12 @@ public class QuotationService : IQuotationService
             int row = dataStartRow + i;
 
             // Merge B:C for product name (like template)
-            ws.Range(row, 2, row, 3).Merge();
+            //ws.Range(row, 2, row, 3).Merge();
 
             ws.Cell(row, 1).Value = i + 1;                                     // STT
-            ws.Cell(row, 2).Value = item.ProductName;                           // Request (text)
-            ws.Cell(row, 2).Style.Alignment.WrapText = true;
-            ws.Cell(row, 2).Style.Alignment.Vertical = XLAlignmentVerticalValues.Bottom;
+            ws.Cell(row, 3).Value = item.ProductName;                           // Request (text)
+            ws.Cell(row, 3).Style.Alignment.WrapText = true;
+            ws.Cell(row, 3).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             ws.Cell(row, 4).Value = item.Proposal ?? "";                        // Proposal
             ws.Cell(row, 4).Style.Alignment.WrapText = true;
             ws.Cell(row, 4).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;

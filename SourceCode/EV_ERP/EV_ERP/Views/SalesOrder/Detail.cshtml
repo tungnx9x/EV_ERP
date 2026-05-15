@@ -583,7 +583,7 @@
                                 <th>Sản phẩm</th>
                                 @if (canEdit && Model.Status == "DRAFT")
                                 {
-                                    <th style="width:80px;" class="text-center">Trạng thái</th>
+                                    <th style="width:80px;" class="text-center">Đã nhập</th>
                                 }
                                 <th>DVT</th>
                                 <th class="text-end">SL</th>
@@ -623,7 +623,7 @@
                                             <span class="badge @item.LineStatusBadge ms-1" style="font-size:0.65rem;">@item.LineStatusText</span>
                                             @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
                                             {
-                                                <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">Hủy @item.CancelledQty.ToString("N3")</span>
+                                                <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">Hủy @item.CancelledQty.ToString("0.###")</span>
                                             }
                                         }
                                     </td>
@@ -638,34 +638,40 @@
                                             }
                                             else
                                             {
-                                                <button type="button" class="btn btn-sm btn-outline-warning py-0 px-1"
-                                                        onclick="openCreateProductModal(@item.SOItemId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductName)', @item.UnitPrice, @(item.PurchasePrice?.ToString() ?? "0"), '@System.Web.HttpUtility.JavaScriptStringEncode(item.SourceUrl ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductDescription ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ImageUrl ?? "")')">
-                                                    <i class="bi bi-plus-circle me-1"></i>Tạo SP
-                                                </button>
+                                                <div class="d-flex flex-column gap-1">
+                                                    <a href="#" style="text-decoration: none;" 
+                                                            onclick="openCreateProductModal(@item.SOItemId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductName)', @item.UnitPrice, @(item.PurchasePrice?.ToString() ?? "0"), '@System.Web.HttpUtility.JavaScriptStringEncode(item.SourceUrl ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductDescription ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ImageUrl ?? "")')">
+                                                        <i class="bi bi-plus-circle me-1"></i>Tạo SP
+                                                    </a>
+                                                    <a href="#" style="text-decoration: none;"
+                                                            onclick="openAssignProductModal(@item.SOItemId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductName)')">
+                                                        <i class="bi bi-link-45deg me-1"></i>Gán SP
+                                                    </a>
+                                                </div>
                                             }
                                         </td>
                                     }
                                     <td>@item.UnitName</td>
-                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
+                                    <td class="text-end">@item.Quantity.ToString("0.###")</td>
                                     @if (showProgress)
                                     {
                                         <td class="text-center small">
                                             <div>
                                                 <span class="text-muted">Nhận:</span>
                                                 <span class="fw-semibold @(item.RemainingReceiveQty > 0 ? "text-info-emphasis" : "text-success")">
-                                                    @item.ReceivedQty.ToString("N3") / @item.EffectiveQty.ToString("N3")
+                                                    @item.ReceivedQty.ToString("0.###") / @item.EffectiveQty.ToString("0.###")
                                                 </span>
                                             </div>
                                             <div>
                                                 <span class="text-muted">Giao:</span>
                                                 <span class="fw-semibold @(item.RemainingDeliverQty > 0 ? "text-warning-emphasis" : "text-success")">
-                                                    @item.DeliveredQty.ToString("N3") / @item.EffectiveQty.ToString("N3")
+                                                    @item.DeliveredQty.ToString("0.###") / @item.EffectiveQty.ToString("0.###")
                                                 </span>
                                             </div>
                                             @if (item.InStockQty > 0)
                                             {
                                                 <div class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:0.65rem;">
-                                                    Trong kho: @item.InStockQty.ToString("N3")
+                                                    Trong kho: @item.InStockQty.ToString("0.###")
                                                 </div>
                                             }
                                         </td>
@@ -721,7 +727,7 @@
                                                 <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                                                         title="Bỏ sản phẩm này khỏi đơn (khách không mua)"
                                                         onclick="openCancelItemModal(@item.SOItemId)">
-                                                    <i class="bi bi-x-circle me-1"></i> Bỏ
+                                                    <i class="bi bi-x-circle"></i>
                                                 </button>
                                             }
                                             else
@@ -805,7 +811,7 @@
                             </tr>
                         </table>
                     </div>
-                    @if (showBuyingInfo)
+                    @if (showBuyingInfo || Model.Status == "DRAFT")
                     {
                         <div class="col-md-6">
                             <h6 class="fw-semibold text-muted text-uppercase mb-3" style="font-size:0.72rem;letter-spacing:.06em;">
@@ -1006,6 +1012,53 @@
 }
 
 
+<!-- Assign Existing Product Modal -->
+@if (canEdit && Model.Status == "DRAFT" && Model.HasUnmappedProducts)
+{
+    <div class="modal fade" id="assignProductModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold">
+                        <i class="bi bi-link-45deg me-1 text-primary"></i> Gán sản phẩm có sẵn
+                        <span class="text-muted small ms-2" id="apItemLabel"></span>
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="apSoItemId" />
+                    <input type="hidden" id="apProductId" />
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tìm sản phẩm</label>
+                        <input type="text" class="form-control form-control-sm" id="apSearchInput"
+                               placeholder="Nhập tên, mã sản phẩm hoặc barcode..." autocomplete="off"
+                               oninput="onAssignSearchInput(this)" />
+                        <div class="form-text small">Gõ tối thiểu 2 ký tự để tìm.</div>
+                    </div>
+
+                    <div id="apResults" class="border rounded" style="max-height:360px;overflow-y:auto;">
+                        <div class="p-3 text-muted small text-center">Nhập từ khoá để tìm sản phẩm</div>
+                    </div>
+
+                    <div id="apSelectedBox" class="mt-3 p-2 border rounded bg-light-subtle d-none">
+                        <div class="small text-muted">Sản phẩm đã chọn:</div>
+                        <div class="fw-semibold" id="apSelectedName"></div>
+                        <div class="text-muted small" id="apSelectedMeta"></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="apSubmitBtn" onclick="submitAssignProduct()" disabled>
+                        <i class="bi bi-check-lg me-1"></i> Gán sản phẩm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
 <!-- Buying Modal (WAIT → BUYING) — v2.2 per-line -->
 <div class="modal fade" id="buyingModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -1052,7 +1105,7 @@
                                         <input type="checkbox" class="buying-include" checked />
                                     </td>
                                     <td>@item.ProductName</td>
-                                    <td class="text-end">@item.Quantity.ToString("N3")</td>
+                                    <td class="text-end">@item.Quantity.ToString("0.###")</td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end purchase-price-input"
                                                data-item-id="@item.SOItemId" data-qty="@item.Quantity"
@@ -1219,7 +1272,7 @@
                                         <input type="checkbox" class="recv-include" />
                                     </td>
                                     <td>@item.ProductName <span class="text-muted small">(@item.UnitName)</span></td>
-                                    <td class="text-end text-info-emphasis fw-semibold">@item.RemainingReceiveQty.ToString("N3")</td>
+                                    <td class="text-end text-info-emphasis fw-semibold">@item.RemainingReceiveQty.ToString("0.###")</td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end recv-qty"
                                                min="0" max="@item.RemainingReceiveQty" step="0.001"
@@ -1299,7 +1352,7 @@
                                     <tr data-so-item-id="@item.SOItemId">
                                         <td>
                                             <div class="fw-semibold">@item.ProductName</div>
-                                            <div class="text-muted small">@item.UnitName · SL @item.Quantity.ToString("N3")</div>
+                                            <div class="text-muted small">@item.UnitName · SL @item.Quantity.ToString("0.###")</div>
                                         </td>
                                         <td class="text-end small text-muted">
                                             @if (item.PurchasePrice.HasValue && item.PurchasePrice > 0)
@@ -1395,7 +1448,7 @@
                                         <input type="checkbox" class="deliv-include" />
                                     </td>
                                     <td>@item.ProductName <span class="text-muted small">(@item.UnitName)</span></td>
-                                    <td class="text-end text-warning-emphasis fw-semibold">@item.InStockQty.ToString("N3")</td>
+                                    <td class="text-end text-warning-emphasis fw-semibold">@item.InStockQty.ToString("0.###")</td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end deliv-qty"
                                                min="0" max="@item.InStockQty" step="0.001"
@@ -1657,8 +1710,11 @@
 
         // Pre-fill form fields
         document.getElementById('ProductName').value = productName;
-        document.getElementById('DefaultSalePrice').value = salePrice || '';
-        document.getElementById('DefaultPurchasePrice').value = purchasePrice || '';
+        //document.getElementById('DefaultSalePrice').value = salePrice || '';
+        var dppEl = document.getElementById('DefaultPurchasePrice');
+        dppEl.value = (purchasePrice && Number(purchasePrice) > 0)
+            ? Number(purchasePrice).toLocaleString('vi-VN')
+            : '';
         document.getElementById('SourceUrl').value = sourceUrl || '';
 
         var descEl = document.getElementById('Description');
@@ -1724,7 +1780,7 @@
         formData.append('CategoryId', document.getElementById('CategoryId')?.value || '');
         formData.append('UnitId', unitId);
         formData.append('DefaultSalePrice', document.getElementById('DefaultSalePrice')?.value || '');
-        formData.append('DefaultPurchasePrice', document.getElementById('DefaultPurchasePrice')?.value || '');
+        formData.append('DefaultPurchasePrice', (document.getElementById('DefaultPurchasePrice')?.value || '').replace(/\./g, '').replace(/,/g, ''));
         formData.append('MinStockLevel', document.getElementById('MinStockLevel')?.value || '0');
         formData.append('Barcode', document.getElementById('Barcode')?.value || '');
         formData.append('BarcodeType', document.getElementById('BarcodeType')?.value || 'CODE128');
@@ -1775,6 +1831,110 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Tạo sản phẩm';
         });
+    }
+
+    // ── Assign Existing Product Modal ───────────────
+    var apSearchTimer = null;
+    var apActiveQuery = '';
+
+    function openAssignProductModal(soItemId, productName) {
+        document.getElementById('apSoItemId').value = soItemId;
+        document.getElementById('apProductId').value = '';
+        document.getElementById('apItemLabel').textContent = '(cho: ' + productName + ')';
+        document.getElementById('apSearchInput').value = productName || '';
+        document.getElementById('apResults').innerHTML = '<div class="p-3 text-muted small text-center">Nhập từ khoá để tìm sản phẩm</div>';
+        document.getElementById('apSelectedBox').classList.add('d-none');
+        document.getElementById('apSubmitBtn').disabled = true;
+        new bootstrap.Modal(document.getElementById('assignProductModal')).show();
+        // Auto-search if pre-filled name >= 2 chars
+        if ((productName || '').trim().length >= 2) {
+            runAssignSearch(productName.trim());
+        }
+        setTimeout(function () { document.getElementById('apSearchInput').focus(); }, 200);
+    }
+
+    function onAssignSearchInput(inputEl) {
+        var kw = inputEl.value.trim();
+        clearTimeout(apSearchTimer);
+        if (kw.length < 2) {
+            document.getElementById('apResults').innerHTML = '<div class="p-3 text-muted small text-center">Nhập tối thiểu 2 ký tự</div>';
+            return;
+        }
+        apSearchTimer = setTimeout(function () { runAssignSearch(kw); }, 300);
+    }
+
+    function runAssignSearch(kw) {
+        apActiveQuery = kw;
+        var box = document.getElementById('apResults');
+        box.innerHTML = '<div class="p-3 text-muted small text-center"><span class="spinner-border spinner-border-sm me-1"></span> Đang tìm...</div>';
+        fetch('/Quotation/SearchProducts?keyword=' + encodeURIComponent(kw))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (apActiveQuery !== kw) return;
+                if (!data || data.length === 0) {
+                    box.innerHTML = '<div class="p-3 text-muted small text-center">Không tìm thấy sản phẩm</div>';
+                    return;
+                }
+                box.innerHTML = data.map(function (p) {
+                    var img = p.ImageUrl
+                        ? '<img src="' + escapeHtmlAp(p.ImageUrl) + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:8px;" />'
+                        : '<div style="width:40px;height:40px;background:#f1f5f9;border-radius:4px;margin-right:8px;display:flex;align-items:center;justify-content:center;"><i class="bi bi-image text-muted"></i></div>';
+                    var meta = escapeHtmlAp(p.ProductCode) + ' &bull; ' + escapeHtmlAp(p.UnitName || '');
+                    return '<div class="ap-result-item d-flex align-items-center p-2 border-bottom" ' +
+                           'style="cursor:pointer;" ' +
+                           'onclick="selectAssignProduct(' + p.ProductId + ', ' +
+                                JSON.stringify(p.ProductName).replace(/"/g, '&quot;') + ', ' +
+                                JSON.stringify(meta).replace(/"/g, '&quot;') + ')">' +
+                           img +
+                           '<div class="flex-grow-1">' +
+                                '<div class="fw-semibold small">' + escapeHtmlAp(p.ProductName) + '</div>' +
+                                '<div class="text-muted" style="font-size:0.72rem;">' + meta + '</div>' +
+                           '</div>' +
+                           '</div>';
+                }).join('');
+            })
+            .catch(function () {
+                box.innerHTML = '<div class="p-3 text-danger small text-center">Lỗi tìm kiếm</div>';
+            });
+    }
+
+    function selectAssignProduct(productId, productName, meta) {
+        document.getElementById('apProductId').value = productId;
+        document.getElementById('apSelectedName').textContent = productName;
+        document.getElementById('apSelectedMeta').innerHTML = meta;
+        document.getElementById('apSelectedBox').classList.remove('d-none');
+        document.getElementById('apSubmitBtn').disabled = false;
+        // Highlight selected row
+        document.querySelectorAll('.ap-result-item').forEach(function (el) { el.classList.remove('bg-primary-subtle'); });
+        if (window.event && window.event.currentTarget) {
+            window.event.currentTarget.classList.add('bg-primary-subtle');
+        }
+    }
+
+    function submitAssignProduct() {
+        var soItemId = parseInt(document.getElementById('apSoItemId').value);
+        var productId = parseInt(document.getElementById('apProductId').value);
+        if (!productId) { alert('Vui lòng chọn sản phẩm'); return; }
+
+        var btn = document.getElementById('apSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang gán...';
+
+        postAction('/SalesOrder/AssignProduct/' + soId, { SOItemId: soItemId, ProductId: productId }, function (data) {
+            if (data.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('assignProductModal')).hide();
+                location.reload();
+            } else {
+                alert(data.Message || 'Lỗi gán sản phẩm');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Gán sản phẩm';
+            }
+        });
+    }
+
+    function escapeHtmlAp(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // ── Gallery preview for product modal ─────────────

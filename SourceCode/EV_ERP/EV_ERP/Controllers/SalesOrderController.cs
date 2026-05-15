@@ -123,6 +123,32 @@ public class SalesOrderController : Controller
         }
     }
 
+    // ── Assign Existing Product to SO Item ────────────
+    [HttpPost]
+    public async Task<IActionResult> AssignProduct(int id, [FromBody] AssignProductModel model)
+    {
+        try
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+            var (success, error) = await _salesOrderService.MapProductToSOItemAsync(
+                id, model.SOItemId, model.ProductId, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã gắn sản phẩm vào đơn hàng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AssignProduct failed for SO #{Id} item #{ItemId}", id, model.SOItemId);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    public class AssignProductModel
+    {
+        public int SOItemId { get; set; }
+        public int ProductId { get; set; }
+    }
+
     // ── Update Draft Info (PO KH + file) ──────────────
     [HttpPost]
     public async Task<IActionResult> UpdateDraftInfo(int id, string? customerPoNo, IFormFile? customerPoFile, DateTime? expectedDeliveryDate)

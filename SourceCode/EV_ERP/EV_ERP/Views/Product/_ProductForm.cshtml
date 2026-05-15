@@ -64,8 +64,13 @@
     <div class="col-md-4">
         <label asp-for="DefaultPurchasePrice" class="form-label fw-semibold small"></label>
         <div class="input-group">
-            <input asp-for="DefaultPurchasePrice" class="form-control" type="number" min="0"
-                   placeholder="VD: 100000" />
+            <input type="text" inputmode="numeric" autocomplete="off"
+                   id="DefaultPurchasePrice" name="DefaultPurchasePrice"
+                   class="form-control text-end"
+                   value="@(Model.DefaultPurchasePrice.HasValue ? Model.DefaultPurchasePrice.Value.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) : "")"
+                   placeholder="VD: 100,000"
+                   oninput="formatDefaultPurchasePriceInput(this)"
+                   onfocus="this.select()" />
             <span class="input-group-text" id="purchaseCurrencySymbol">₫</span>
         </div>
         <span asp-validation-for="DefaultPurchasePrice" class="text-danger small"></span>
@@ -103,6 +108,49 @@
         }
         sel.addEventListener('change', syncSymbol);
         syncSymbol();
+    })();
+
+    // Live-format DefaultPurchasePrice as money (vi-VN), preserving caret position.
+    function formatDefaultPurchasePriceInput(input) {
+        var oldVal = input.value;
+        var caret = input.selectionStart;
+        if (caret === null || caret === undefined) caret = oldVal.length;
+
+        var digitsLeft = 0;
+        for (var i = 0; i < caret; i++) {
+            var c = oldVal.charCodeAt(i);
+            if (c >= 48 && c <= 57) digitsLeft++;
+        }
+
+        var rawDigits = oldVal.replace(/\D/g, '');
+        if (rawDigits === '') { input.value = ''; return; }
+
+        var formatted = parseInt(rawDigits, 10).toLocaleString('vi-VN');
+        input.value = formatted;
+
+        var newPos = 0, seen = 0;
+        if (digitsLeft > 0) {
+            for (newPos = 0; newPos < formatted.length; newPos++) {
+                var c2 = formatted.charCodeAt(newPos);
+                if (c2 >= 48 && c2 <= 57) {
+                    seen++;
+                    if (seen === digitsLeft) { newPos++; break; }
+                }
+            }
+        }
+        try { input.setSelectionRange(newPos, newPos); } catch (e) { /* non-text inputs */ }
+    }
+
+    // Strip thousands separators before standard form post so model binder sees a plain number.
+    (function () {
+        var input = document.getElementById('DefaultPurchasePrice');
+        if (!input) return;
+        var form = input.form;
+        if (!form || form.dataset.dppStripBound === '1') return;
+        form.dataset.dppStripBound = '1';
+        form.addEventListener('submit', function () {
+            input.value = (input.value || '').replace(/\./g, '').replace(/,/g, '');
+        });
     })();
 </script>
 

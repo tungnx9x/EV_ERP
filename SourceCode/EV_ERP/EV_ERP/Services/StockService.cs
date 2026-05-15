@@ -263,7 +263,8 @@ namespace EV_ERP.Services
                             LocationId = i.LocationId,
                             Quantity = i.Quantity,
                             UnitName = i.UnitName,
-                            Notes = i.Notes
+                            Notes = i.Notes,
+                            SOItemId = i.SOItemId
                         }).ToList(),
                         Attachments = attachments,
                         Warehouses = warehouses,
@@ -358,7 +359,9 @@ namespace EV_ERP.Services
                             Barcode = item.Barcode,
                             Quantity = item.Quantity,
                             UnitName = item.UnitName,
-                            Notes = item.Notes?.Trim()
+                            Notes = item.Notes?.Trim(),
+                            // v2.2 — preserve link back to SOItem so ConfirmInbound can roll up ReceivedQty
+                            SOItemId = item.SOItemId
                         });
                     }
 
@@ -412,7 +415,8 @@ namespace EV_ERP.Services
                             Barcode = item.Barcode,
                             Quantity = item.Quantity,
                             UnitName = item.UnitName,
-                            Notes = item.Notes?.Trim()
+                            Notes = item.Notes?.Trim(),
+                            SOItemId = item.SOItemId
                         });
                     }
 

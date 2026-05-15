@@ -190,6 +190,9 @@ namespace EV_ERP.Models.ViewModels.Stock
         public decimal Quantity { get; set; }
         public string UnitName { get; set; } = string.Empty;
         public string? Notes { get; set; }
+        // v2.2 — preserve link back to SOItem across edit (drop+recreate) so that
+        // ConfirmInbound/StartDelivery can bump SOItem.ReceivedQty/DeliveredQty.
+        public int? SOItemId { get; set; }
     }
 
     // ── Delivery confirmation model ─────────────────────

@@ -636,7 +636,8 @@
                     LocationId: it.LocationId || null,
                     Quantity: it.Quantity,
                     UnitName: it.UnitName,
-                    Notes: it.Notes || null
+                    Notes: it.Notes || null,
+                    SOItemId: it.SOItemId || null
                 };
             }),
             AttachmentIds: attachments.filter(function (a) { return a.AttachmentId > 0; })

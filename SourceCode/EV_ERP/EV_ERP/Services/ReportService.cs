@@ -13,11 +13,15 @@ namespace EV_ERP.Services;
 public class ReportService : IReportService
 {
     private readonly IUnitOfWork _uow;
+    private readonly IWebHostEnvironment _env;
     private static readonly string[] RevenueStatuses = ["DELIVERED", "COMPLETED", "REPORTED"];
+    // BCKQKD = "Báo cáo kết quả kinh doanh" — counts SOs that finished the sales cycle.
+    private static readonly string[] SalesResultStatuses = ["COMPLETED", "REPORTED"];
 
-    public ReportService(IUnitOfWork uow)
+    public ReportService(IUnitOfWork uow, IWebHostEnvironment env)
     {
         _uow = uow;
+        _env = env;
     }
 
     public async Task<SalesRevenueReportViewModel> GetSalesRevenueAsync(SalesRevenueFilterViewModel filter)
@@ -228,5 +232,209 @@ public class ReportService : IReportService
                 FullName = u.FullName
             })
             .ToListAsync();
+    }
+
+    // ══════════════════════════════════════════════════════
+    // SALES RESULT (BCKQKD) — per current sales user
+    // ══════════════════════════════════════════════════════
+
+    public async Task<SalesResultReportViewModel> GetSalesResultAsync(
+        SalesResultFilterViewModel filter, int userId)
+    {
+        var rows = await BuildSalesResultRowsAsync(filter, userId);
+        var user = await _uow.Repository<User>().GetByIdAsync(userId);
+
+        return new SalesResultReportViewModel
+        {
+            Filter = filter,
+            UserFullName = user?.FullName ?? "",
+            Rows = rows,
+            TotalSubTotal = rows.Sum(r => r.SubTotal),
+            TotalTaxAmount = rows.Sum(r => r.TaxAmount),
+            TotalAmount = rows.Sum(r => r.TotalAmount),
+            TotalPurchaseCost = rows.Sum(r => r.PurchaseCost),
+            TotalShippingFee = rows.Sum(r => r.ShippingFee),
+            TotalUnofficialW2WShipping = rows.Sum(r => r.UnofficialW2WShipping)
+        };
+    }
+
+    public async Task<(byte[] FileBytes, string FileName)?> ExportSalesResultExcelAsync(
+        SalesResultFilterViewModel filter, int userId)
+    {
+        var rows = await BuildSalesResultRowsAsync(filter, userId);
+        if (rows.Count == 0) return null;
+
+        var user = await _uow.Repository<User>().GetByIdAsync(userId);
+        var userName = user?.FullName ?? "";
+
+        var templatePath = Path.Combine(_env.WebRootPath, "templates", "BCKQKD-template.xlsx");
+        if (!File.Exists(templatePath)) return null;
+
+        // Reporting period — prefer DateTo's month, else DateFrom's, else current.
+        var refDate = filter.DateTo ?? filter.DateFrom ?? DateTime.Today;
+        var monthLabel = refDate.ToString("MM/yyyy");
+        var monthNumber = refDate.ToString("MM");
+
+        using var wb = new XLWorkbook(templatePath);
+        var ws = wb.Worksheet(1);
+
+        // ── Header text replacements (rows 5, 8, 9 in template) ──
+        // Row 5 = title "BÁO CÁO KẾT QUẢ KINH DOANH THÁNG {MM/yyyy}" (merged A5:N6)
+        // Row 8 = "Nhân viên: {Users.FullName}"
+        // Row 9 = "Phòng Dự án xin báo cáo BLĐ kết quả kinh doanh tháng {MM} như sau:"
+        ReplaceInRow(ws, 5, "{MM/yyyy}", monthLabel);
+        ReplaceInRow(ws, 8, "{Users.FullName}", userName);
+        ReplaceInRow(ws, 9, "{MM}", monthNumber);
+
+        // ── Data rows ──
+        const int dataStartRow = 12;
+        int itemCount = rows.Count;
+        if (itemCount > 1)
+        {
+            ws.Row(dataStartRow).InsertRowsBelow(itemCount - 1);
+        }
+
+        for (int i = 0; i < itemCount; i++)
+        {
+            var r = rows[i];
+            int row = dataStartRow + i;
+
+            ws.Cell(row, 1).Value = i + 1;                          // A: TT
+            ws.Cell(row, 2).Value = r.CustomerName;                  // B: Tên Dự án/KH
+            ws.Cell(row, 3).Value = r.CustomerPoNo ?? "";            // C: Số PO/HĐ
+            ws.Cell(row, 4).Value = r.SalesOrderNo;                  // D: Số DNTT/DNHU
+            ws.Cell(row, 5).Value = "";                              // E: Số Hóa Đơn
+            ws.Cell(row, 6).Value = "";                              // F: Ngày Hóa Đơn
+            ws.Cell(row, 7).Value = r.ProductName;                   // G: Gói hàng hóa
+            ws.Cell(row, 8).Value = r.TotalAmount;                   // H: Thành tiền BÁN
+            ws.Cell(row, 9).Value = r.PurchaseCost;                  // I: Thành tiền MUA
+            ws.Cell(row, 10).Value = r.SubTotal;                     // J: Tổng tiền BÁN chưa VAT
+            // K: Tổng tiền BÁN ko VAT — leave empty per template
+            ws.Cell(row, 12).Value = r.TaxAmount;                    // L: Tổng VAT đầu vào
+            ws.Cell(row, 13).Value = r.UnofficialW2WShipping;        // M: Phí v/c về VP
+            ws.Cell(row, 14).Value = r.ShippingFee;                  // N: Phí v/c đến KH
+
+            // Number formatting for currency columns
+            foreach (var col in new[] { 8, 9, 10, 11, 12, 13, 14 })
+            {
+                ws.Cell(row, col).Style.NumberFormat.Format = "#,##0";
+            }
+        }
+
+        // ── Sum row (was row 13, now shifted) ──
+        int lastDataRow = dataStartRow + itemCount - 1;
+        int sumRow = lastDataRow + 1;
+        // Rebuild SUM formulas so they cover all data rows (H..N).
+        var sumCols = new (int Idx, string Letter)[]
+        {
+            (8, "H"), (9, "I"), (10, "J"), (11, "K"),
+            (12, "L"), (13, "M"), (14, "N")
+        };
+        foreach (var (idx, letter) in sumCols)
+        {
+            ws.Cell(sumRow, idx).FormulaA1 = $"SUM({letter}{dataStartRow}:{letter}{lastDataRow})";
+            ws.Cell(sumRow, idx).Style.NumberFormat.Format = "#,##0";
+        }
+
+        var safeUser = SanitizeFileName(userName);
+        var fileName = $"BCKQKD_{refDate:yyyy.MM}_{safeUser}.xlsx";
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return (ms.ToArray(), fileName);
+    }
+
+    private async Task<List<SalesResultRowViewModel>> BuildSalesResultRowsAsync(
+        SalesResultFilterViewModel filter, int userId)
+    {
+        var query = _uow.Repository<SalesOrder>().Query()
+            .Include(so => so.Customer)
+            .Include(so => so.Items)
+            .Where(so => SalesResultStatuses.Contains(so.Status)
+                         && so.SalesPersonId == userId);
+
+        // Date filter: prefer CompletedAt — that's when the sales cycle finished.
+        if (filter.DateFrom.HasValue)
+        {
+            var from = filter.DateFrom.Value.Date;
+            query = query.Where(so => so.CompletedAt != null && so.CompletedAt >= from);
+        }
+        if (filter.DateTo.HasValue)
+        {
+            var toExclusive = filter.DateTo.Value.Date.AddDays(1);
+            query = query.Where(so => so.CompletedAt != null && so.CompletedAt < toExclusive);
+        }
+
+        var sos = await query.OrderBy(so => so.CompletedAt).ToListAsync();
+        if (sos.Count == 0) return [];
+
+        // Pull QuotationItems for shipping figures — one query keyed by QuotationId.
+        var quotationIds = sos.Where(so => so.QuotationId.HasValue)
+                              .Select(so => so.QuotationId!.Value).Distinct().ToList();
+
+        var qItemsByQuotation = new Dictionary<int, List<QuotationItem>>();
+        if (quotationIds.Count > 0)
+        {
+            var qItems = await _uow.Repository<QuotationItem>().Query()
+                .Where(qi => quotationIds.Contains(qi.QuotationId))
+                .ToListAsync();
+            qItemsByQuotation = qItems.GroupBy(qi => qi.QuotationId)
+                                      .ToDictionary(g => g.Key, g => g.ToList());
+        }
+
+        var rows = new List<SalesResultRowViewModel>(sos.Count);
+        foreach (var so in sos)
+        {
+            decimal shipping = 0, w2w = 0;
+            if (so.QuotationId.HasValue
+                && qItemsByQuotation.TryGetValue(so.QuotationId.Value, out var qItems))
+            {
+                shipping = qItems.Sum(qi => qi.ShippingFee ?? 0);
+                w2w = qItems.Sum(qi => qi.UnofficialW2WShipping ?? 0);
+            }
+
+            var productNames = string.Join(", ", so.Items
+                .OrderBy(i => i.SortOrder)
+                .Select(i => i.ProductName));
+
+            rows.Add(new SalesResultRowViewModel
+            {
+                SalesOrderId = so.SalesOrderId,
+                SalesOrderNo = so.SalesOrderNo,
+                CustomerName = so.Customer.CustomerName,
+                CustomerPoNo = so.CustomerPoNo,
+                ProductName = productNames,
+                OrderDate = so.OrderDate,
+                CompletedAt = so.CompletedAt,
+                SubTotal = so.SubTotal,
+                TaxAmount = so.TaxAmount,
+                TotalAmount = so.TotalAmount,
+                PurchaseCost = so.PurchaseCost ?? so.ActualCost ?? 0,
+                ShippingFee = shipping,
+                UnofficialW2WShipping = w2w
+            });
+        }
+        return rows;
+    }
+
+    private static void ReplaceInRow(IXLWorksheet ws, int rowNumber, string token, string replacement)
+    {
+        foreach (var cell in ws.Row(rowNumber).CellsUsed())
+        {
+            if (cell.DataType == XLDataType.Text)
+            {
+                var text = cell.GetString();
+                if (text.Contains(token))
+                {
+                    cell.Value = text.Replace(token, replacement);
+                }
+            }
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Join("", name.Where(c => !invalid.Contains(c))).Trim();
     }
 }

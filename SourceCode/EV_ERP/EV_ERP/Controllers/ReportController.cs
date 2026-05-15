@@ -19,10 +19,14 @@ public class ReportController : Controller
         _logger = logger;
     }
 
-    private string CurrentRoleCode =>
-        HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.RoleCode;
+    private CurrentUser CurrentUser =>
+        HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!;
+
+    private string CurrentRoleCode => CurrentUser.RoleCode;
+    private int CurrentUserId => CurrentUser.UserId;
 
     private bool CanView => CurrentRoleCode is "ADMIN" or "MANAGER";
+    private bool CanViewSalesResult => CurrentRoleCode is "ADMIN" or "MANAGER" or "SALES";
 
     // ── Sales Revenue page ──────────────────────────────
     [HttpGet]
@@ -91,6 +95,78 @@ public class ReportController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting sales revenue report");
+            return Json(new { Success = false, Message = "Lỗi khi xuất báo cáo" });
+        }
+    }
+
+    // ── Sales Result (BCKQKD) page ───────────────────────
+    [HttpGet]
+    public async Task<IActionResult> SalesResult()
+    {
+        if (!CanViewSalesResult) return RedirectToAction("AccessDenied", "Auth");
+
+        var today = DateTime.Today;
+        var filter = new SalesResultFilterViewModel
+        {
+            DateFrom = new DateTime(today.Year, today.Month, 1),
+            DateTo = today
+        };
+
+        var vm = await _reportService.GetSalesResultAsync(filter, CurrentUserId);
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SalesResult([FromBody] SalesResultFilterViewModel filter)
+    {
+        if (!CanViewSalesResult) return Forbid();
+
+        try
+        {
+            var vm = await _reportService.GetSalesResultAsync(filter, CurrentUserId);
+            return Json(new
+            {
+                Success = true,
+                Data = new
+                {
+                    vm.UserFullName,
+                    vm.Rows,
+                    vm.TotalSubTotal,
+                    vm.TotalTaxAmount,
+                    vm.TotalAmount,
+                    vm.TotalPurchaseCost,
+                    vm.TotalShippingFee,
+                    vm.TotalUnofficialW2WShipping
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error filtering sales result report");
+            return Json(new { Success = false, Message = "Lỗi khi lọc báo cáo" });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ExportSalesResult([FromBody] SalesResultFilterViewModel filter)
+    {
+        if (!CanViewSalesResult) return Forbid();
+
+        try
+        {
+            var result = await _reportService.ExportSalesResultExcelAsync(filter, CurrentUserId);
+            if (result == null)
+                return Json(new { Success = false, Message = "Không có dữ liệu để xuất" });
+
+            return File(result.Value.FileBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                result.Value.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting sales result report");
             return Json(new { Success = false, Message = "Lỗi khi xuất báo cáo" });
         }
     }

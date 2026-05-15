@@ -49,3 +49,44 @@ public class SalesRevenueRowViewModel
     public decimal TotalAmount { get; set; }
     public string Status { get; set; } = string.Empty;
 }
+
+// ══════════════════════════════════════════════════════
+// SALES RESULT (BCKQKD) REPORT — per-user, current sales person only
+// ══════════════════════════════════════════════════════
+
+public class SalesResultFilterViewModel
+{
+    public DateTime? DateFrom { get; set; }
+    public DateTime? DateTo { get; set; }
+}
+
+public class SalesResultReportViewModel
+{
+    public SalesResultFilterViewModel Filter { get; set; } = new();
+    public string UserFullName { get; set; } = string.Empty;
+    public List<SalesResultRowViewModel> Rows { get; set; } = [];
+
+    public decimal TotalSubTotal { get; set; }
+    public decimal TotalTaxAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal TotalPurchaseCost { get; set; }
+    public decimal TotalShippingFee { get; set; }
+    public decimal TotalUnofficialW2WShipping { get; set; }
+}
+
+public class SalesResultRowViewModel
+{
+    public int SalesOrderId { get; set; }
+    public string SalesOrderNo { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string? CustomerPoNo { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public DateTime OrderDate { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public decimal SubTotal { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal PurchaseCost { get; set; }
+    public decimal ShippingFee { get; set; }
+    public decimal UnofficialW2WShipping { get; set; }
+}

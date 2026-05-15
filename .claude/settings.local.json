@@ -15,7 +15,9 @@
       "Bash(unzip -o -q \"F:/Dev/EV_ERP/SystemDesign/EVH-Form-DNHU-template.xlsx\" -d dnhu)",
       "Bash(unzip -o -q \"F:/Dev/EV_ERP/SystemDesign/EVH-Form-DNTT-template.xlsx\" -d dntt)",
       "Read(//tmp/**)",
-      "Bash(dotnet run *)"
+      "Bash(dotnet run *)",
+      "Bash(cp \"/f/Dev/EV_ERP/SourceCode/EV_ERP/EV_ERP/wwwroot/templates/BCKQKD-template.xlsx\" bckqkd.xlsx)",
+      "Bash(unzip -o bckqkd.xlsx -d bckqkd_unzipped)"
     ]
   }
 }

@@ -1,0 +1,259 @@
+@model EV_ERP.Models.ViewModels.Reports.SalesResultReportViewModel
+@{
+    ViewData["Title"] = "Báo cáo kết quả kinh doanh";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Báo cáo"),
+        new("KQKD")
+    };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-line me-2"></i>Báo cáo kết quả kinh doanh</h5>
+    <span class="text-muted small">Nhân viên: <strong>@Model.UserFullName</strong></span>
+</div>
+
+<!-- Filter Bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-3 col-md-4">
+                <label class="form-label small fw-semibold mb-1">Từ ngày</label>
+                <input type="date" id="filter_dateFrom" class="form-control form-control-sm"
+                       value="@Model.Filter.DateFrom?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-lg-3 col-md-4">
+                <label class="form-label small fw-semibold mb-1">Đến ngày</label>
+                <input type="date" id="filter_dateTo" class="form-control form-control-sm"
+                       value="@Model.Filter.DateTo?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-lg-6 col-md-4 d-flex gap-2">
+                <button class="btn btn-primary btn-sm" onclick="applyFilter()">
+                    <i class="bi bi-funnel me-1"></i>Lọc
+                </button>
+                <button class="btn btn-success btn-sm" onclick="exportExcel()">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
+                </button>
+                <small class="text-muted ms-2 align-self-center">
+                    Lấy đơn ở trạng thái Hoàn thành / Đã quyết toán, lọc theo ngày hoàn thành.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-3">
+                <div class="text-muted small">Số đơn hoàn thành</div>
+                <div class="fw-bold fs-5" id="summary_orderCount">@Model.Rows.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-3">
+                <div class="text-muted small">Tổng tiền BÁN (VAT)</div>
+                <div class="fw-bold fs-5 text-success" id="summary_totalAmount">@Model.TotalAmount.ToString("#,##0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-3">
+                <div class="text-muted small">Tổng tiền MUA</div>
+                <div class="fw-bold fs-5 text-danger" id="summary_totalPurchase">@Model.TotalPurchaseCost.ToString("#,##0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-3">
+                <div class="text-muted small">Doanh thu chưa VAT</div>
+                <div class="fw-bold fs-5 text-primary" id="summary_totalSub">@Model.TotalSubTotal.ToString("#,##0")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 fw-semibold d-flex justify-content-between">
+        <span><i class="bi bi-table me-1"></i> Chi tiết</span>
+        <span class="text-muted small"><span id="rowCount">@Model.Rows.Count</span> đơn</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="font-size:0.82rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3" style="width:40px;">TT</th>
+                        <th>Tên Dự án/KH</th>
+                        <th>Số PO/HĐ</th>
+                        <th>Số DNTT/DNHU</th>
+                        <th>Gói hàng hóa</th>
+                        <th class="text-end">Thành tiền BÁN</th>
+                        <th class="text-end">Thành tiền MUA</th>
+                        <th class="text-end">BÁN chưa VAT</th>
+                        <th class="text-end">VAT đầu vào</th>
+                        <th class="text-end">Phí v/c về VP</th>
+                        <th class="text-end">Phí v/c đến KH</th>
+                    </tr>
+                </thead>
+                <tbody id="reportTableBody">
+                    @{ int idx = 1; }
+                    @foreach (var r in Model.Rows)
+                    {
+                        <tr style="cursor:pointer;" onclick="window.location.href='/SalesOrder/Detail/@r.SalesOrderId'">
+                            <td class="ps-3">@(idx++)</td>
+                            <td>@r.CustomerName</td>
+                            <td>@r.CustomerPoNo</td>
+                            <td><span class="fw-semibold text-primary">@r.SalesOrderNo</span></td>
+                            <td class="text-truncate" style="max-width:280px;" title="@r.ProductName">@r.ProductName</td>
+                            <td class="text-end">@r.TotalAmount.ToString("#,##0")</td>
+                            <td class="text-end">@r.PurchaseCost.ToString("#,##0")</td>
+                            <td class="text-end">@r.SubTotal.ToString("#,##0")</td>
+                            <td class="text-end">@r.TaxAmount.ToString("#,##0")</td>
+                            <td class="text-end">@r.UnofficialW2WShipping.ToString("#,##0")</td>
+                            <td class="text-end">@r.ShippingFee.ToString("#,##0")</td>
+                        </tr>
+                    }
+                    @if (Model.Rows.Count == 0)
+                    {
+                        <tr><td colspan="11" class="text-center text-muted py-4">Không có dữ liệu</td></tr>
+                    }
+                </tbody>
+                <tfoot class="table-light fw-bold" id="reportTableFoot">
+                    <tr>
+                        <td colspan="5" class="text-end ps-3">TỔNG CỘNG</td>
+                        <td class="text-end">@Model.TotalAmount.ToString("#,##0")</td>
+                        <td class="text-end">@Model.TotalPurchaseCost.ToString("#,##0")</td>
+                        <td class="text-end">@Model.TotalSubTotal.ToString("#,##0")</td>
+                        <td class="text-end">@Model.TotalTaxAmount.ToString("#,##0")</td>
+                        <td class="text-end">@Model.TotalUnofficialW2WShipping.ToString("#,##0")</td>
+                        <td class="text-end">@Model.TotalShippingFee.ToString("#,##0")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getFilterPayload() {
+        return {
+            DateFrom: document.getElementById('filter_dateFrom').value || null,
+            DateTo: document.getElementById('filter_dateTo').value || null
+        };
+    }
+
+    function formatNumber(n) {
+        if (n == null || isNaN(n)) return '0';
+        return Math.round(n).toLocaleString('vi-VN');
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function applyFilter() {
+        var payload = getFilterPayload();
+        fetch('/Report/SalesResult', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res.Success) { alert(res.Message || 'Lỗi'); return; }
+            var d = res.Data;
+
+            document.getElementById('summary_orderCount').textContent = d.Rows.length;
+            document.getElementById('summary_totalAmount').textContent = formatNumber(d.TotalAmount);
+            document.getElementById('summary_totalPurchase').textContent = formatNumber(d.TotalPurchaseCost);
+            document.getElementById('summary_totalSub').textContent = formatNumber(d.TotalSubTotal);
+            document.getElementById('rowCount').textContent = d.Rows.length;
+
+            var tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+            if (d.Rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">Không có dữ liệu</td></tr>';
+            } else {
+                d.Rows.forEach(function (r, i) {
+                    var tr = document.createElement('tr');
+                    tr.style.cursor = 'pointer';
+                    tr.onclick = function () { window.location.href = '/SalesOrder/Detail/' + r.SalesOrderId; };
+                    tr.innerHTML =
+                        '<td class="ps-3">' + (i + 1) + '</td>' +
+                        '<td>' + escapeHtml(r.CustomerName) + '</td>' +
+                        '<td>' + escapeHtml(r.CustomerPoNo || '') + '</td>' +
+                        '<td><span class="fw-semibold text-primary">' + escapeHtml(r.SalesOrderNo) + '</span></td>' +
+                        '<td class="text-truncate" style="max-width:280px;" title="' + escapeHtml(r.ProductName) + '">' + escapeHtml(r.ProductName) + '</td>' +
+                        '<td class="text-end">' + formatNumber(r.TotalAmount) + '</td>' +
+                        '<td class="text-end">' + formatNumber(r.PurchaseCost) + '</td>' +
+                        '<td class="text-end">' + formatNumber(r.SubTotal) + '</td>' +
+                        '<td class="text-end">' + formatNumber(r.TaxAmount) + '</td>' +
+                        '<td class="text-end">' + formatNumber(r.UnofficialW2WShipping) + '</td>' +
+                        '<td class="text-end">' + formatNumber(r.ShippingFee) + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+
+            var tfoot = document.getElementById('reportTableFoot');
+            tfoot.innerHTML =
+                '<tr>' +
+                '<td colspan="5" class="text-end ps-3">TỔNG CỘNG</td>' +
+                '<td class="text-end">' + formatNumber(d.TotalAmount) + '</td>' +
+                '<td class="text-end">' + formatNumber(d.TotalPurchaseCost) + '</td>' +
+                '<td class="text-end">' + formatNumber(d.TotalSubTotal) + '</td>' +
+                '<td class="text-end">' + formatNumber(d.TotalTaxAmount) + '</td>' +
+                '<td class="text-end">' + formatNumber(d.TotalUnofficialW2WShipping) + '</td>' +
+                '<td class="text-end">' + formatNumber(d.TotalShippingFee) + '</td>' +
+                '</tr>';
+        })
+        .catch(function () { alert('Lỗi kết nối'); });
+    }
+
+    function exportExcel() {
+        var payload = getFilterPayload();
+        fetch('/Report/ExportSalesResult', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': getAntiForgeryToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) {
+            if (!r.ok) { alert('Lỗi xuất Excel'); return; }
+            var ct = r.headers.get('Content-Type') || '';
+            if (ct.indexOf('json') >= 0) {
+                return r.json().then(function (d) { alert(d.Message || 'Không có dữ liệu'); });
+            }
+            return r.blob().then(function (blob) {
+                var cd = r.headers.get('Content-Disposition') || '';
+                var match = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                var fileName = match ? match[1].replace(/['"]/g, '') : 'BCKQKD.xlsx';
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            });
+        });
+    }
+
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+</script>
+@Html.AntiForgeryToken()

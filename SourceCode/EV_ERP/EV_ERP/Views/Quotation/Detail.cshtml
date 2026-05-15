@@ -274,7 +274,7 @@
                             <th class="text-center">Hệ số</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="quotItemsTbody">
                         @{ int idx = 1; }
                         @foreach (var item in Model.Items)
                         {
@@ -336,6 +336,28 @@
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+            <!-- Pager (client-side) -->
+            <div id="quotItemsPager" class="d-flex justify-content-between align-items-center px-3 py-2 border-top small" style="display:none !important;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted">Hiển thị</span>
+                    <select id="quotItemsPageSize" class="form-select form-select-sm" style="width:auto;">
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="9999">Tất cả</option>
+                    </select>
+                    <span class="text-muted">/ tổng @Model.Items.Count dòng</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" id="quotItemsPrev" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Trang trước">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="text-muted" id="quotItemsPageInfo"></span>
+                    <button type="button" id="quotItemsNext" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Trang sau">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -483,6 +505,53 @@
         function getAntiForgeryToken() {
             return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
         }
+
+        // ── Items table client-side pagination ──────────────
+        (function () {
+            var tbody = document.getElementById('quotItemsTbody');
+            var pager = document.getElementById('quotItemsPager');
+            if (!tbody || !pager) return;
+            var rows = Array.from(tbody.querySelectorAll(':scope > tr'));
+            if (rows.length === 0) return;
+
+            // Hide pager when the smallest page size already shows everything.
+            if (rows.length <= 10) return;
+            pager.style.removeProperty('display');
+
+            var pageSize = 10;
+            var page = 0;
+            var sizeEl = document.getElementById('quotItemsPageSize');
+            var prevEl = document.getElementById('quotItemsPrev');
+            var nextEl = document.getElementById('quotItemsNext');
+            var infoEl = document.getElementById('quotItemsPageInfo');
+
+            function render() {
+                var pages = Math.max(1, Math.ceil(rows.length / pageSize));
+                if (page >= pages) page = pages - 1;
+                if (page < 0) page = 0;
+                var start = page * pageSize, end = start + pageSize;
+                rows.forEach(function (tr, i) {
+                    tr.style.display = (i >= start && i < end) ? '' : 'none';
+                });
+                if (infoEl) {
+                    var from = (start + 1);
+                    var to = Math.min(end, rows.length);
+                    infoEl.textContent = from + '–' + to + ' / ' + rows.length;
+                }
+                if (prevEl) prevEl.disabled = (page === 0);
+                if (nextEl) nextEl.disabled = (page >= pages - 1);
+            }
+
+            sizeEl && sizeEl.addEventListener('change', function (e) {
+                pageSize = parseInt(e.target.value) || 10;
+                page = 0;
+                render();
+            });
+            prevEl && prevEl.addEventListener('click', function () { page--; render(); });
+            nextEl && nextEl.addEventListener('click', function () { page++; render(); });
+
+            render();
+        })();
     </script>
     @Html.AntiForgeryToken()
 }

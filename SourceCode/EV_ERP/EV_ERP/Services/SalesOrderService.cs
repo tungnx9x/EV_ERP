@@ -792,6 +792,17 @@ public class SalesOrderService : ISalesOrderService
 
         if (so == null || so.Items.Count == 0) return null;
 
+        // Pull BasePrice + PurchaseExchangeRate from the source quotation (matched by SortOrder).
+        var qItemsBySort = new Dictionary<int, QuotationItem>();
+        if (so.QuotationId.HasValue)
+        {
+            var qItems = await _uow.Repository<QuotationItem>().Query()
+                .Where(qi => qi.QuotationId == so.QuotationId.Value)
+                .ToListAsync();
+            qItemsBySort = qItems.GroupBy(qi => qi.SortOrder)
+                                 .ToDictionary(g => g.Key, g => g.First());
+        }
+
         var user = await _uow.Repository<User>().GetByIdAsync(userId);
         var userName = user?.FullName ?? "";
 
@@ -840,12 +851,28 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 8).FormulaA1 = $"(F{row}*E{row})+(F{row}*E{row}*G{row})";
 
             // Cột mua hàng (J, K, L, M, N, O) — replace template placeholders
-            ws.Cell(row, 10).Value = item.PurchasePrice ?? 0;        // J: Đơn giá mua nguyên tệ
-            ws.Cell(row, 11).Value = 0;                              // K: Tỷ giá
+            qItemsBySort.TryGetValue(item.SortOrder, out var qItem);
+            ws.Cell(row, 10).Value = qItem?.BasePrice ?? item.PurchasePrice ?? 0;          // J: Đơn giá mua nguyên tệ (Quotation.BasePrice)
+            ws.Cell(row, 11).Value = qItem?.PurchaseExchangeRate ?? 1; // K: Tỷ giá (Quotation.PurchaseExchangeRate)
             ws.Cell(row, 12).Value = item.PurchasePrice ?? 0;        // L: Đơn giá mua VNĐ
             ws.Cell(row, 13).Value = item.Quantity;                  // M: SL mua (giả định = SL bán)
             ws.Cell(row, 14).Value = (item.TaxRate ?? so.TaxRate) / 100m; // N: VAT mua
             ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})"; // O: Thành tiền chi phí
+            if (qItem != null) 
+            {
+                if (qItem.UnofficialWeightKg.HasValue)// P: Kg/Volume
+                {
+                    ws.Cell(row, 16).Value = qItem.UnofficialWeightKg.Value;
+                }
+                if (qItem.PurchaseMode == "OFFICIAL" && qItem.OfficialShipping.HasValue)  // Q: Phí vận chuyển về văn phòng
+                {
+                    ws.Cell(row, 17).Value = qItem.OfficialShipping.Value;
+                }
+                if (qItem.PurchaseMode == "UNOFFICIAL" && qItem.UnofficialW2WShipping.HasValue)
+                {
+                    ws.Cell(row, 17).Value = qItem.UnofficialW2WShipping.Value;
+                }
+            }
 
             // R: Phí vận chuyển — replace template placeholder
             ws.Cell(row, 18).Value = item.ShippingFee ?? 0;
@@ -856,7 +883,7 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 10).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 12).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 13).Style.NumberFormat.Format = "#,##0.###";
+            ws.Cell(row, 13).Style.NumberFormat.Format = "#";
             ws.Cell(row, 14).Style.NumberFormat.Format = "0%";
             ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0";
@@ -871,6 +898,12 @@ public class SalesOrderService : ISalesOrderService
         ws.Cell(totalRow, 5).FormulaA1 = $"SUMPRODUCT(E{dataStartRow}:E{lastDataRow},F{dataStartRow}:F{lastDataRow})";
         ws.Cell(totalRow, 7).FormulaA1 = $"SUMPRODUCT(E{dataStartRow}:E{lastDataRow},F{dataStartRow}:F{lastDataRow},G{dataStartRow}:G{lastDataRow})";
         ws.Cell(totalRow, 8).FormulaA1 = $"SUM(H{dataStartRow}:H{lastDataRow})";
+
+        ws.Cell(totalRow, 12).FormulaA1 = $"SUMPRODUCT(L{dataStartRow}:L{lastDataRow},M{dataStartRow}:M{lastDataRow})";
+        ws.Cell(totalRow, 14).FormulaA1 = $"SUMPRODUCT(L{dataStartRow}:L{lastDataRow},M{dataStartRow}:M{lastDataRow},N{dataStartRow}:N{lastDataRow})";
+        ws.Cell(totalRow, 15).FormulaA1 = $"SUM(O{dataStartRow}:O{lastDataRow})";
+        ws.Cell(totalRow, 17).FormulaA1 = $"SUM(Q{dataStartRow}:Q{lastDataRow})";
+        ws.Cell(totalRow, 18).FormulaA1 = $"SUM(R{dataStartRow}:R{lastDataRow})";
 
         // ── Advance amount ──
         int advanceRow = totalRow + 5; // Row 18 in template → shifts

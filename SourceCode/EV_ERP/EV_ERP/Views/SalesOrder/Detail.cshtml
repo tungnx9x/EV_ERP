@@ -750,7 +750,8 @@
                                                         </button>
                                                     }
                                                     <button type="button" class="btn btn-outline-secondary py-0 px-1 dropdown-toggle"
-                                                            data-bs-toggle="dropdown" aria-expanded="false" title="Khác">
+                                                            data-bs-toggle="dropdown" aria-expanded="false"
+                                                            data-portal="fixed" title="Khác">
                                                     </button>
                                                     <ul class="dropdown-menu dropdown-menu-end">
                                                         <li>
@@ -1566,6 +1567,20 @@
 <script>
     var soId = @Model.SalesOrderId;
     var hasUnmappedProducts = @(Model.HasUnmappedProducts ? "true" : "false");
+
+    // Re-init dropdowns inside .table-responsive with Popper's `fixed` strategy
+    // so the menu escapes the table's overflow clipping.
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-portal="fixed"][data-bs-toggle="dropdown"]').forEach(function (el) {
+            var existing = bootstrap.Dropdown.getInstance(el);
+            if (existing) existing.dispose();
+            new bootstrap.Dropdown(el, {
+                popperConfig: function (defaultBsPopperConfig) {
+                    return Object.assign({}, defaultBsPopperConfig, { strategy: 'fixed' });
+                }
+            });
+        });
+    });
 
     // ── Helpers ──────────────────────────────────────
     function postAction(url, body, callback) {

@@ -10,6 +10,9 @@
     bool canEdit = ViewBag.CanEdit == true;
     bool isManager = ViewBag.IsManager == true;
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
+    string currentRole = (ViewBag.CurrentRoleCode as string) ?? "";
+    bool isWarehouse = currentRole == "WAREHOUSE";
+    bool showMoney = !isWarehouse;   // pricing / cost / profit / advance — hidden from warehouse role
     bool canManageStatus = isManager || Model.SalesPersonId == currentUserId;
     bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "RETURNED" or "COMPLETED" or "REPORTED";
     var productForm = ViewBag.ProductForm as EV_ERP.Models.ViewModels.Products.ProductFormViewModel;
@@ -24,7 +27,7 @@
         <div>
             <div class="d-flex flex-wrap align-items-center gap-3">
                 <h5 class="mb-0 fw-bold">@Model.SalesOrderNo</h5>
-                @if (Model.Status == "DRAFT")
+                @if (showMoney && Model.Status == "DRAFT")
                 {
                    <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId"
                     class="text-success d-flex align-items-center"
@@ -33,7 +36,7 @@
                         Xuất DNTU
                    </a>
                 }
-                @if (Model.Status == "DELIVERED")
+                @if (showMoney && Model.Status == "DELIVERED")
                 {
                     <div class="dropdown">
                         <a class="text-success d-flex align-items-center dropdown-toggle"
@@ -421,7 +424,7 @@
            }
 
            <!-- Settlement -->
-           @if (Model.Status is "COMPLETED" or "REPORTED" or "RETURNED" && Model.ActualCost.HasValue)
+           @if (showMoney && Model.Status is "COMPLETED" or "REPORTED" or "RETURNED" && Model.ActualCost.HasValue)
            {
                <div class="card border-0 shadow-sm mb-3 border-start border-4 border-success">
                    <div class="card-body">
@@ -592,14 +595,17 @@
                                     <th class="text-center bg-info-subtle" style="min-width:140px;">Tiến độ mua/giao</th>
                                     <th class="text-center bg-info-subtle" style="min-width:110px;">Dự kiến</th>
                                 }
-                                <th class="text-end bg-success-subtle">Đơn giá bán</th>
-                                <th class="text-end bg-success-subtle">Thành tiền</th>
-                                @if (showBuyingInfo)
+                                @if (showMoney)
+                                {
+                                    <th class="text-end bg-success-subtle">Đơn giá bán</th>
+                                    <th class="text-end bg-success-subtle">Thành tiền</th>
+                                }
+                                @if (showMoney && showBuyingInfo)
                                 {
                                     <th class="text-end bg-warning-subtle">Giá mua</th>
                                     <th class="text-end bg-warning-subtle">Chi phí</th>
                                 }
-                                @if (showAdvanceCol)
+                                @if (showMoney && showAdvanceCol)
                                 {
                                     <th class="text-end" style="background-color:#fff7e6;min-width:110px;" title="Tổng tạm ứng đã ghi nhận cho dòng này">Đã tạm ứng</th>
                                 }
@@ -694,14 +700,17 @@
                                             }
                                         </td>
                                     }
-                                    <td class="text-end">@item.UnitPrice.ToString("N0")</td>
-                                    <td class="text-end fw-semibold text-success">@item.LineTotal.ToString("N0")</td>
-                                    @if (showBuyingInfo)
+                                    @if (showMoney)
+                                    {
+                                        <td class="text-end">@item.UnitPrice.ToString("N0")</td>
+                                        <td class="text-end fw-semibold text-success">@item.LineTotal.ToString("N0")</td>
+                                    }
+                                    @if (showMoney && showBuyingInfo)
                                     {
                                         <td class="text-end">@(item.PurchasePrice?.ToString("N0") ?? "—")</td>
                                         <td class="text-end text-warning-emphasis">@(item.LineCost?.ToString("N0") ?? "—")</td>
                                     }
-                                    @if (showAdvanceCol)
+                                    @if (showMoney && showAdvanceCol)
                                     {
                                         <td class="text-end" style="background-color:#fffaf0;">
                                             @if (item.AdvancedAmount > 0)
@@ -782,7 +791,9 @@
             </div>
         </div>
 
-        <!-- Financial summary -->
+        <!-- Financial summary (hidden for WAREHOUSE role) -->
+        @if (showMoney)
+        {
         <div class="card border-0 shadow-sm mt-3">
             <div class="card-body">
                 <div class="row">
@@ -835,6 +846,7 @@
                 </div>
             </div>
         </div>
+        }
     </div>
 </div>
 
@@ -843,7 +855,7 @@
     bool canManageAdvance = canManageStatus && Model.Status is not "DRAFT" and not "CANCELLED" and not "REPORTED";
     var adv = Model.AdvanceSummary;
 }
-@if (showAdvanceSection && adv != null)
+@if (showMoney && showAdvanceSection && adv != null)
 {
     <div class="card border-0 shadow-sm mt-3 border-start border-4 border-warning">
         <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">

@@ -74,6 +74,7 @@ public class SalesOrderController : Controller
         ViewBag.CanEdit = CanEdit;
         ViewBag.IsManager = IsManager;
         ViewBag.CurrentUserId = CurrentUserId;
+        ViewBag.CurrentRoleCode = CurrentRoleCode;
         if (CanEdit && vm.Status == "DRAFT" && vm.HasUnmappedProducts)
         {
             var productForm = await _productService.GetFormAsync();

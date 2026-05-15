@@ -141,6 +141,11 @@
         tsChildrenMap[pid].push(n);
     });
 
+    // Expand all root categories by default
+    (tsChildrenMap[0] || []).forEach(function (root) {
+        tsExpandedIds[root.CategoryId] = true;
+    });
+
     if (tsSelectedId) {
         var sel = tsData.find(function (n) { return n.CategoryId === tsSelectedId; });
         if (sel) {

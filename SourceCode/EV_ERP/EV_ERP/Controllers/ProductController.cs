@@ -53,9 +53,11 @@ namespace EV_ERP.Controllers
         {
             if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
 
+            var fresh = await _productService.GetFormAsync();
+            ValidateNonRootCategory(model, fresh);
+
             if (!ModelState.IsValid)
             {
-                var fresh = await _productService.GetFormAsync();
                 model.Categories = fresh.Categories;
                 model.Units = fresh.Units;
                 return View(model);
@@ -65,7 +67,6 @@ namespace EV_ERP.Controllers
             if (!success)
             {
                 ModelState.AddModelError(string.Empty, error ?? "Tạo sản phẩm thất bại");
-                var fresh = await _productService.GetFormAsync();
                 model.Categories = fresh.Categories;
                 model.Units = fresh.Units;
                 return View(model);
@@ -96,9 +97,11 @@ namespace EV_ERP.Controllers
         {
             if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
 
+            var fresh = await _productService.GetFormAsync();
+            ValidateNonRootCategory(model, fresh);
+
             if (!ModelState.IsValid)
             {
-                var fresh = await _productService.GetFormAsync();
                 model.Categories = fresh.Categories;
                 model.Units = fresh.Units;
                 return View(model);
@@ -108,7 +111,6 @@ namespace EV_ERP.Controllers
             if (!success)
             {
                 ModelState.AddModelError(string.Empty, error ?? "Cập nhật thất bại");
-                var fresh = await _productService.GetFormAsync();
                 model.Categories = fresh.Categories;
                 model.Units = fresh.Units;
                 return View(model);
@@ -116,6 +118,20 @@ namespace EV_ERP.Controllers
 
             TempData["SuccessMessage"] = $"Đã cập nhật '{model.ProductName}' thành công!";
             return RedirectToAction("Detail", new { id = model.ProductId });
+        }
+
+        private void ValidateNonRootCategory(ProductFormViewModel model, ProductFormViewModel fresh)
+        {
+            if (!model.CategoryId.HasValue) return;
+            var cat = fresh.Categories.FirstOrDefault(c => c.CategoryId == model.CategoryId.Value);
+            if (cat == null)
+            {
+                ModelState.AddModelError(nameof(model.CategoryId), "Danh mục không tồn tại.");
+            }
+            else if (cat.ParentCategoryId == null)
+            {
+                ModelState.AddModelError(nameof(model.CategoryId), "Vui lòng chọn danh mục con (không thể chọn danh mục gốc).");
+            }
         }
 
         // ── Detail ───────────────────────────────────────

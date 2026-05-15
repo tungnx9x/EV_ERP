@@ -31,6 +31,10 @@
                 </div>
             </div>
         </div>
+        <span asp-validation-for="CategoryId" class="text-danger small"></span>
+        <div class="text-danger small mt-1" id="tsCategoryError" style="display:none;">
+            Vui lòng chọn danh mục con (không thể chọn danh mục gốc).
+        </div>
     </div>
 
     <div class="col-md-6">
@@ -252,6 +256,9 @@
     .ts-node:hover { background: #f5f5f5; }
     .ts-node.ts-active { background: #e6f4ff; color: #1677ff; }
     .ts-node.ts-highlighted { background: #f0f0f0; }
+    .ts-node.ts-root-disabled { color: #8c8c8c; font-style: italic; }
+    .ts-node.ts-root-disabled .ts-node-label { cursor: not-allowed; }
+    .ts-node.ts-root-disabled:hover { background: #fafafa; }
     .ts-node-indent { display: inline-block; width: 20px; flex-shrink: 0; }
     .ts-node-toggle {
         width: 20px; height: 20px; flex-shrink: 0;
@@ -295,6 +302,11 @@
         var pid = n.ParentCategoryId || 0;
         if (!tsChildrenMap[pid]) tsChildrenMap[pid] = [];
         tsChildrenMap[pid].push(n);
+    });
+
+    // Expand all root categories by default
+    (tsChildrenMap[0] || []).forEach(function (root) {
+        tsExpandedIds[root.CategoryId] = true;
     });
 
     // Auto-expand path to selected node
@@ -370,8 +382,9 @@
             var isExpanded = q ? true : !!tsExpandedIds[node.CategoryId];
             var children = tsChildrenMap[node.CategoryId] || [];
             var hasVisibleChildren = q ? children.some(function (c) { return visibleIds[c.CategoryId]; }) : children.length > 0;
+            var isRoot = !node.ParentCategoryId;
 
-            html += '<div class="ts-node' + (isActive ? ' ts-active' : '') + '" data-id="' + node.CategoryId + '">';
+            html += '<div class="ts-node' + (isActive ? ' ts-active' : '') + (isRoot ? ' ts-root-disabled' : '') + '" data-id="' + node.CategoryId + '"' + (isRoot ? ' title="Vui lòng chọn danh mục con"' : '') + '>';
 
             // Indentation
             for (var i = 0; i < depth; i++) {
@@ -439,9 +452,24 @@
     }
 
     function tsSelect(id) {
+        var node = tsData.find(function (n) { return n.CategoryId === id; });
+        // Block root selection — toggle expand and surface inline error instead
+        if (node && !node.ParentCategoryId) {
+            tsExpandedIds[id] = !tsExpandedIds[id];
+            var searchInput = document.getElementById('tsSearch');
+            renderTree(searchInput ? searchInput.value : '');
+            var err = document.getElementById('tsCategoryError');
+            if (err) {
+                err.style.display = '';
+                clearTimeout(window._tsCategoryErrorTimer);
+                window._tsCategoryErrorTimer = setTimeout(function () { err.style.display = 'none'; }, 3000);
+            }
+            return;
+        }
         tsSelectedId = id;
         document.getElementById('CategoryId').value = id;
-        var node = tsData.find(function (n) { return n.CategoryId === id; });
+        var errHide = document.getElementById('tsCategoryError');
+        if (errHide) errHide.style.display = 'none';
         updateTriggerText(node);
         tsClose();
         // Trigger category change for SKU attributes

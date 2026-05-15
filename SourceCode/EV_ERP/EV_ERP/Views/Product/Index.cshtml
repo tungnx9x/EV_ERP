@@ -44,7 +44,7 @@
                 <div class="ts-wrap position-relative" id="filterTreeSelectWrap">
                     <div class="ts-trigger form-select form-select-sm d-flex align-items-center" onclick="ftsToggle()" id="ftsTrigger">
                         <span class="ts-selected-text flex-grow-1" id="ftsSelectedText">Tất cả danh mục</span>
-                        <i class="bi bi-chevron-down ts-arrow" style="font-size:0.65rem;transition:transform .2s;"></i>
+                        @* <i class="bi bi-chevron-down ts-arrow" style="font-size:0.65rem;transition:transform .2s;"></i> *@
                     </div>
                     <div class="ts-dropdown" id="ftsDropdown" style="display:none;">
                         <div class="ts-search-box">
@@ -326,6 +326,11 @@
                 var pid = n.ParentCategoryId || 0;
                 if (!ftsChildrenMap[pid]) ftsChildrenMap[pid] = [];
                 ftsChildrenMap[pid].push(n);
+            });
+
+            // Expand all root categories by default
+            (ftsChildrenMap[0] || []).forEach(function (root) {
+                ftsExpandedIds[root.CategoryId] = true;
             });
 
             // Expand path to selected

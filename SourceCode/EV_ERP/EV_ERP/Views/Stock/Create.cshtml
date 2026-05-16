@@ -37,26 +37,23 @@
             <input type="hidden" id="frm_transactionType" value="@Model.TransactionType" />
             <input type="hidden" id="frm_salesOrderId" value="@Model.SalesOrderId" />
 
-            @if (Model.TransactionType == "OUTBOUND")
-            {
-                <div class="col-md-4">
-                    <label class="form-label small fw-semibold">Mã đơn hàng (SO)</label>
-                    <div class="input-group input-group-sm">
-                        <input type="text" id="frm_soCode" class="form-control form-control-sm"
-                               placeholder="VD: SO-202604-001" value="@Model.SalesOrderNo"
-                               @(Model.SalesOrderId > 0 ? "readonly" : "") />
-                        @if (Model.SalesOrderId == null || Model.SalesOrderId == 0)
-                        {
-                            <button class="btn btn-outline-primary btn-sm" type="button" onclick="lookupSalesOrder()">
-                                <i class="bi bi-search"></i>
-                            </button>
-                        }
-                    </div>
-                    <div id="soLookupError" class="text-danger small mt-1" style="display:none;"></div>
-                    <div id="soLookupSuccess" class="text-success small mt-1" style="display:none;"></div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Mã đơn hàng (SO)</label>
+                <div class="input-group input-group-sm">
+                    <input type="text" id="frm_soCode" class="form-control form-control-sm"
+                           placeholder="VD: SO-202604-001" value="@Model.SalesOrderNo"
+                           @(Model.SalesOrderId > 0 ? "readonly" : "") />
+                    @if (Model.SalesOrderId == null || Model.SalesOrderId == 0)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" type="button" onclick="lookupSalesOrder()">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    }
                 </div>
-            }
-            <div class="@(Model.TransactionType == "OUTBOUND" ? "col-md-4" : "col-md-4")">
+                <div id="soLookupError" class="text-danger small mt-1" style="display:none;"></div>
+                <div id="soLookupSuccess" class="text-success small mt-1" style="display:none;"></div>
+            </div>
+            <div class="col-md-4">
                 <label class="form-label small fw-semibold">Kho <span class="text-danger">*</span></label>
                 <select id="frm_warehouseId" class="form-select form-select-sm" onchange="onWarehouseChange()">
                     <option value="">— Chọn kho —</option>
@@ -114,11 +111,12 @@
             }
         </div>
 
-        <!-- SO reference products (OUTBOUND only, shown after lookup) -->
+        <!-- SO reference products (shown after lookup for both INBOUND and OUTBOUND) -->
         <div id="soReferencePanel" class="card border-1 border-warning mb-3" style="display:none;">
             <div class="card-header bg-warning-subtle py-2 d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 small fw-semibold">
-                    <i class="bi bi-list-check me-1"></i> Danh sách sản phẩm cần giao từ <span id="soRefNo" class="text-primary"></span>
+                    <i class="bi bi-list-check me-1"></i>
+                    Danh sách sản phẩm <span id="soRefActionLabel">cần xử lý</span> từ <span id="soRefNo" class="text-primary"></span>
                 </h6>
                 <span class="badge bg-secondary rounded-pill" id="soRefPickedCount">0/0</span>
             </div>
@@ -130,8 +128,8 @@
                             <th style="width:36px;"></th>
                             <th>Sản phẩm</th>
                             <th style="width:120px;">Barcode</th>
-                            <th style="width:80px;" class="text-end">SL cần giao</th>
-                            <th style="width:80px;" class="text-end">Đã lấy</th>
+                            <th style="width:90px;" class="text-end"><span id="soRefRemainingHeader">SL còn lại</span></th>
+                            <th style="width:80px;" class="text-end">Đã quét</th>
                             <th style="width:60px;" class="text-center">TT</th>
                         </tr>
                     </thead>
@@ -299,6 +297,11 @@
                     lookupSalesOrder();
                 }
             });
+
+            // Auto-load the reference panel when a SO is already linked (edit / pre-fill).
+            if (soCodeInput.value && document.getElementById('frm_salesOrderId').value) {
+                lookupSalesOrder();
+            }
         }
     });
 
@@ -324,14 +327,35 @@
 
                 var product = data.Data;
 
-                // Check if product already exists in items
-                var existingIdx = items.findIndex(i => i.ProductId === product.ProductId);
+                // If SO is linked, try to match this product to a SO reference line so we can
+                // attach SOItemId — required for ConfirmInbound/StartDelivery to roll up SOItem qty.
+                var matchedRef = null;
+                if (soRefItems.length > 0) {
+                    matchedRef = soRefItems.find(function (r) {
+                        return r.ProductId === product.ProductId
+                            && getPickedQtyForRef(r.SOItemId) < r.RemainingQty;
+                    });
+                }
+
+                // Existing row: prefer the one already linked to the matched ref's SOItemId,
+                // otherwise fall back to first row with this ProductId.
+                var existingIdx = -1;
+                if (matchedRef) {
+                    existingIdx = items.findIndex(function (i) {
+                        return i.ProductId === product.ProductId && i.SOItemId === matchedRef.SOItemId;
+                    });
+                }
+                if (existingIdx < 0) {
+                    existingIdx = items.findIndex(function (i) { return i.ProductId === product.ProductId; });
+                }
+
                 if (existingIdx >= 0) {
-                    // Increment quantity
                     items[existingIdx].Quantity = (items[existingIdx].Quantity || 0) + 1;
+                    if (matchedRef && !items[existingIdx].SOItemId) {
+                        items[existingIdx].SOItemId = matchedRef.SOItemId;
+                    }
                     showBarcodeSuccess(product.ProductName + ' — SL +1 (tổng: ' + items[existingIdx].Quantity + ')');
                 } else {
-                    // Add new row
                     items.push({
                         TransItemId: null,
                         ProductId: product.ProductId,
@@ -342,10 +366,14 @@
                         LocationId: null,
                         Quantity: 1,
                         UnitName: product.UnitName || '',
-                        Notes: ''
+                        Notes: '',
+                        SOItemId: matchedRef ? matchedRef.SOItemId : null
                     });
-                    showBarcodeSuccess('Đã thêm: ' + product.ProductName +
-                        (product.QuantityOnHand > 0 ? ' (Tồn: ' + product.QuantityOnHand + ')' : ''));
+                    var hint = matchedRef
+                        ? ' (gắn dòng SO, còn ' + matchedRef.RemainingQty + ')'
+                        : (soRefItems.length > 0 ? ' (không thuộc SO — sẽ không cập nhật SO)' : '');
+                    showBarcodeSuccess('Đã thêm: ' + product.ProductName + hint +
+                        (product.QuantityOnHand > 0 ? ' [Tồn: ' + product.QuantityOnHand + ']' : ''));
                 }
 
                 renderItems();
@@ -369,7 +397,10 @@
         errEl.style.display = 'none';
         okEl.style.display = 'none';
 
-        fetch('/Stock/LookupSalesOrder?soCode=' + encodeURIComponent(soCode))
+        var txnType = document.getElementById('frm_transactionType').value || 'INBOUND';
+        var actionLabel = txnType === 'OUTBOUND' ? 'cần giao' : 'cần nhập';
+
+        fetch('/Stock/LookupSalesOrder?soCode=' + encodeURIComponent(soCode) + '&type=' + encodeURIComponent(txnType))
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.Success) {
@@ -387,28 +418,35 @@
                 // Store reference items (not added to transaction)
                 soRefItems = so.Items.map(function(i) {
                     return {
+                        SOItemId: i.SOItemId,
                         ProductId: i.ProductId,
                         ProductName: i.ProductName,
                         ProductCode: i.ProductCode,
                         Barcode: i.Barcode || '',
                         ImageUrl: i.ImageUrl || '',
-                        Quantity: i.Quantity,
+                        OriginalQty: i.OriginalQty,
+                        RemainingQty: i.RemainingQty,
                         UnitName: i.UnitName || ''
                     };
                 });
 
-                // Show reference panel
+                // Show reference panel + dynamic labels by type
                 document.getElementById('soRefNo').textContent = so.SalesOrderNo;
+                document.getElementById('soRefActionLabel').textContent = actionLabel;
+                document.getElementById('soRefRemainingHeader').textContent =
+                    txnType === 'OUTBOUND' ? 'SL cần giao' : 'SL cần nhập';
                 renderSoReference();
                 document.getElementById('soReferencePanel').style.display = 'block';
 
-                // Pre-fill receiver from customer
-                if (so.CustomerName) {
+                // Pre-fill receiver from customer (OUTBOUND only)
+                if (txnType === 'OUTBOUND' && so.CustomerName) {
                     var receiverEl = document.getElementById('frm_receiverName');
                     if (receiverEl && !receiverEl.value) receiverEl.value = so.CustomerName;
                 }
 
-                okEl.textContent = 'Đã liên kết: ' + so.SalesOrderNo + (so.CustomerName ? ' — KH: ' + so.CustomerName : '') + ' (' + so.Items.length + ' SP cần giao)';
+                okEl.textContent = 'Đã liên kết: ' + so.SalesOrderNo +
+                    (so.CustomerName ? ' — KH: ' + so.CustomerName : '') +
+                    ' (' + so.Items.length + ' SP ' + actionLabel + ')';
                 okEl.style.display = 'block';
             })
             .catch(function() {
@@ -424,8 +462,10 @@
 
         var pickedCount = 0;
         soRefItems.forEach(function(ref, idx) {
-            var pickedQty = getPickedQtyForProduct(ref.ProductId);
-            var isDone = pickedQty >= ref.Quantity;
+            // Prefer per-line (SOItemId) count; fall back to per-product if no rows are SO-linked yet.
+            var pickedQty = getPickedQtyForRef(ref.SOItemId);
+            if (pickedQty === 0) pickedQty = getPickedQtyForProductUnlinked(ref.ProductId);
+            var isDone = pickedQty >= ref.RemainingQty;
             if (isDone) pickedCount++;
 
             var imgHtml = ref.ImageUrl
@@ -446,8 +486,8 @@
                     '<div class="text-muted" style="font-size:0.72rem;">' + escHtml(ref.ProductCode) + '</div>' +
                 '</td>' +
                 '<td class="font-monospace small">' + escHtml(ref.Barcode) + '</td>' +
-                '<td class="text-end">' + ref.Quantity.toLocaleString('vi-VN') + ' ' + escHtml(ref.UnitName) + '</td>' +
-                '<td class="text-end fw-semibold ' + (pickedQty >= ref.Quantity ? 'text-success' : (pickedQty > 0 ? 'text-warning' : '')) + '">' +
+                '<td class="text-end">' + ref.RemainingQty.toLocaleString('vi-VN') + ' ' + escHtml(ref.UnitName) + '</td>' +
+                '<td class="text-end fw-semibold ' + (pickedQty >= ref.RemainingQty ? 'text-success' : (pickedQty > 0 ? 'text-warning' : '')) + '">' +
                     pickedQty.toLocaleString('vi-VN') +
                 '</td>' +
                 '<td class="text-center">' + statusHtml + '</td>' +
@@ -458,10 +498,20 @@
         document.getElementById('soRefPickedCount').textContent = pickedCount + '/' + soRefItems.length;
     }
 
-    function getPickedQtyForProduct(productId) {
+    function getPickedQtyForRef(soItemId) {
+        if (!soItemId) return 0;
         var qty = 0;
         items.forEach(function(item) {
-            if (item.ProductId === productId) qty += (item.Quantity || 0);
+            if (item.SOItemId === soItemId) qty += (item.Quantity || 0);
+        });
+        return qty;
+    }
+
+    // Rows added before the SO was linked (or for off-SO products) won't have SOItemId — count them by product.
+    function getPickedQtyForProductUnlinked(productId) {
+        var qty = 0;
+        items.forEach(function(item) {
+            if (item.ProductId === productId && !item.SOItemId) qty += (item.Quantity || 0);
         });
         return qty;
     }

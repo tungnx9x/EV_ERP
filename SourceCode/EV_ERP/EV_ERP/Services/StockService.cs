@@ -292,18 +292,31 @@ namespace EV_ERP.Services
                 {
                     form.SalesOrderId = so.SalesOrderId;
                     form.SalesOrderNo = so.SalesOrderNo;
+                    var isOutbound = string.Equals(type, "OUTBOUND", StringComparison.OrdinalIgnoreCase);
                     form.Items = so.Items
                         .Where(i => i.ProductId.HasValue)
-                        .Select(i => new StockTransactionItemFormModel
-                    {
-                        ProductId = i.ProductId!.Value,
-                        ProductName = i.ProductName,
-                        ProductCode = i.Product!.ProductCode,
-                        Barcode = i.Product.Barcode,
-                        ImageUrl = i.Product.ImageUrl,
-                        Quantity = type == "OUTBOUND" ? i.Quantity : i.Quantity,
-                        UnitName = i.UnitName,
-                    }).ToList();
+                        .Select(i =>
+                        {
+                            var effective = i.Quantity - i.CancelledQty;
+                            var remaining = isOutbound
+                                ? Math.Max(0m, i.ReceivedQty - i.DeliveredQty)
+                                : Math.Max(0m, effective - i.ReceivedQty);
+                            return new StockTransactionItemFormModel
+                            {
+                                ProductId = i.ProductId!.Value,
+                                ProductName = i.ProductName,
+                                ProductCode = i.Product!.ProductCode,
+                                Barcode = i.Product.Barcode,
+                                ImageUrl = i.Product.ImageUrl,
+                                // Pre-fill with remaining qty, not original qty, so confirm syncs the right number.
+                                Quantity = remaining,
+                                UnitName = i.UnitName,
+                                // v2.2 — keep the link so ConfirmInbound/StartDelivery bumps SOItem qty.
+                                SOItemId = i.SOItemId
+                            };
+                        })
+                        .Where(it => it.Quantity > 0)
+                        .ToList();
                 }
             }
 
@@ -838,10 +851,13 @@ namespace EV_ERP.Services
                 .ToListAsync();
         }
 
-        // ── Sales Order Lookup (for OUTBOUND linking) ────
-        public async Task<object?> LookupSalesOrderAsync(string? soCode)
+        // ── Sales Order Lookup (for INBOUND / OUTBOUND linking) ────
+        // type "INBOUND"  → return lines that still need to be received (RemainingReceiveQty > 0)
+        // type "OUTBOUND" → return lines currently in stock and not yet delivered (InStockQty > 0)
+        public async Task<object?> LookupSalesOrderAsync(string? soCode, string? type = null)
         {
             if (string.IsNullOrWhiteSpace(soCode)) return null;
+            var txnType = string.Equals(type, "INBOUND", StringComparison.OrdinalIgnoreCase) ? "INBOUND" : "OUTBOUND";
 
             var so = await _uow.Repository<SalesOrder>().Query()
                 .Include(s => s.Items).ThenInclude(i => i.Product).ThenInclude(p => p!.Unit)
@@ -850,26 +866,47 @@ namespace EV_ERP.Services
 
             if (so == null) return null;
 
-            if (so.Status != "RECEIVED")
-                return null;
+            // Block statuses where receive/deliver is not meaningful (under v2.3 per-line flow,
+            // BUYING / RECEIVED / DELIVERING are all valid — lines may be at different sub-states).
+            var blocked = new[] { "DRAFT", "WAIT", "CANCELLED", "COMPLETED", "RETURNED", "REPORTED", "DELIVERED" };
+            if (blocked.Contains(so.Status)) return null;
+
+            var items = so.Items
+                .Where(i => i.ProductId.HasValue)
+                .Select(i =>
+                {
+                    var effective = i.Quantity - i.CancelledQty;
+                    decimal remaining = txnType == "INBOUND"
+                        ? Math.Max(0m, effective - i.ReceivedQty)
+                        : Math.Max(0m, i.ReceivedQty - i.DeliveredQty);
+                    return new
+                    {
+                        SOItemId = i.SOItemId,
+                        ProductId = i.ProductId!.Value,
+                        ProductName = i.ProductName,
+                        ProductCode = i.Product?.ProductCode ?? "",
+                        Barcode = i.Product?.Barcode,
+                        ImageUrl = i.Product?.ImageUrl,
+                        OriginalQty = i.Quantity,
+                        ReceivedQty = i.ReceivedQty,
+                        DeliveredQty = i.DeliveredQty,
+                        CancelledQty = i.CancelledQty,
+                        RemainingQty = remaining,
+                        UnitName = i.UnitName
+                    };
+                })
+                .Where(x => x.RemainingQty > 0)
+                .ToList();
+
+            if (items.Count == 0) return null;
 
             return new
             {
                 SalesOrderId = so.SalesOrderId,
                 SalesOrderNo = so.SalesOrderNo,
                 CustomerName = so.Customer?.CustomerName,
-                Items = so.Items
-                    .Where(i => i.ProductId.HasValue)
-                    .Select(i => new
-                    {
-                        ProductId = i.ProductId!.Value,
-                        ProductName = i.ProductName,
-                        ProductCode = i.Product?.ProductCode ?? "",
-                        Barcode = i.Product?.Barcode,
-                        ImageUrl = i.Product?.ImageUrl,
-                        Quantity = i.Quantity,
-                        UnitName = i.UnitName
-                    }).ToList()
+                Status = so.Status,
+                Items = items
             };
         }
 

@@ -51,8 +51,10 @@ namespace EV_ERP.Services.Interfaces
         // ── Locations for a warehouse ────────────────────
         Task<List<LocationOptionViewModel>> GetLocationOptionsAsync(int warehouseId);
 
-        // ── Sales Order lookup (for OUTBOUND linking) ───
-        Task<object?> LookupSalesOrderAsync(string? soCode);
+        // ── Sales Order lookup (for INBOUND / OUTBOUND linking) ───
+        // type = "INBOUND" → lines with RemainingReceiveQty > 0
+        // type = "OUTBOUND" → lines with InStockQty (ReceivedQty - DeliveredQty) > 0
+        Task<object?> LookupSalesOrderAsync(string? soCode, string? type = null);
 
         // ── Export Delivery Receipt (BBGN) ──────────────
         Task<(byte[] FileBytes, string FileName)?> ExportDeliveryReceiptAsync(long transactionId);

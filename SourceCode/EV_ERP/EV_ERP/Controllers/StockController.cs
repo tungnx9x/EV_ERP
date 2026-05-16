@@ -179,11 +179,14 @@ namespace EV_ERP.Controllers
 
         // ── Lookup Sales Order by code (Ajax) ───────────
         [HttpGet]
-        public async Task<IActionResult> LookupSalesOrder(string soCode)
+        public async Task<IActionResult> LookupSalesOrder(string soCode, string? type = null)
         {
-            var result = await _stockService.LookupSalesOrderAsync(soCode?.Trim());
+            var result = await _stockService.LookupSalesOrderAsync(soCode?.Trim(), type);
             if (result == null)
-                return Json(ApiResult<object>.Fail("Không tìm thấy đơn hàng với mã này"));
+                return Json(ApiResult<object>.Fail(
+                    type == "INBOUND"
+                        ? "Không tìm thấy đơn hàng hoặc đơn không còn dòng nào cần nhập"
+                        : "Không tìm thấy đơn hàng hoặc đơn không còn hàng trong kho để giao"));
 
             return Json(ApiResult<object>.Ok(result));
         }

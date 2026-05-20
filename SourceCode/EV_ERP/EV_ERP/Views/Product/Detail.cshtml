@@ -74,8 +74,8 @@
                 </h6>
                 @if (Model.HasBarcode)
                 {
-                    <div id="barcode-container" class="mb-2">
-                        <svg id="barcode-svg"></svg>
+                    <div id="barcode-container" class="mb-2" style="overflow:hidden;max-width:100%;">
+                        <svg id="barcode-svg" style="width:100%;max-width:100%;height:auto;display:block;"></svg>
                     </div>
                     <div class="font-monospace small text-muted">
                         @Model.Barcode
@@ -388,6 +388,19 @@
                     displayValue: false,
                     margin: 5
                 });
+                // Convert intrinsic width/height into a viewBox so CSS width:100% scales the bars
+                // instead of clipping them.
+                var svg = document.getElementById('barcode-svg');
+                if (svg) {
+                    var w = svg.getAttribute('width');
+                    var h = svg.getAttribute('height');
+                    if (w && h) {
+                        svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+                        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                        svg.removeAttribute('width');
+                        svg.removeAttribute('height');
+                    }
+                }
             }
         });
 

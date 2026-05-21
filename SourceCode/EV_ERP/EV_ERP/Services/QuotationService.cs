@@ -186,6 +186,7 @@ public class QuotationService : IQuotationService
                 Proposal = i.ProductDescription,
                 ImageUrl = i.ImageUrl ?? i.Product?.ImageUrl,
                 RequiredImageUrl = i.RequiredImageUrl,
+                RequiredDescription = i.RequiredDescription,
                 UnitName = i.UnitName,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
@@ -282,6 +283,7 @@ public class QuotationService : IQuotationService
                 ProductDescription = item.Proposal?.Trim(),
                 ImageUrl = item.ImageUrl,
                 RequiredImageUrl = item.RequiredImageUrl,
+                RequiredDescription = item.RequiredDescription?.Trim(),
                 UnitName = item.UnitName.Trim(),
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -404,6 +406,7 @@ public class QuotationService : IQuotationService
                 ProductDescription = item.Proposal?.Trim(),
                 ImageUrl = item.ImageUrl,
                 RequiredImageUrl = item.RequiredImageUrl,
+                RequiredDescription = item.RequiredDescription?.Trim(),
                 UnitName = item.UnitName.Trim(),
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -704,6 +707,7 @@ public class QuotationService : IQuotationService
                 ProductDescription = item.ProductDescription,
                 ImageUrl = item.ImageUrl,
                 RequiredImageUrl = item.RequiredImageUrl,
+                RequiredDescription = item.RequiredDescription,
                 UnitName = item.UnitName,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
@@ -843,151 +847,99 @@ public class QuotationService : IQuotationService
         using var wb = new XLWorkbook(templatePath);
         var ws = wb.Worksheet(1);
 
-        // Fill customer info (Row 7-11, merged A:L)
-        ws.Cell("A7").Value = $"Khách hàng: {customer.CustomerName}";
-        ws.Cell("A8").Value = $"Địa chỉ: {customer.Address ?? ""}";
-        ws.Cell("A9").Value = "Người liên hệ: ";
-        ws.Cell("A10").Value = $"SĐT: {customer.Phone ?? ""}";
-        ws.Cell("A11").Value = $"Email: {customer.Email ?? ""}";
+        // ── Customer info (rows 7-11, merged across the header band) ──
+        ws.Cell("A7").Value = $"Khách hàng: {(customer.CustomerName ?? string.Empty).ToUpper()}";
+        ws.Cell("A8").Value = $"Địa chỉ: {customer.Address ?? string.Empty}";
+        ws.Cell("A9").Value = "Người liên hệ: ";
+        ws.Cell("A10").Value = $"SĐT: {customer.Phone ?? string.Empty}";
+        ws.Cell("A11").Value = $"Email: {customer.Email ?? string.Empty}";
 
-        // Update request column header with customer name
+        // Request column header (B13:C13 merged)
         ws.Cell("B13").Value = $"{customer.CustomerName}'s REQUEST";
 
-        // Data starts at row 14 (template row), need to insert rows for items > 1
-        int dataStartRow = 14;
+        const int dataStartRow = 14;
+        const int lastCol = 25; // Column Y — covers the GIÁ THỊ TRƯỜNG section
         int itemCount = request.Items.Count;
 
+        // Duplicate template row 14 (with formulas, styles, merges) for additional items.
         if (itemCount > 1)
         {
-            // Insert extra rows by copying row 14's format
             ws.Row(dataStartRow).InsertRowsBelow(itemCount - 1);
+            var templateRange = ws.Range(dataStartRow, 1, dataStartRow, lastCol);
+            for (int i = 1; i < itemCount; i++)
+            {
+                templateRange.CopyTo(ws.Cell(dataStartRow + i, 1));
+            }
         }
 
-        // Fill item data
-        decimal totalExclVat = 0;
-        decimal totalInclVat = 0;
-
+        // Fill placeholders per row — leave formula cells (I, K, P, R, S, T, W, Y)
+        // and market-price input cells (O, Q, U, V, X) untouched.
         for (int i = 0; i < itemCount; i++)
         {
             var item = request.Items[i];
             int row = dataStartRow + i;
 
-            // Merge B:C for product name (like template)
-            //ws.Range(row, 2, row, 3).Merge();
+            // A — STT
+            ws.Cell(row, 1).Value = i + 1;
 
-            ws.Cell(row, 1).Value = i + 1;                                     // STT
-            ws.Cell(row, 3).Value = item.ProductName;                           // Request (text)
+            // B — Customer required image (clear placeholder text, embed picture)
+            ws.Cell(row, 2).Value = string.Empty;
+            EmbedItemPicture(ws, item.RequiredImageUrl, row, 2);
+
+            // C — Product name + Required description (two-line block, wrap)
+            var nameBlock = item.ProductName ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(item.RequiredDescription))
+                nameBlock = nameBlock + "\n\n" + item.RequiredDescription.Trim();
+            ws.Cell(row, 3).Value = nameBlock;
             ws.Cell(row, 3).Style.Alignment.WrapText = true;
             ws.Cell(row, 3).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-            ws.Cell(row, 4).Value = item.Proposal ?? "";                        // Proposal
+
+            // D — EVH Proposal / ProductDescription
+            ws.Cell(row, 4).Value = item.Proposal ?? string.Empty;
             ws.Cell(row, 4).Style.Alignment.WrapText = true;
             ws.Cell(row, 4).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
-            // Column 2 (merged B:C) = Request — embed customer-required image above the product name
-            if (!string.IsNullOrEmpty(item.RequiredImageUrl))
-            {
-                var reqImgPath = ResolveImagePath(item.RequiredImageUrl);
-                if (reqImgPath != null && File.Exists(reqImgPath))
-                {
-                    try
-                    {
-                        var pic = ws.AddPicture(reqImgPath);
-                        pic.MoveTo(ws.Cell(row, 2));
-                        const int maxSize = 80;
-                        double scaleW = (double)maxSize / pic.Width;
-                        double scaleH = (double)maxSize / pic.Height;
-                        double scale = Math.Min(scaleW, scaleH);
-                        pic.WithSize((int)(pic.Width * scale), (int)(pic.Height * scale));
-                        ws.Row(row).Height = Math.Max(ws.Row(row).Height, 65);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to embed required image {Url} in Excel export", item.RequiredImageUrl);
-                    }
-                }
-            }
+            // E — Product image (clear placeholder text, embed picture)
+            ws.Cell(row, 5).Value = string.Empty;
+            EmbedItemPicture(ws, item.ImageUrl, row, 5);
 
-            // Column 5 = Image — embed product image if available
-            if (!string.IsNullOrEmpty(item.ImageUrl))
-            {
-                var imgPath = ResolveImagePath(item.ImageUrl);
-                if (imgPath != null && File.Exists(imgPath))
-                {
-                    try
-                    {
-                        var pic = ws.AddPicture(imgPath);
-                        pic.MoveTo(ws.Cell(row, 5));
-                        // Scale to fit cell (~80x80 px)
-                        const int maxSize = 80;
-                        double scaleW = (double)maxSize / pic.Width;
-                        double scaleH = (double)maxSize / pic.Height;
-                        double scale = Math.Min(scaleW, scaleH);
-                        pic.WithSize((int)(pic.Width * scale), (int)(pic.Height * scale));
-                        ws.Row(row).Height = Math.Max(ws.Row(row).Height, 65);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to embed image {Url} in Excel export", item.ImageUrl);
-                    }
-                }
-            }
+            // F — Unit
+            ws.Cell(row, 6).Value = item.UnitName;
 
-            ws.Cell(row, 6).Value = item.UnitName;                              // Unit
-            ws.Cell(row, 7).Value = item.Quantity;                              // Quantity
-            ws.Cell(row, 8).Value = item.UnitPrice;                             // Unit Price
-            ws.Cell(row, 9).Value = item.AmountExclVat;                         // Amount excl VAT
-            ws.Cell(row, 10).Value = $"{item.VatRate:0.##}%";                        // VAT
-            ws.Cell(row, 11).Value = item.AmountInclVat;                        // Amount incl VAT
-            ws.Cell(row, 12).Value = item.Notes ?? "";                          // Note
-            ws.Cell(row, 14).Value = item.SourceUrl ?? "";                       // NCC
-            ws.Cell(row, 15).Value = item.ImportPrice;                          // Import Price
-            ws.Cell(row, 16).Value = item.Shipping;                             // Shipping
-            ws.Cell(row, 17).Value = item.Coefficient;                          // Coefficient
-
-            // Format number cells
+            // G — Quantity
+            ws.Cell(row, 7).Value = item.Quantity;
             ws.Cell(row, 7).Style.NumberFormat.Format = "#";
+
+            // H — Unit price
+            ws.Cell(row, 8).Value = item.UnitPrice;
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 9).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 11).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 16).Style.NumberFormat.Format = "#,##0";
-            ws.Cell(row, 17).Style.NumberFormat.Format = "0.##";
 
-            // Copy borders from template row style
-            ws.Range(row, 1, row, 17).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            ws.Range(row, 1, row, 17).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            // I — formula =H*G (untouched)
 
-            totalExclVat += item.AmountExclVat;
-            totalInclVat += item.AmountInclVat;
+            // J — VAT rate; write as decimal so K = I+I*J computes correctly
+            ws.Cell(row, 10).Value = item.VatRate / 100m;
+            ws.Cell(row, 10).Style.NumberFormat.Format = "0%";
+
+            // K — formula =I+I*J (untouched)
+
+            // L — Notes
+            ws.Cell(row, 12).Value = item.Notes ?? string.Empty;
+
+            // N — Source URL / NCC link
+            ws.Cell(row, 14).Value = item.SourceUrl ?? string.Empty;
         }
 
-        // Totals row (after data rows)
+        // Totals row sits immediately after the data block (was row 15 in the template,
+        // now row 14 + itemCount after row insertion).
         int totalRow = dataStartRow + itemCount;
-        ws.Range(totalRow, 1, totalRow, 8).Merge();
-        ws.Cell(totalRow, 1).Value = "TỔNG GIÁ TRỊ (VND)";
-        ws.Cell(totalRow, 1).Style.Font.Bold = true;
-        ws.Cell(totalRow, 9).Value = totalExclVat;
+        int lastDataRow = dataStartRow + itemCount - 1;
+        ws.Cell(totalRow, 9).FormulaA1 = $"SUM(I{dataStartRow}:I{lastDataRow})";
+        ws.Cell(totalRow, 11).FormulaA1 = $"SUM(K{dataStartRow}:K{lastDataRow})";
         ws.Cell(totalRow, 9).Style.NumberFormat.Format = "#,##0";
-        ws.Cell(totalRow, 9).Style.Font.Bold = true;
-        ws.Cell(totalRow, 11).Value = totalInclVat;
         ws.Cell(totalRow, 11).Style.NumberFormat.Format = "#,##0";
-        ws.Cell(totalRow, 11).Style.Font.Bold = true;
-
-        // Update date in signature area
-        var now = DateTime.Now;
-        int dateRow = totalRow + 8; // approximate position
-        // Find the date row dynamically
-        for (int r = totalRow + 1; r <= totalRow + 15; r++)
-        {
-            var cellVal = ws.Cell(r, 7).GetFormattedString();
-            if (cellVal.Contains("Ngay") || cellVal.Contains("ngày") || cellVal.Contains("Ngày"))
-            {
-                ws.Cell(r, 7).Value = $"Hà Nội, Ngày {now:dd} Tháng {now:MM} Năm {now:yyyy}";
-                break;
-            }
-        }
 
         // Generate filename: YYYY.MM.DD Quotation EVH-{customer}-{product}
+        var now = DateTime.Now;
         var firstProductName = request.Items.First().ProductName;
         if (firstProductName.Length > 30) firstProductName = firstProductName[..30];
         var safeCustomer = SanitizeFileName(customer.CustomerName);
@@ -999,6 +951,38 @@ public class QuotationService : IQuotationService
         return (ms.ToArray(), fileName);
     }
 
+    private void EmbedItemPicture(IXLWorksheet ws, string? imageUrl, int row, int col)
+    {
+        if (string.IsNullOrEmpty(imageUrl)) return;
+        var imgPath = ResolveImagePath(imageUrl);
+        if (imgPath == null || !File.Exists(imgPath)) return;
+
+        try
+        {
+            var pic = ws.AddPicture(imgPath);
+            const int maxSize = 200; // larger than old 80px — fits the new template's taller rows / wider image columns
+            double scaleW = (double)maxSize / pic.Width;
+            double scaleH = (double)maxSize / pic.Height;
+            double scale = Math.Min(scaleW, scaleH);
+            int picW = (int)(pic.Width * scale);
+            int picH = (int)(pic.Height * scale);
+
+            // Compute centering offsets BEFORE anchoring.
+            // Column width (Calibri 11) ≈ chars * 7 px + 5 px padding; row height in pts → px at 96 dpi.
+            double cellWidthPx = ws.Column(col).Width * 7.0 + 5.0;
+            double cellHeightPx = ws.Row(row).Height * 96.0 / 72.0;
+            int xOffset = Math.Max(0, (int)((cellWidthPx - picW) / 2.0));
+            int yOffset = Math.Max(0, (int)((cellHeightPx - picH) / 2.0));
+
+            // Anchor first, then resize — ClosedXML drops the picture if WithSize runs before any MoveTo.
+            pic.MoveTo(ws.Cell(row, col), xOffset, yOffset);
+            pic.WithSize(picW, picH);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to embed image {Url} in Excel export", imageUrl);
+        }
+    }
     private static string SanitizeFileName(string name)
     {
         var invalid = Path.GetInvalidFileNameChars();

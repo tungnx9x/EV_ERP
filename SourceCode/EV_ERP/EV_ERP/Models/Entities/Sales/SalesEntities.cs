@@ -118,6 +118,7 @@ public class QuotationItem
     public string? PurchaseCurrency { get; set; }
     public decimal? PurchaseExchangeRate { get; set; } = 1;
     public string? RequiredImageUrl { get; set; }
+    public string? RequiredDescription { get; set; }
 
     // v2.4 — Popup máy tính Giá nhập: chế độ Official/Unofficial + breakdown
     public string PurchaseMode { get; set; } = "OFFICIAL";

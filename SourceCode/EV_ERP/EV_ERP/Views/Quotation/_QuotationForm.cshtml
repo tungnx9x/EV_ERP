@@ -620,6 +620,7 @@
             Proposal: '',
             ImageUrl: '',
             RequiredImageUrl: '',
+            RequiredDescription: '',
             UnitName: '',
             Quantity: 1,
             UnitPrice: 0,
@@ -805,8 +806,38 @@
                 '</div>' +
 
                 '<div class="qi-body">' +
-                    // ── ROW 1: [Product image] [Required image] + Description + Unit + Purchase Link ──
+                    // ── ROW 1: [Required image] [Product image] + Description + Unit + Purchase Link ──
                     '<div class="qi-img-row">' +
+                        // ── Customer required image cell (always editable) ──
+                        '<div class="qi-img-group">' +
+                            '<div class="qi-img-group-title">Anh KH yeu cau</div>' +
+                            '<div class="qi-img-cell-row">' +
+                                '<div class="qi-img-cell" data-paste-idx="' + idx + '" data-paste-kind="required">' +
+                                    (item.RequiredImageUrl
+                                        ? '<img src="' + escapeHtml(item.RequiredImageUrl) + '" class="qi-img-preview" alt="" />'
+                                        : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
+                                            '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
+                                            '<span>Click + Ctrl+V</span>' +
+                                            '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
+                                          '</div>') +
+                                '</div>' +
+                                '<div class="qi-img-actions">' +
+                                    '<input type="file" id="reqImgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this, \'required\')" />' +
+                                    '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ', \'required\')">' +
+                                        '<i class="bi bi-upload"></i> ' + (item.RequiredImageUrl ? 'Doi anh' : 'Chon anh') +
+                                    '</button>' +
+                                    (item.RequiredImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'required\')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
+                                    '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        // ── Customer requirement text ──
+                        '<div class="qi-img-group" style="min-width:220px;">' +
+                            '<div class="qi-img-group-title">Yeu cau KH</div>' +
+                            '<textarea rows="3" class="form-control form-control-sm" style="resize:vertical;" ' +
+                                'onchange="updateField(' + idx + ', \'RequiredDescription\', this.value)" ' +
+                                'placeholder="Mo ta yeu cau cua khach hang...">' + escapeHtml(item.RequiredDescription || '') + '</textarea>' +
+                        '</div>' +
                         // ── Product image cell ──
                         '<div class="qi-img-group">' +
                             '<div class="qi-img-group-title">Anh SP</div>' +
@@ -838,29 +869,6 @@
                                           '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
                                       '</div>'
                                 ) +
-                            '</div>' +
-                        '</div>' +
-                        // ── Customer required image cell (always editable) ──
-                        '<div class="qi-img-group">' +
-                            '<div class="qi-img-group-title">Anh KH yeu cau</div>' +
-                            '<div class="qi-img-cell-row">' +
-                                '<div class="qi-img-cell" data-paste-idx="' + idx + '" data-paste-kind="required">' +
-                                    (item.RequiredImageUrl
-                                        ? '<img src="' + escapeHtml(item.RequiredImageUrl) + '" class="qi-img-preview" alt="" />'
-                                        : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
-                                            '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
-                                            '<span>Click + Ctrl+V</span>' +
-                                            '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
-                                          '</div>') +
-                                '</div>' +
-                                '<div class="qi-img-actions">' +
-                                    '<input type="file" id="reqImgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this, \'required\')" />' +
-                                    '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ', \'required\')">' +
-                                        '<i class="bi bi-upload"></i> ' + (item.RequiredImageUrl ? 'Doi anh' : 'Chon anh') +
-                                    '</button>' +
-                                    (item.RequiredImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'required\')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
-                                    '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
-                                '</div>' +
                             '</div>' +
                         '</div>' +
                         '<div class="qi-grid qi-grid-row1" style="flex:1;">' +

@@ -375,6 +375,7 @@ namespace EV_ERP.Data
                 e.Property(x => x.PurchaseCurrency).HasMaxLength(3).HasDefaultValue("VND");
                 e.Property(x => x.PurchaseExchangeRate).HasColumnType("decimal(18,6)");
                 e.Property(x => x.RequiredImageUrl).HasMaxLength(1000);
+                e.Property(x => x.RequiredDescription).HasMaxLength(2000);
                 e.Property(x => x.PurchaseMode).HasMaxLength(20).HasDefaultValue("OFFICIAL");
                 e.Property(x => x.PurchaseQuantity).HasColumnType("decimal(18,3)");
                 e.Property(x => x.BasePrice).HasColumnType("decimal(18,2)");

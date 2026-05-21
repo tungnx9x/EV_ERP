@@ -227,6 +227,7 @@ public class SalesOrderItemDetailViewModel
 
     // v2.2 — tổng đã tạm ứng cho dòng này (Σ AdvanceRequestItem.Amount, non-rejected)
     public decimal AdvancedAmount { get; set; }
+    public decimal? Coefficient { get; set; }
 
     /// <summary>Derived line status — matches vw_OrderItemProgress.LineStatus.</summary>
     public string LineStatus

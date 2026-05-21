@@ -215,7 +215,8 @@ public class SalesOrderService : ISalesOrderService
                 SourceName = i.SourceName,
                 Notes = i.Notes,
                 IsProductMapped = i.IsProductMapped,
-                AdvancedAmount = advancedByItem.TryGetValue(i.SOItemId, out var adv) ? adv : 0
+                AdvancedAmount = advancedByItem.TryGetValue(i.SOItemId, out var adv) ? adv : 0,
+                Coefficient = i.Coefficient
             }).ToList(),
             AdvanceSummary = advanceSummary
         };
@@ -338,6 +339,11 @@ public class SalesOrderService : ISalesOrderService
             return (false, "Vui lòng nhập Mã PO khách hàng trước khi gửi DNTU.");
         if (string.IsNullOrWhiteSpace(so.CustomerPoFile))
             return (false, "Vui lòng upload File PO khách hàng trước khi gửi DNTU.");
+
+        // Validate: at least one active advance request must exist (sales must enter advance data before sending)
+        var activeAdvCount = await _advanceService.CountActiveAsync(salesOrderId);
+        if (activeAdvCount == 0)
+            return (false, "Vui lòng tạo ít nhất 1 đề nghị tạm ứng trước khi gửi DNTU.");
 
         so.AdvanceStatus = so.AdvanceAmount > 0 ? "PENDING" : null;
         so.Status = "WAIT";

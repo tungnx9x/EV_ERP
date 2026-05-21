@@ -27,15 +27,6 @@
         <div>
             <div class="d-flex flex-wrap align-items-center gap-3">
                 <h5 class="mb-0 fw-bold">@Model.SalesOrderNo</h5>
-                @if (showMoney && Model.Status == "DRAFT")
-                {
-                   <a href="/SalesOrder/ExportDntu/@Model.SalesOrderId"
-                    class="text-success d-flex align-items-center"
-                    style="text-decoration: none;">
-                        <i class="bi bi-download me-1"></i>
-                        Xuất DNTU
-                   </a>
-                }
                 @if (showMoney && Model.Status == "DELIVERED")
                 {
                     <div class="dropdown">
@@ -599,6 +590,7 @@
                                 {
                                     <th class="text-end bg-success-subtle">Đơn giá bán</th>
                                     <th class="text-end bg-success-subtle">Thành tiền</th>
+                                    <th class="text-end bg-success-subtle">Hệ số</th>
                                 }
                                 @if (showMoney && showBuyingInfo)
                                 {
@@ -716,6 +708,19 @@
                                             @if (item.AdvancedAmount > 0)
                                             {
                                                 <span class="fw-semibold text-warning-emphasis">@item.AdvancedAmount.ToString("N0")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">—</span>
+                                            }
+                                        </td>
+                                    }
+                                    @if (showMoney)
+                                    {
+                                        <td class="text-end" style="background-color:#fffaf0;">
+                                            @if (item.PurchasePrice.HasValue && item.PurchasePrice.Value > 0 && item.UnitPrice > 0)
+                                            {
+                                                <span class="fw-semibold text-warning-emphasis">@((item.PurchasePrice.Value / item.UnitPrice).ToString("0.#"))</span>
                                             }
                                             else
                                             {
@@ -854,12 +859,13 @@
                             <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem;">
                                 <tr>
                                     <td class="text-muted">Chi phí mua</td>
-                                    <td class="text-end">@(Model.PurchaseCost?.ToString("N0") ?? "—")</td>
+                                    <td class="text-end">@(Model.Status == "DRAFT" ? Model.AdvanceSummary?.PurchaseCost.ToString("N0") : Model.PurchaseCost?.ToString("N0") ?? "—")</td>
                                 </tr>
                                 <tr class="fw-bold border-top">
                                     <td>Lợi nhuận</td>
                                     <td class="text-end @(Model.ProfitAmount >= 0 ? "text-success" : "text-danger")">
-                                        @Model.ProfitAmount.ToString("N0") @Model.Currency
+                                        @* @Model.ProfitAmount.ToString("N0") @Model.Currency *@
+                                        @((Model.TotalAmount - (Model.Status == "DRAFT" ? Model.AdvanceSummary?.PurchaseCost : Model.PurchaseCost))?.ToString("N0") + @Model.Currency)
                                     </td>
                                 </tr>
                             </table>
@@ -873,8 +879,10 @@
 </div>
 
 @{
-    bool showAdvanceSection = Model.Status is not "DRAFT" and not "CANCELLED";
-    bool canManageAdvance = canManageStatus && Model.Status is not "DRAFT" and not "CANCELLED" and not "REPORTED";
+    // v2.5 — advance entry now starts at DRAFT step (sales enters data before sending DNTU)
+    bool showAdvanceSection = Model.Status != "CANCELLED";
+    bool canManageAdvance = canManageStatus && Model.Status is not "CANCELLED" and not "REPORTED";
+    bool isAccountant = currentRole is "ACCOUNTANT" or "ADMIN" or "MANAGER";
     var adv = Model.AdvanceSummary;
 }
 @if (showMoney && showAdvanceSection && adv != null)
@@ -944,10 +952,7 @@
                                 <th class="text-end">Số tiền</th>
                                 <th>Trạng thái</th>
                                 <th class="d-none d-md-table-cell">Người tạo</th>
-                                @if (canManageAdvance)
-                                {
-                                    <th style="width:50px;"></th>
-                                }
+                                <th class="text-center" style="min-width:160px;">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -971,15 +976,49 @@
                                     <td class="text-end fw-semibold text-warning-emphasis">@r.RequestedAmount.ToString("N0")</td>
                                     <td><span class="badge @r.StatusBadge">@r.StatusText</span></td>
                                     <td class="d-none d-md-table-cell small text-muted">@r.CreatedByName</td>
-                                    @if (canManageAdvance)
-                                    {
-                                        <td class="text-center">
-                                            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" title="Xóa"
-                                                    onclick="deleteAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </td>
-                                    }
+                                    <td class="text-center">
+                                        <div class="d-flex gap-1 justify-content-center flex-wrap">
+                                            <a href="/AdvanceRequest/ExportDntu/@r.AdvanceRequestId"
+                                               class="btn btn-sm btn-outline-success py-0 px-1" title="Xuất DNTU">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            @if (canManageAdvance && r.Status == "PENDING")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" title="Sửa"
+                                                        onclick="editAdvance(@r.AdvanceRequestId)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            }
+                                            @if (isAccountant && r.Status == "PENDING")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-1" title="Duyệt"
+                                                        onclick="approveAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-check2"></i>
+                                                </button>
+                                            }
+                                            @if (isAccountant && r.Status is "PENDING" or "APPROVED")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-1" title="Đã chuyển tiền"
+                                                        onclick="receiveAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-cash-coin"></i>
+                                                </button>
+                                            }
+                                            @if (isAccountant && r.Status is "PENDING" or "APPROVED")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-warning py-0 px-1" title="Từ chối"
+                                                        onclick="rejectAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-x-octagon"></i>
+                                                </button>
+                                            }
+                                            @if (canManageAdvance && r.Status is not "SETTLING" and not "SETTLED")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" title="Xóa"
+                                                        onclick="deleteAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -1336,24 +1375,37 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header border-0 pb-0">
-                    <h6 class="modal-title fw-bold"><i class="bi bi-cash-stack text-warning me-1"></i> Tạm ứng mới</h6>
+                    <h6 class="modal-title fw-bold">
+                        <i class="bi bi-cash-stack text-warning me-1"></i>
+                        <span id="advModalTitle">Tạm ứng mới</span>
+                    </h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <input type="hidden" id="advEditId" value="" />
                     <div class="row g-2 mb-3 small">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Ngày yêu cầu</label>
                             <input type="date" id="advDate" class="form-control form-control-sm" />
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Trạng thái</label>
                             <select id="advStatus" class="form-select form-select-sm">
-                                <option value="RECEIVED" selected>Đã nhận tiền</option>
+                                <option value="PENDING" selected>Chờ duyệt</option>
                                 <option value="APPROVED">Đã duyệt</option>
-                                <option value="PENDING">Chờ duyệt</option>
+                                <option value="RECEIVED">Đã nhận tiền</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-1" title="% chi phí mua dự kiến">% tạm ứng</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" id="advPercent" class="form-control text-end" min="0" max="100" step="0.01" placeholder="0" />
+                                <button type="button" class="btn btn-outline-secondary" onclick="applyAdvancePercent()" title="Tính số tiền vào dòng 'Phân bổ chung'">
+                                    <i class="bi bi-arrow-right-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Tổng cộng</label>
                             <input type="text" id="advTotalDisplay" class="form-control form-control-sm text-end fw-bold" readonly value="0" />
                         </div>
@@ -1364,6 +1416,11 @@
                         <div class="col-12">
                             <label class="form-label fw-semibold mb-1">Ghi chú</label>
                             <textarea id="advNotes" class="form-control form-control-sm" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="small text-muted">
+                                Chi phí mua dự kiến (cơ sở tính %): <strong class="text-dark">@((adv?.PurchaseCost ?? 0).ToString("N0")) @(adv?.Currency ?? "VND")</strong>
+                            </div>
                         </div>
                     </div>
 
@@ -1423,8 +1480,9 @@
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-                    <button type="button" class="btn btn-sm btn-warning" onclick="confirmCreateAdvance()">
-                        <i class="bi bi-check-circle me-1"></i> Tạo phiếu tạm ứng
+                    <button type="button" class="btn btn-sm btn-warning" id="advSubmitBtn" onclick="confirmCreateAdvance()">
+                        <i class="bi bi-check-circle me-1"></i>
+                        <span id="advSubmitBtnLabel">Tạo phiếu tạm ứng</span>
                     </button>
                 </div>
             </div>
@@ -1741,6 +1799,12 @@
         var hasNewFile = document.getElementById('draftCustomerPoFile')?.files.length > 0;
         if (!hasExistingFile && !hasNewFile) {
             alert('Vui lòng upload File PO khách hàng trước khi gửi DNTU.');
+            return;
+        }
+
+        var activeAdvanceCount = @(Model.AdvanceSummary?.Requests.Count(r => r.Status != "REJECTED") ?? 0);
+        if (activeAdvanceCount === 0) {
+            alert('Vui lòng tạo ít nhất 1 đề nghị tạm ứng trong mục "Tạm ứng" trước khi gửi DNTU.');
             return;
         }
 
@@ -2325,18 +2389,86 @@
     }
 
     // ══════════════════════════════════════════════════
-    // ADVANCE REQUEST (v2.2 multi-advance)
+    // ADVANCE REQUEST (v2.2 multi-advance, v2.5 % input + accountant flow)
     // ══════════════════════════════════════════════════
+    var soPurchaseCost = @((Model.AdvanceSummary?.PurchaseCost ?? Model.PurchaseCost ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+    function resetAdvanceModalToCreate() {
+        document.getElementById('advEditId').value = '';
+        document.getElementById('advModalTitle').textContent = 'Tạm ứng mới';
+        document.getElementById('advSubmitBtnLabel').textContent = 'Tạo phiếu tạm ứng';
+        document.getElementById('advDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('advStatus').value = 'PENDING';
+        document.getElementById('advPurpose').value = '';
+        document.getElementById('advNotes').value = '';
+        var pctEl = document.getElementById('advPercent');
+        if (pctEl) pctEl.value = '';
+        document.querySelectorAll('.adv-line-amount').forEach(function (el) { el.value = ''; });
+        updateAdvTotal();
+    }
+
     function openCreateAdvanceModal() {
         var modal = document.getElementById('createAdvanceModal');
         if (!modal) return;
-        document.getElementById('advDate').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('advStatus').value = 'RECEIVED';
-        document.getElementById('advPurpose').value = '';
-        document.getElementById('advNotes').value = '';
-        document.querySelectorAll('.adv-line-amount').forEach(function (el) { el.value = ''; });
-        updateAdvTotal();
+        resetAdvanceModalToCreate();
         new bootstrap.Modal(modal).show();
+    }
+
+    function editAdvance(advId) {
+        var modal = document.getElementById('createAdvanceModal');
+        if (!modal) return;
+        fetch('/AdvanceRequest/GetForEdit?id=' + advId, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.Success || !res.Data) { alert(res.Message || 'Không tải được dữ liệu'); return; }
+                var d = res.Data;
+
+                // Switch modal to edit mode
+                resetAdvanceModalToCreate();
+                document.getElementById('advEditId').value = d.AdvanceRequestId;
+                document.getElementById('advModalTitle').textContent = 'Sửa tạm ứng ' + (d.RequestNo || '');
+                document.getElementById('advSubmitBtnLabel').textContent = 'Lưu thay đổi';
+
+                // Populate header
+                if (d.RequestDate) {
+                    document.getElementById('advDate').value = d.RequestDate.substring(0, 10);
+                }
+                document.getElementById('advStatus').value = d.Status || 'PENDING';
+                document.getElementById('advPurpose').value = d.Purpose || '';
+                document.getElementById('advNotes').value = d.Notes || '';
+
+                // Populate per-line amounts
+                (d.Items || []).forEach(function (it) {
+                    var selector = it.SOItemId
+                        ? '.adv-line-amount[data-so-item-id="' + it.SOItemId + '"]'
+                        : '.adv-line-amount[data-so-item-id=""]';
+                    var input = document.querySelector(selector);
+                    if (input) input.value = it.Amount;
+                });
+                updateAdvTotal();
+
+                new bootstrap.Modal(modal).show();
+            })
+            .catch(function (err) { alert('Lỗi tải dữ liệu: ' + err); });
+    }
+
+    function applyAdvancePercent() {
+        var pct = parseFloat(document.getElementById('advPercent').value);
+        if (isNaN(pct) || pct <= 0) {
+            alert('Nhập % tạm ứng (1-100)');
+            return;
+        }
+        if (!soPurchaseCost || soPurchaseCost <= 0) {
+            alert('Chưa có chi phí mua dự kiến — không tính được số tiền tạm ứng theo %.');
+            return;
+        }
+        var amount = Math.round(soPurchaseCost * pct / 100);
+        // Write to the "Phân bổ chung" row (data-so-item-id is empty)
+        var generalRow = document.querySelector('.adv-line-amount[data-so-item-id=""]');
+        if (generalRow) {
+            generalRow.value = amount;
+            updateAdvTotal();
+        }
     }
 
     function updateAdvTotal() {
@@ -2382,7 +2514,12 @@
             Items: items
         };
 
-        postAction('/AdvanceRequest/Create?salesOrderId=' + soId, body, function (data) {
+        var editId = document.getElementById('advEditId').value;
+        var url = editId
+            ? '/AdvanceRequest/Update?id=' + editId + '&salesOrderId=' + soId
+            : '/AdvanceRequest/Create?salesOrderId=' + soId;
+
+        postAction(url, body, function (data) {
             if (data.Success) {
                 bootstrap.Modal.getInstance(document.getElementById('createAdvanceModal')).hide();
                 location.reload();
@@ -2395,6 +2532,31 @@
     function deleteAdvance(advId, advNo) {
         if (!confirm('Xóa đề nghị tạm ứng ' + advNo + '?')) return;
         postAction('/AdvanceRequest/Delete?id=' + advId + '&salesOrderId=' + soId, null, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    function approveAdvance(advId, advNo) {
+        if (!confirm('Duyệt đề nghị tạm ứng ' + advNo + '?')) return;
+        postAction('/AdvanceRequest/Approve?id=' + advId, null, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    function receiveAdvance(advId, advNo) {
+        if (!confirm('Xác nhận đã chuyển tiền cho đề nghị ' + advNo + '?')) return;
+        postAction('/AdvanceRequest/MarkReceived?id=' + advId, null, function (data) {
+            if (data.Success) location.reload();
+            else alert(data.Message || 'Lỗi');
+        });
+    }
+
+    function rejectAdvance(advId, advNo) {
+        var reason = prompt('Lý do từ chối đề nghị ' + advNo + ' (tùy chọn):', '');
+        if (reason === null) return; // user cancelled
+        postAction('/AdvanceRequest/Reject?id=' + advId, { Reason: reason }, function (data) {
             if (data.Success) location.reload();
             else alert(data.Message || 'Lỗi');
         });

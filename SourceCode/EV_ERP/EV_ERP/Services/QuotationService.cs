@@ -946,6 +946,13 @@ public class QuotationService : IQuotationService
         var safeProduct = SanitizeFileName(firstProductName);
         var fileName = $"{now:yyyy.MM.dd} Quotation EVH-{safeCustomer}-{safeProduct}.xlsx";
 
+        // Re-apply print area and page break preview — ClosedXML does not reliably
+        // round-trip Print_Area (worksheet-scoped defined name) after InsertRowsBelow,
+        // and always resets the sheetView back to "normal" on save.
+        ws.PageSetup.PrintAreas.Clear();
+        ws.PageSetup.PrintAreas.Add($"A1:{ws.Cell(totalRow+18, lastCol-13).Address}");
+        ws.SheetView.View = XLSheetViewOptions.PageBreakPreview;
+
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return (ms.ToArray(), fileName);

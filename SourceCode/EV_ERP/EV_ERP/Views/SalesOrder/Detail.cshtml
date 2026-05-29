@@ -636,9 +636,10 @@
                                             }
                                             else
                                             {
+                                                var matchedUnitId = productForm?.Units.FirstOrDefault(u => u.UnitName == item.UnitName)?.UnitId ?? 0;
                                                 <div class="d-flex flex-column gap-1">
-                                                    <a href="#" style="text-decoration: none;" 
-                                                            onclick="openCreateProductModal(@item.SOItemId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductName)', @item.UnitPrice, @(item.PurchasePrice?.ToString() ?? "0"), '@System.Web.HttpUtility.JavaScriptStringEncode(item.SourceUrl ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductDescription ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ImageUrl ?? "")')">
+                                                    <a href="#" style="text-decoration: none;"
+                                                            onclick="openCreateProductModal(@item.SOItemId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductName)', @item.UnitPrice, @(item.PurchasePrice?.ToString() ?? "0"), '@System.Web.HttpUtility.JavaScriptStringEncode(item.SourceUrl ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ProductDescription ?? "")', '@System.Web.HttpUtility.JavaScriptStringEncode(item.ImageUrl ?? "")', @matchedUnitId, '@System.Web.HttpUtility.JavaScriptStringEncode(item.UnitName)')">
                                                         <i class="bi bi-plus-circle me-1"></i>Tạo SP
                                                     </a>
                                                     <a href="#" style="text-decoration: none;"
@@ -1817,12 +1818,31 @@
     }
 
     // ── Create Product Modal ────────────────────────
-    function openCreateProductModal(soItemId, productName, salePrice, purchasePrice, sourceUrl, description, imageUrl) {
+    function openCreateProductModal(soItemId, productName, salePrice, purchasePrice, sourceUrl, description, imageUrl, unitId, unitName) {
         document.getElementById('cpSoItemId').value = soItemId;
         document.getElementById('cpItemLabel').textContent = '(cho: ' + productName + ')';
 
         // Pre-fill form fields
         document.getElementById('ProductName').value = productName;
+
+        // Bind unit of measure from the SO line: prefer the resolved UnitId,
+        // otherwise fall back to matching the option text against the unit name.
+        var unitSel = document.getElementById('UnitId');
+        if (unitSel) {
+            var bound = false;
+            if (unitId && Number(unitId) > 0) {
+                unitSel.value = String(unitId);
+                bound = unitSel.value === String(unitId);
+            }
+            if (!bound && unitName) {
+                var target = unitName.trim().toLowerCase();
+                for (var i = 0; i < unitSel.options.length; i++) {
+                    var txt = (unitSel.options[i].text || '').split('(')[0].trim().toLowerCase();
+                    if (txt === target) { unitSel.selectedIndex = i; bound = true; break; }
+                }
+            }
+            if (!bound) unitSel.value = '';
+        }
         //document.getElementById('DefaultSalePrice').value = salePrice || '';
         var dppEl = document.getElementById('DefaultPurchasePrice');
         dppEl.value = (purchasePrice && Number(purchasePrice) > 0)

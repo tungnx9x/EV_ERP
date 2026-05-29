@@ -924,9 +924,33 @@ public class QuotationService : IQuotationService
 
             // L — Notes
             ws.Cell(row, 12).Value = item.Notes ?? string.Empty;
-
+     
             // N — Source URL / NCC link
             ws.Cell(row, 14).Value = item.SourceUrl ?? string.Empty;
+            // O — Gia RMB
+            if (item.PurchaseCurrency != "VND")
+            {
+                ws.Cell(row, 15).Value = item.BasePrice;
+                ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
+            }
+            else
+            {
+                ws.Cell(row, 15).Value = 0;
+            }
+            // P Gia VND
+            ws.Cell(row, 16).FormulaA1 = $"O{row}*{item.ExchangeRate}";
+            // Q Can nang
+            ws.Cell(row, 17).Value = item.UnofficialWeightKg;
+            ws.Cell(row, 17).Style.NumberFormat.Format = "#,##0";
+            //T Gia von final
+            ws.Cell(row, 20).Value = item.ImportPrice;
+            ws.Cell(row, 20).Style.NumberFormat.Format = "#,##0";
+            // U Ship
+            ws.Cell(row, 21).Value = item.Shipping;
+            ws.Cell(row, 21).Style.NumberFormat.Format = "#,##0";
+            // V He so
+            ws.Cell(row, 22).Value = item.Coefficient;
+            ws.Cell(row, 22).Style.NumberFormat.Format = "#,##0.##";
         }
 
         // Totals row sits immediately after the data block (was row 15 in the template,

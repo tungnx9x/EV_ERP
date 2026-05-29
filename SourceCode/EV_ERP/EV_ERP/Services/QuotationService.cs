@@ -1192,6 +1192,17 @@ public class QuotationService : IQuotationService
             : Math.Min(discountValue.Value, subTotal);
     }
 
+    // Robustly reads a numeric cell whether it is stored as a number, a formula
+    // result, or text such as "1,000" / "8%". Returns 0 when empty or unparseable.
+    private static decimal ReadDecimal(IXLCell cell)
+    {
+        if (cell.TryGetValue<double>(out var dbl) && !double.IsNaN(dbl) && !double.IsInfinity(dbl))
+            return (decimal)dbl;
+        var s = cell.GetString().Trim().Replace(",", "").Replace("%", "");
+        return decimal.TryParse(s, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
+    }
+
     private static string NormalizePurchaseMode(string? mode)
     {
         if (string.IsNullOrWhiteSpace(mode)) return "OFFICIAL";
@@ -1230,8 +1241,8 @@ public class QuotationService : IQuotationService
         for (int r = 2; r <= lastRow; r++)
         {
             var cellA = ws.Cell(r, 1).GetString().Trim();
-            // Header row detection: "STT" or "No" → data starts next row
-            if (cellA.Equals("STT", StringComparison.OrdinalIgnoreCase) ||
+            // Header row detection: "STT" / "STT/ No." / "No" → data starts next row
+            if (cellA.StartsWith("STT", StringComparison.OrdinalIgnoreCase) ||
                 cellA.Equals("No", StringComparison.OrdinalIgnoreCase) ||
                 cellA.Equals("No.", StringComparison.OrdinalIgnoreCase))
             {
@@ -1256,17 +1267,31 @@ public class QuotationService : IQuotationService
         if (dataStartRow == 0)
             return (false, "Không tìm thấy dữ liệu sản phẩm trong file", null);
 
-        // Map embedded images to their anchor row (first picture per row wins,
-        // matches the export which anchors product image at column E of each item row)
-        var pictureByRow = new Dictionary<int, IXLPicture>();
+        // Map embedded images to their anchor row, split by column band so the two
+        // image columns of the new template are kept apart:
+        //   col B (2) = customer's required image  → RequiredImageUrl
+        //   col E (5) = EVH product image          → ImageUrl
+        // First picture per row per band wins. Pictures anchored in cols 1-3 are
+        // treated as the request image; cols 4+ as the product image.
+        var requiredPicByRow = new Dictionary<int, IXLPicture>();
+        var productPicByRow = new Dictionary<int, IXLPicture>();
         foreach (var pic in ws.Pictures)
         {
             var topLeft = pic.TopLeftCell;
             if (topLeft == null) continue;
             var anchorRow = topLeft.Address.RowNumber;
             if (anchorRow < dataStartRow) continue;
-            if (!pictureByRow.ContainsKey(anchorRow))
-                pictureByRow[anchorRow] = pic;
+            var anchorCol = topLeft.Address.ColumnNumber;
+            if (anchorCol <= 3)
+            {
+                if (!requiredPicByRow.ContainsKey(anchorRow))
+                    requiredPicByRow[anchorRow] = pic;
+            }
+            else
+            {
+                if (!productPicByRow.ContainsKey(anchorRow))
+                    productPicByRow[anchorRow] = pic;
+            }
         }
 
         // Parse items
@@ -1277,85 +1302,117 @@ public class QuotationService : IQuotationService
         for (int r = dataStartRow; r <= lastRow; r++)
         {
             var sttText = ws.Cell(r, 1).GetString().Trim();
-            // B-C merged = product name
-            var productName = ws.Cell(r, 2).GetString().Trim();
+            // C = product name (+ optional required description after a blank line)
+            var nameBlock = ws.Cell(r, 3).GetString().Replace("\r\n", "\n").Trim();
 
             // Stop at total row or empty
-            if (string.IsNullOrEmpty(productName) && string.IsNullOrEmpty(sttText))
+            if (string.IsNullOrEmpty(nameBlock) && string.IsNullOrEmpty(sttText))
                 continue;
             // Normalize Vietnamese diacritics for TỔNG detection
             var sttNorm = sttText.Normalize(System.Text.NormalizationForm.FormD);
-            var nameNorm = productName.Normalize(System.Text.NormalizationForm.FormD);
+            var nameNorm = nameBlock.Normalize(System.Text.NormalizationForm.FormD);
             if (sttNorm.Contains("TONG", StringComparison.OrdinalIgnoreCase) ||
                 nameNorm.Contains("TONG", StringComparison.OrdinalIgnoreCase) ||
                 sttText.Contains("TỔNG", StringComparison.OrdinalIgnoreCase) ||
-                productName.Contains("TỔNG", StringComparison.OrdinalIgnoreCase))
+                nameBlock.Contains("TỔNG", StringComparison.OrdinalIgnoreCase))
                 break;
-            if (!int.TryParse(sttText, out _) && string.IsNullOrEmpty(productName))
+            if (!int.TryParse(sttText, out _) && string.IsNullOrEmpty(nameBlock))
                 continue;
 
             var rowLabel = $"Dòng {r}";
 
-            if (string.IsNullOrEmpty(productName))
+            if (string.IsNullOrEmpty(nameBlock))
             {
                 errors.Add($"{rowLabel}: Tên sản phẩm trống");
                 continue;
             }
 
-            // Parse fields
+            // C column mirrors the export's block: "ProductName\n\nRequiredDescription".
+            // Split on the first blank line; everything after is the required description.
+            string productName;
+            string? requiredDescription = null;
+            var sepIdx = nameBlock.IndexOf("\n\n", StringComparison.Ordinal);
+            if (sepIdx >= 0)
+            {
+                productName = nameBlock[..sepIdx].Trim();
+                var rest = nameBlock[(sepIdx + 2)..].Trim();
+                requiredDescription = string.IsNullOrEmpty(rest) ? null : rest;
+            }
+            else
+            {
+                productName = nameBlock;
+            }
+
+            // D — EVH proposal / product description
             var proposal = ws.Cell(r, 4).GetString().Trim();
+
+            // F — unit
             var unitName = ws.Cell(r, 6).GetString().Trim();
             if (string.IsNullOrEmpty(unitName)) unitName = "Cái";
 
-            decimal.TryParse(ws.Cell(r, 7).GetString().Trim().Replace(",", ""), out decimal qty);
+            // G — quantity
+            var qty = ReadDecimal(ws.Cell(r, 7));
             if (qty <= 0) qty = 1;
 
-            decimal.TryParse(ws.Cell(r, 8).GetString().Trim().Replace(",", ""), out decimal unitPrice);
+            // H — unit price
+            var unitPrice = ReadDecimal(ws.Cell(r, 8));
 
-            // VAT - parse from col J, e.g. "8%", "10", "10%", or 0.08 (fraction)
-            var vatText = ws.Cell(r, 10).GetString().Trim().Replace("%", "");
-            if (!decimal.TryParse(vatText, out decimal vatRate))
-                vatRate = 10;
-            // If value < 1, it's a fraction (e.g. 0.08 = 8%)
-            if (vatRate > 0 && vatRate < 1)
-                vatRate = vatRate * 100;
+            // J — VAT. Exported as a fraction (0.1) with "0%" format; users may also
+            // type "8", "8%" or "10". Treat values in (0,1) as fractions.
+            var vatRate = ReadDecimal(ws.Cell(r, 10));
+            if (vatRate <= 0) vatRate = 10;
+            else if (vatRate < 1) vatRate *= 100;
 
+            // L — notes
             var notes = ws.Cell(r, 12).GetString().Trim();
+
+            // N — Link/NCC: a URL goes to SourceUrl, otherwise a supplier name to SourceName
             var supplierRaw = ws.Cell(r, 14).GetString().Trim();
-            // If NCC column contains a URL, put it in SourceUrl instead of SourceName
             string? supplier = null;
             string? sourceUrl = null;
             if (supplierRaw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 supplierRaw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 sourceUrl = supplierRaw;
-            else
+            else if (!string.IsNullOrEmpty(supplierRaw))
                 supplier = supplierRaw;
 
-            decimal.TryParse(ws.Cell(r, 15).GetString().Trim().Replace(",", ""), out decimal importPrice);
-            decimal.TryParse(ws.Cell(r, 16).GetString().Trim().Replace(",", ""), out decimal shipping);
-
-            var coeffText = ws.Cell(r, 17).GetString().Trim().Replace(",", "");
-            if (!decimal.TryParse(coeffText, out decimal coefficient) || coefficient <= 0)
-                coefficient = 1;
+            // O — Giá RMB (base purchase price, in the purchase currency)
+            var basePrice = ReadDecimal(ws.Cell(r, 15));
+            // Q — Cân nặng (KG)
+            var weightKg = ReadDecimal(ws.Cell(r, 17));
+            // T — Giá vốn final (final cost price in VND)
+            var importPrice = ReadDecimal(ws.Cell(r, 20));
+            // U — Vận chuyển khách (customer shipping fee)
+            var shipping = ReadDecimal(ws.Cell(r, 21));
+            // V — Hệ số (coefficient)
+            var coefficient = ReadDecimal(ws.Cell(r, 22));
+            if (coefficient <= 0) coefficient = 1;
 
             // Calculate line totals
             var lineTotal = qty * unitPrice;
             var taxAmount = Math.Round(lineTotal * vatRate / 100m, 0);
             var lineTotalWithTax = lineTotal + taxAmount;
 
-            // Extract embedded image (if any) for this row
+            // Extract embedded images for this row (B = required image, E = product image)
+            string? requiredImageUrl = null;
+            if (requiredPicByRow.TryGetValue(r, out var reqPic))
+                requiredImageUrl = await SaveImportedItemPictureAsync(reqPic);
             string? imageUrl = null;
-            if (pictureByRow.TryGetValue(r, out var rowPic))
-                imageUrl = await SaveImportedItemPictureAsync(rowPic);
+            if (productPicByRow.TryGetValue(r, out var prodPic))
+                imageUrl = await SaveImportedItemPictureAsync(prodPic);
 
             items.Add(new QuotationItem
             {
                 ProductName = productName,
                 ProductDescription = string.IsNullOrEmpty(proposal) ? null : proposal,
+                RequiredDescription = requiredDescription,
                 ImageUrl = imageUrl,
+                RequiredImageUrl = requiredImageUrl,
                 UnitName = unitName,
                 Quantity = qty,
                 UnitPrice = unitPrice,
+                BasePrice = basePrice > 0 ? basePrice : null,
+                UnofficialWeightKg = weightKg > 0 ? weightKg : null,
                 PurchasePrice = importPrice > 0 ? importPrice : null,
                 ShippingFee = shipping > 0 ? shipping : null,
                 Coefficient = coefficient,
@@ -1363,7 +1420,7 @@ public class QuotationService : IQuotationService
                 TaxRate = vatRate,
                 TaxAmount = taxAmount,
                 LineTotalWithTax = lineTotalWithTax,
-                SourceName = string.IsNullOrEmpty(supplier) ? null : supplier,
+                SourceName = supplier,
                 SourceUrl = sourceUrl,
                 Notes = string.IsNullOrEmpty(notes) ? null : notes,
                 SortOrder = sortOrder++,

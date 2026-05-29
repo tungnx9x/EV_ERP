@@ -1138,7 +1138,7 @@
 
     function _doUploadItemImage(idx, file, kind) {
         if (!file) return;
-        if (!/^image\//i.test(file.type)) { alert('File khong phai la anh'); return; }
+        if (!/^image\//i.test(file.type)) { appAlert('File khong phai la anh'); return; }
 
         var formData = new FormData();
         formData.append('file', file, file.name || ('paste-' + Date.now() + '.png'));
@@ -1158,12 +1158,12 @@
                 items[idx][_imgField(kind)] = res.Data.url;
                 renderItems();
             } else {
-                alert(res.Message || 'Upload that bai');
+                appAlert(res.Message || 'Upload that bai');
                 if (cellEl) cellEl.style.opacity = '1';
             }
         })
         .catch(function () {
-            alert('Loi ket noi khi upload');
+            appAlert('Loi ket noi khi upload');
             if (cellEl) cellEl.style.opacity = '1';
         });
     }
@@ -1250,10 +1250,10 @@
     // EXPORT EXCEL
     // ══════════════════════════════════════════════
     function exportExcel() {
-        if (items.length === 0) { alert('Chua co san pham de xuat'); return; }
+        if (items.length === 0) { appAlert('Chua co san pham de xuat'); return; }
 
         var customerId = parseInt(document.getElementById('frm_customerId').value);
-        if (!customerId) { alert('Vui long lua chon khach hang'); return; }
+        if (!customerId) { appAlert('Vui long lua chon khach hang'); return; }
 
         var btn = document.getElementById('btnExport');
         btn.disabled = true;
@@ -1295,7 +1295,7 @@
             window.URL.revokeObjectURL(url);
         })
         .catch(function (err) {
-            alert('Loi xuat file: ' + err.message);
+            appAlert('Loi xuat file: ' + err.message);
         })
         .finally(function () {
             btn.disabled = false;
@@ -1311,13 +1311,13 @@
     function submitForm(stayOnPage) {
         var customerId = parseInt(document.getElementById('frm_customerId').value);
         var deadlineVal = document.getElementById('frm_deadline')?.value;
-        if (!deadlineVal) { alert('Vui long chon han xu ly noi bo'); return; }
-        if (!customerId) { alert('Vui long chon khach hang'); return; }
-        if (items.length === 0) { alert('Vui long them it nhat 1 san pham'); return; }
+        if (!deadlineVal) { appAlert('Vui long chon han xu ly noi bo'); return; }
+        if (!customerId) { appAlert('Vui long chon khach hang'); return; }
+        if (items.length === 0) { appAlert('Vui long them it nhat 1 san pham'); return; }
 
         for (var vi = 0; vi < items.length; vi++) {
             if (!items[vi].ProductName || !items[vi].ProductName.trim()) {
-                alert('Dong ' + (vi + 1) + ': Vui long nhap ten san pham');
+                appAlert('Dong ' + (vi + 1) + ': Vui long nhap ten san pham');
                 var inp = document.getElementById('req_' + vi);
                 if (inp) inp.focus();
                 return;
@@ -1391,12 +1391,12 @@
                     window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
                 }
             } else {
-                alert(data.Message || 'Loi luu bao gia');
+                appAlert(data.Message || 'Loi luu bao gia');
                 setBusy(false);
             }
         })
         .catch(function () {
-            alert('Loi ket noi');
+            appAlert('Loi ket noi');
             setBusy(false);
         });
     }

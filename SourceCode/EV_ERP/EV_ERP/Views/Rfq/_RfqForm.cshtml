@@ -154,13 +154,13 @@
     function submitForm() {
         var customerId = parseInt(document.getElementById('frm_customerId').value);
         if (!customerId) {
-            alert('Vui lòng chọn khách hàng');
+            appAlert('Vui lòng chọn khách hàng');
             return;
         }
 
         var deadlineVal = document.getElementById('frm_deadline').value;
         if (!deadlineVal) {
-            alert('Vui lòng chọn hạn xử lý');
+            appAlert('Vui lòng chọn hạn xử lý');
             return;
         }
 
@@ -198,13 +198,13 @@
             if (data.Success) {
                 window.location.href = '/Rfq/Detail/' + data.Data.RfqId;
             } else {
-                alert(data.Message || 'Có lỗi xảy ra');
+                appAlert(data.Message || 'Có lỗi xảy ra');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>' + (isEdit ? 'Cập nhật' : 'Tạo yêu cầu');
             }
         })
         .catch(function () {
-            alert('Lỗi kết nối');
+            appAlert('Lỗi kết nối');
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>' + (isEdit ? 'Cập nhật' : 'Tạo yêu cầu');
         });

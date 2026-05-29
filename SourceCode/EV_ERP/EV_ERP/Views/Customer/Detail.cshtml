@@ -399,8 +399,8 @@
             });
         }
 
-        function deleteContact(contactId) {
-            if (!confirm('Bạn có chắc muốn xóa liên hệ này?')) return;
+        async function deleteContact(contactId) {
+            if (!await appConfirm('Bạn có chắc muốn xóa liên hệ này?')) return;
 
             var form = new FormData();
             form.append('__RequestVerificationToken', getAntiForgeryToken());
@@ -412,7 +412,7 @@
                         var el = document.getElementById('contact-' + contactId);
                         if (el) el.remove();
                     } else {
-                        alert('Lỗi: ' + data.Message);
+                        appAlert('Lỗi: ' + data.Message);
                     }
                 });
         }
@@ -452,7 +452,7 @@
 
                         document.getElementById('notes-list').prepend(div);
                     } else {
-                        alert(data.Message || 'Lỗi thêm ghi chú');
+                        appAlert(data.Message || 'Lỗi thêm ghi chú');
                     }
                 });
         }

@@ -411,8 +411,8 @@
             modal.show();
         }
 
-        function generateBarcode(id) {
-            if (!confirm('Tạo mã barcode Code 128 cho sản phẩm này?')) return;
+        async function generateBarcode(id) {
+            if (!await appConfirm('Tạo mã barcode Code 128 cho sản phẩm này?')) return;
 
             var form = new FormData();
             form.append('__RequestVerificationToken', getAntiForgeryToken());
@@ -421,7 +421,7 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.Success) location.reload();
-                    else alert('Lỗi: ' + data.Message);
+                    else appAlert('Lỗi: ' + data.Message);
                 });
         }
 

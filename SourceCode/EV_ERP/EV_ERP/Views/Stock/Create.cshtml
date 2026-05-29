@@ -777,7 +777,7 @@
 
     function handleFiles(files) {
         if (attachments.length >= 10) {
-            alert('Tối đa 10 ảnh'); return;
+            appAlert('Tối đa 10 ảnh'); return;
         }
         var remaining = 10 - attachments.length;
         var toUpload = Array.from(files).slice(0, remaining);
@@ -786,7 +786,7 @@
 
     function uploadImage(file) {
         if (file.size > 5 * 1024 * 1024) {
-            alert(file.name + ' vượt quá 5MB'); return;
+            appAlert(file.name + ' vượt quá 5MB'); return;
         }
 
         var transIdVal = document.getElementById('frm_transactionId').value;
@@ -823,7 +823,7 @@
                 attachments[idx]._uploading = false;
             } else {
                 attachments.splice(idx, 1);
-                alert(res.Message || 'Upload thất bại');
+                appAlert(res.Message || 'Upload thất bại');
             }
             renderGallery();
         })
@@ -831,7 +831,7 @@
             var idx = attachments.findIndex(function (a) { return a._tempId === tempId; });
             if (idx >= 0) attachments.splice(idx, 1);
             renderGallery();
-            alert('Lỗi kết nối khi upload');
+            appAlert('Lỗi kết nối khi upload');
         });
     }
 

@@ -299,10 +299,10 @@
         var fileInput = document.getElementById('importFile');
         var resultDiv = document.getElementById('importResult');
 
-        if (!customerId) { alert('Vui lòng chọn khách hàng'); return; }
-        if (!salesPersonId) { alert('Vui lòng chọn nhân viên phụ trách'); return; }
-        if (!deadline) { alert('Vui lòng chọn hạn xử lý'); return; }
-        if (!fileInput.files.length) { alert('Vui lòng chọn file Excel'); return; }
+        if (!customerId) { appAlert('Vui lòng chọn khách hàng'); return; }
+        if (!salesPersonId) { appAlert('Vui lòng chọn nhân viên phụ trách'); return; }
+        if (!deadline) { appAlert('Vui lòng chọn hạn xử lý'); return; }
+        if (!fileInput.files.length) { appAlert('Vui lòng chọn file Excel'); return; }
 
         var formData = new FormData();
         formData.append('file', fileInput.files[0]);

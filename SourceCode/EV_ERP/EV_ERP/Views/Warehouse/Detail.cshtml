@@ -331,8 +331,8 @@
         });
     }
 
-    function toggleLocationActive(id) {
-        if (!confirm('Bạn có chắc muốn thay đổi trạng thái vị trí này?')) return;
+    async function toggleLocationActive(id) {
+        if (!await appConfirm('Bạn có chắc muốn thay đổi trạng thái vị trí này?')) return;
 
         var form = new FormData();
         form.append('__RequestVerificationToken', getAntiForgeryToken());
@@ -341,7 +341,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.Success) location.reload();
-                else alert('Lỗi: ' + data.Message);
+                else appAlert('Lỗi: ' + data.Message);
             });
     }
 

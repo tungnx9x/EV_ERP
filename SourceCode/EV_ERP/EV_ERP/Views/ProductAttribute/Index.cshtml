@@ -141,8 +141,8 @@
 }
 
 @* <script>
-    function toggleAttrActive(id) {
-        if (!confirm('Đổi trạng thái thuộc tính này?')) return;
+    async function toggleAttrActive(id) {
+        if (!await appConfirm('Đổi trạng thái thuộc tính này?')) return;
         fetch('/ProductAttribute/ToggleActive/' + id, {
             method: 'POST',
             headers: { 'RequestVerificationToken': getAntiForgeryToken() }
@@ -150,7 +150,7 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message);
+            else appAlert(data.Message);
         });
     }
 </script> *@

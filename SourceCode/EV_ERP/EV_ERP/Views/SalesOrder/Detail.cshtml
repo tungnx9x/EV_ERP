@@ -1688,11 +1688,11 @@
         .then(callback);
     }
 
-    function doSimpleAction(action, msg) {
-        if (!confirm(msg)) return;
+    async function doSimpleAction(action, msg) {
+        if (!await appConfirm(msg)) return;
         postAction('/SalesOrder/' + action + '/' + soId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -1723,23 +1723,23 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.Success) location.reload();
-            else { alert(data.Message || 'Loi'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; }
+            else { appAlert(data.Message || 'Loi'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; }
         })
         .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Lưu thông tin PO'; });
     }
 
     // ── Import Products from Excel ──────────────────
-    function importProducts(input) {
+    async function importProducts(input) {
         if (!input.files || input.files.length === 0) return;
 
         var file = input.files[0];
         if (!file.name.match(/\.xlsx?$/i)) {
-            alert('Vui lòng chọn file Excel (.xlsx)');
+            appAlert('Vui lòng chọn file Excel (.xlsx)');
             input.value = '';
             return;
         }
 
-        if (!confirm('Import sản phẩm từ file "' + file.name + '"?\n\nSản phẩm sẽ được tạo và gắn tự động vào đơn hàng.'))
+        if (!await appConfirm('Import sản phẩm từ file "' + file.name + '"?\n\nSản phẩm sẽ được tạo và gắn tự động vào đơn hàng.'))
         {
             input.value = '';
             return;
@@ -1764,17 +1764,17 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.Success) {
-                alert(data.Message || ('Đã import ' + (data.Data?.created || 0) + ' sản phẩm'));
+                appAlert(data.Message || ('Đã import ' + (data.Data?.created || 0) + ' sản phẩm'));
                 location.reload();
             } else {
-                alert(data.Message || 'Import thất bại');
+                appAlert(data.Message || 'Import thất bại');
                 label.innerHTML = origHtml;
                 label.classList.remove('disabled');
             }
             input.value = '';
         })
         .catch(function() {
-            alert('Lỗi hệ thống khi import');
+            appAlert('Lỗi hệ thống khi import');
             label.innerHTML = origHtml;
             label.classList.remove('disabled');
             input.value = '';
@@ -1782,15 +1782,15 @@
     }
 
     // ── DRAFT → WAIT ────────────────────────────────
-    function showSubmitWaitModal() {
+    async function showSubmitWaitModal() {
         if (hasUnmappedProducts) {
-            alert('Còn sản phẩm chưa được nhập vào hệ thống. Vui lòng tạo sản phẩm cho tất cả các dòng trước khi gửi DNTU.');
+            appAlert('Còn sản phẩm chưa được nhập vào hệ thống. Vui lòng tạo sản phẩm cho tất cả các dòng trước khi gửi DNTU.');
             return;
         }
 
         var customerPoNo = document.getElementById('draftCustomerPoNo')?.value.trim();
         if (!customerPoNo) {
-            alert('Vui lòng nhập Mã PO khách hàng trước khi gửi DNTU.');
+            appAlert('Vui lòng nhập Mã PO khách hàng trước khi gửi DNTU.');
             document.getElementById('draftCustomerPoNo')?.focus();
             return;
         }
@@ -1798,21 +1798,21 @@
         var hasExistingFile = @(Model.CustomerPoFile != null ? "true" : "false");
         var hasNewFile = document.getElementById('draftCustomerPoFile')?.files.length > 0;
         if (!hasExistingFile && !hasNewFile) {
-            alert('Vui lòng upload File PO khách hàng trước khi gửi DNTU.');
+            appAlert('Vui lòng upload File PO khách hàng trước khi gửi DNTU.');
             return;
         }
 
         var activeAdvanceCount = @(Model.AdvanceSummary?.Requests.Count(r => r.Status != "REJECTED") ?? 0);
         if (activeAdvanceCount === 0) {
-            alert('Vui lòng tạo ít nhất 1 đề nghị tạm ứng trong mục "Tạm ứng" trước khi gửi DNTU.');
+            appAlert('Vui lòng tạo ít nhất 1 đề nghị tạm ứng trong mục "Tạm ứng" trước khi gửi DNTU.');
             return;
         }
 
-        if (!confirm('Xác nhận gửi đề nghị tạm ứng?')) return;
+        if (!await appConfirm('Xác nhận gửi đề nghị tạm ứng?')) return;
 
         postAction('/SalesOrder/SubmitWait/' + soId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -1883,8 +1883,8 @@
         var productName = document.getElementById('ProductName').value.trim();
         var unitId = document.getElementById('UnitId').value;
 
-        if (!productName) { alert('Tên sản phẩm là bắt buộc'); return; }
-        if (!unitId || unitId === '0') { alert('Vui lòng chọn đơn vị tính'); return; }
+        if (!productName) { appAlert('Tên sản phẩm là bắt buộc'); return; }
+        if (!unitId || unitId === '0') { appAlert('Vui lòng chọn đơn vị tính'); return; }
 
         var formData = new FormData();
         formData.append('SoItemId', document.getElementById('cpSoItemId').value);
@@ -1934,13 +1934,13 @@
                 bootstrap.Modal.getInstance(document.getElementById('createProductModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Lỗi tạo sản phẩm');
+                appAlert(data.Message || 'Lỗi tạo sản phẩm');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Tạo sản phẩm';
             }
         })
         .catch(function(err) {
-            alert('Lỗi hệ thống');
+            appAlert('Lỗi hệ thống');
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Tạo sản phẩm';
         });
@@ -2027,7 +2027,7 @@
     function submitAssignProduct() {
         var soItemId = parseInt(document.getElementById('apSoItemId').value);
         var productId = parseInt(document.getElementById('apProductId').value);
-        if (!productId) { alert('Vui lòng chọn sản phẩm'); return; }
+        if (!productId) { appAlert('Vui lòng chọn sản phẩm'); return; }
 
         var btn = document.getElementById('apSubmitBtn');
         btn.disabled = true;
@@ -2038,7 +2038,7 @@
                 bootstrap.Modal.getInstance(document.getElementById('assignProductModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Lỗi gán sản phẩm');
+                appAlert(data.Message || 'Lỗi gán sản phẩm');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Gán sản phẩm';
             }
@@ -2149,7 +2149,7 @@
             });
         });
 
-        if (!checkedAny) { alert('Tích chọn ít nhất 1 dòng để bắt đầu mua'); return; }
+        if (!checkedAny) { appAlert('Tích chọn ít nhất 1 dòng để bắt đầu mua'); return; }
 
         var body = {
             PurchaseSource: null,
@@ -2159,7 +2159,7 @@
 
         postAction('/SalesOrder/StartBuying/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2209,7 +2209,7 @@
             Notes: document.getElementById('editItemNotes').value.trim()
         };
         postAction('/SalesOrder/UpdateItemPurchase/' + soId + '?soItemId=' + id, body, function (data) {
-            if (data.Success) location.reload(); else alert(data.Message || 'Lỗi');
+            if (data.Success) location.reload(); else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2233,7 +2233,7 @@
             Reason: document.getElementById('cancelItemReason').value.trim()
         };
         postAction('/SalesOrder/CancelItem/' + soId + '?soItemId=' + id, body, function (data) {
-            if (data.Success) location.reload(); else alert(data.Message || 'Lỗi');
+            if (data.Success) location.reload(); else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2268,8 +2268,8 @@
             if (qty > max) { bad = 'SL nhập (' + qty + ') vượt quá còn cần nhận (' + max + ')'; return; }
             items.push({ SOItemId: soItemId, Quantity: qty });
         });
-        if (bad) { alert(bad); return; }
-        if (items.length === 0) { alert('Chưa chọn dòng nào'); return; }
+        if (bad) { appAlert(bad); return; }
+        if (items.length === 0) { appAlert('Chưa chọn dòng nào'); return; }
 
         var body = {
             WarehouseId: 0,
@@ -2279,9 +2279,9 @@
         };
         postAction('/SalesOrder/ReceiveBatch/' + soId, body, function (data) {
             if (data.Success) {
-                alert(data.Message || 'Đã tạo phiếu nhập');
+                appAlert(data.Message || 'Đã tạo phiếu nhập');
                 location.reload();
-            } else alert(data.Message || 'Lỗi');
+            } else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2316,8 +2316,8 @@
             if (qty > max) { bad = 'SL giao (' + qty + ') vượt quá tồn trong kho (' + max + ')'; return; }
             items.push({ SOItemId: soItemId, Quantity: qty });
         });
-        if (bad) { alert(bad); return; }
-        if (items.length === 0) { alert('Chưa chọn dòng nào'); return; }
+        if (bad) { appAlert(bad); return; }
+        if (items.length === 0) { appAlert('Chưa chọn dòng nào'); return; }
 
         var body = {
             WarehouseId: 0,
@@ -2330,9 +2330,9 @@
         };
         postAction('/SalesOrder/DeliverBatch/' + soId, body, function (data) {
             if (data.Success) {
-                alert(data.Message || 'Đã tạo phiếu xuất');
+                appAlert(data.Message || 'Đã tạo phiếu xuất');
                 location.reload();
-            } else alert(data.Message || 'Lỗi');
+            } else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2348,7 +2348,7 @@
         };
         postAction('/SalesOrder/Complete/' + soId, body, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2365,7 +2365,7 @@
                 bootstrap.Modal.getInstance(document.getElementById('returnModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Lỗi');
+                appAlert(data.Message || 'Lỗi');
             }
         });
     }
@@ -2383,7 +2383,7 @@
                 bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Lỗi');
+                appAlert(data.Message || 'Lỗi');
             }
         });
     }
@@ -2420,7 +2420,7 @@
         fetch('/AdvanceRequest/GetForEdit?id=' + advId, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (res) {
-                if (!res.Success || !res.Data) { alert(res.Message || 'Không tải được dữ liệu'); return; }
+                if (!res.Success || !res.Data) { appAlert(res.Message || 'Không tải được dữ liệu'); return; }
                 var d = res.Data;
 
                 // Switch modal to edit mode
@@ -2449,17 +2449,17 @@
 
                 new bootstrap.Modal(modal).show();
             })
-            .catch(function (err) { alert('Lỗi tải dữ liệu: ' + err); });
+            .catch(function (err) { appAlert('Lỗi tải dữ liệu: ' + err); });
     }
 
     function applyAdvancePercent() {
         var pct = parseFloat(document.getElementById('advPercent').value);
         if (isNaN(pct) || pct <= 0) {
-            alert('Nhập % tạm ứng (1-100)');
+            appAlert('Nhập % tạm ứng (1-100)');
             return;
         }
         if (!soPurchaseCost || soPurchaseCost <= 0) {
-            alert('Chưa có chi phí mua dự kiến — không tính được số tiền tạm ứng theo %.');
+            appAlert('Chưa có chi phí mua dự kiến — không tính được số tiền tạm ứng theo %.');
             return;
         }
         var amount = Math.round(soPurchaseCost * pct / 100);
@@ -2497,12 +2497,12 @@
         });
 
         if (items.length === 0) {
-            alert('Nhập ít nhất 1 dòng có số tiền > 0');
+            appAlert('Nhập ít nhất 1 dòng có số tiền > 0');
             return;
         }
         var purpose = document.getElementById('advPurpose').value.trim();
         if (!purpose) {
-            alert('Vui lòng nhập Mục đích');
+            appAlert('Vui lòng nhập Mục đích');
             return;
         }
 
@@ -2524,32 +2524,32 @@
                 bootstrap.Modal.getInstance(document.getElementById('createAdvanceModal')).hide();
                 location.reload();
             } else {
-                alert(data.Message || 'Lỗi');
+                appAlert(data.Message || 'Lỗi');
             }
         });
     }
 
-    function deleteAdvance(advId, advNo) {
-        if (!confirm('Xóa đề nghị tạm ứng ' + advNo + '?')) return;
+    async function deleteAdvance(advId, advNo) {
+        if (!await appConfirm('Xóa đề nghị tạm ứng ' + advNo + '?')) return;
         postAction('/AdvanceRequest/Delete?id=' + advId + '&salesOrderId=' + soId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
-    function approveAdvance(advId, advNo) {
-        if (!confirm('Duyệt đề nghị tạm ứng ' + advNo + '?')) return;
+    async function approveAdvance(advId, advNo) {
+        if (!await appConfirm('Duyệt đề nghị tạm ứng ' + advNo + '?')) return;
         postAction('/AdvanceRequest/Approve?id=' + advId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
-    function receiveAdvance(advId, advNo) {
-        if (!confirm('Xác nhận đã chuyển tiền cho đề nghị ' + advNo + '?')) return;
+    async function receiveAdvance(advId, advNo) {
+        if (!await appConfirm('Xác nhận đã chuyển tiền cho đề nghị ' + advNo + '?')) return;
         postAction('/AdvanceRequest/MarkReceived?id=' + advId, null, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 
@@ -2558,7 +2558,7 @@
         if (reason === null) return; // user cancelled
         postAction('/AdvanceRequest/Reject?id=' + advId, { Reason: reason }, function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message || 'Lỗi');
+            else appAlert(data.Message || 'Lỗi');
         });
     }
 

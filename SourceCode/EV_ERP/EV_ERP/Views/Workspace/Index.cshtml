@@ -551,12 +551,12 @@
                         }
                     }
                 } else {
-                    alert(res.Message || 'Có lỗi xảy ra');
+                    appAlert(res.Message || 'Có lỗi xảy ra');
                 }
             })
             .catch(function () {
                 btn.disabled = false;
-                alert('Có lỗi xảy ra');
+                appAlert('Có lỗi xảy ra');
             });
         });
 

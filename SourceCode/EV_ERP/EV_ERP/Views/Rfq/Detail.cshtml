@@ -390,9 +390,9 @@
             var fileInput = document.getElementById('rfqImportFile');
             var resultDiv = document.getElementById('rfqImportResult');
 
-            if (!salesPersonId) { alert('Vui lòng chọn nhân viên phụ trách'); return; }
-            if (!deadline) { alert('Vui lòng chọn hạn xử lý'); return; }
-            if (!fileInput.files.length) { alert('Vui lòng chọn file Excel'); return; }
+            if (!salesPersonId) { appAlert('Vui lòng chọn nhân viên phụ trách'); return; }
+            if (!deadline) { appAlert('Vui lòng chọn hạn xử lý'); return; }
+            if (!fileInput.files.length) { appAlert('Vui lòng chọn file Excel'); return; }
 
             var formData = new FormData();
             formData.append('file', fileInput.files[0]);
@@ -454,7 +454,7 @@
                     bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
                     location.reload();
                 } else {
-                    alert(data.Message || 'Lỗi');
+                    appAlert(data.Message || 'Lỗi');
                 }
             });
         }

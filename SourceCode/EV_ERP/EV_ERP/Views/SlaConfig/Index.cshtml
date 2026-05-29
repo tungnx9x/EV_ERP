@@ -284,7 +284,7 @@
                 if (data.IsActive === false) row.classList.add('opacity-50');
                 else row.classList.remove('opacity-50');
             } else {
-                alert('Lỗi: ' + result.Message);
+                appAlert('Lỗi: ' + result.Message);
             }
         });
     }
@@ -352,14 +352,14 @@
         });
     }
 
-    function deleteConfig(id, name) {
-        if (!confirm('Bạn có chắc muốn xóa cấu hình "' + name + '"?\n\nNếu đã có dữ liệu tracking, cấu hình sẽ bị vô hiệu hóa thay vì xóa.')) return;
+    async function deleteConfig(id, name) {
+        if (!await appConfirm('Bạn có chắc muốn xóa cấu hình "' + name + '"?\n\nNếu đã có dữ liệu tracking, cấu hình sẽ bị vô hiệu hóa thay vì xóa.')) return;
 
         fetch('/SlaConfig/Delete/' + id, { method: 'POST' })
             .then(r => r.json())
             .then(result => {
                 if (result.Success) location.reload();
-                else alert('Lỗi: ' + result.Message);
+                else appAlert('Lỗi: ' + result.Message);
             });
     }
 </script>

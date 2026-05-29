@@ -202,7 +202,7 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.Success) location.reload();
-            else alert(data.Message);
+            else appAlert(data.Message);
         });
     }
 

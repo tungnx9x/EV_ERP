@@ -19,6 +19,7 @@
     <link rel="icon" type="image/jpeg" href="/erp.png">
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.7/dist/sweetalert2.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <style>
         :root {
@@ -435,8 +436,60 @@
 
 <script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.7/dist/sweetalert2.all.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
+<script>
+    // ── App-wide popup helpers (SweetAlert2 based) ──
+    // appAlert(message, title?)             → Promise<void>   ; replaces window.alert
+    // appConfirm(message, title?)           → Promise<bool>   ; replaces window.confirm; resolves true when user clicks Đồng ý
+    // appToast(message, type='success')     → toast in top-right; type: success | info | warning | error
+    (function () {
+        var BRAND = '#2563eb';
+        var MUTED = '#64748b';
+
+        window.appAlert = function (message, title) {
+            return Swal.fire({
+                title: title || '',
+                text: message == null ? '' : String(message),
+                icon: 'info',
+                confirmButtonText: 'OK',
+                confirmButtonColor: BRAND,
+                heightAuto: false,
+                allowEnterKey: true
+            });
+        };
+
+        window.appConfirm = function (message, title) {
+            return Swal.fire({
+                title: title || 'Xác nhận',
+                text: message == null ? '' : String(message),
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Đồng ý',
+                cancelButtonText: 'Hủy',
+                confirmButtonColor: BRAND,
+                cancelButtonColor: MUTED,
+                reverseButtons: true,
+                heightAuto: false,
+                focusCancel: true
+            }).then(function (r) { return r.isConfirmed; });
+        };
+
+        window.appToast = function (message, type) {
+            return Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: type || 'success',
+                title: message == null ? '' : String(message),
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                heightAuto: false
+            });
+        };
+    })();
+</script>
 <script>
     // Auto-dismiss alerts
     setTimeout(() => {

@@ -189,9 +189,9 @@
 
 @section Scripts {
     <script>
-        function toggleActive(id, name, isActive) {
+        async function toggleActive(id, name, isActive) {
             var action = isActive ? 'vô hiệu hóa' : 'kích hoạt lại';
-            if (!confirm('Bạn có chắc muốn ' + action + ' khách hàng "' + name + '"?')) return;
+            if (!await appConfirm('Bạn có chắc muốn ' + action + ' khách hàng "' + name + '"?')) return;
 
             var form = new FormData();
             form.append('__RequestVerificationToken', getAntiForgeryToken());
@@ -200,7 +200,7 @@
                 .then(r => r.json())
                 .then(data => {
                     if (data.Success) location.reload();
-                    else alert('Lỗi: ' + data.Message);
+                    else appAlert('Lỗi: ' + data.Message);
                 });
         }
 

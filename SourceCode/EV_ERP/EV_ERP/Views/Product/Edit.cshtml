@@ -144,15 +144,15 @@
                 });
         }
 
-        function deleteImageEdit(imageId) {
-            if (!confirm('Xóa ảnh này?')) return;
+        async function deleteImageEdit(imageId) {
+            if (!await appConfirm('Xóa ảnh này?')) return;
             var form = new FormData();
             form.append('__RequestVerificationToken', getToken());
             form.append('imageId', imageId);
             fetch('/Product/DeleteImage/' + editProductId, { method: 'POST', body: form })
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.Success) { alert(data.Message); return; }
+                    if (!data.Success) { appAlert(data.Message); return; }
                     var el = document.getElementById('egimg-' + imageId);
                     if (el) el.remove();
                     var grid = document.getElementById('edit-gallery-grid');
@@ -174,7 +174,7 @@
             fetch('/Product/SetAvatar/' + editProductId, { method: 'POST', body: form })
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.Success) { alert(data.Message); return; }
+                    if (!data.Success) { appAlert(data.Message); return; }
                     location.reload();
                 });
         }

@@ -436,7 +436,7 @@
                 margin: 5
             });
         } catch (e) {
-            alert('Không tạo được barcode: ' + e.message);
+            appAlert('Không tạo được barcode: ' + e.message);
             return;
         }
 
@@ -475,13 +475,13 @@
         printWin.print();
     }
 
-    function confirmInbound() {
-        if (!confirm('Xác nhận nhập kho? Tồn kho sẽ được cập nhật.')) return;
+    async function confirmInbound() {
+        if (!await appConfirm('Xác nhận nhập kho? Tồn kho sẽ được cập nhật.')) return;
         doAction('/Stock/ConfirmInbound/' + transId);
     }
 
-    function startDelivery() {
-        if (!confirm('Bắt đầu giao hàng? Tồn kho sẽ bị trừ.')) return;
+    async function startDelivery() {
+        if (!await appConfirm('Bắt đầu giao hàng? Tồn kho sẽ bị trừ.')) return;
         doAction('/Stock/StartDelivery/' + transId);
     }
 
@@ -506,12 +506,12 @@
         .then(r => r.json())
         .then(data => {
             if (data.Success) location.reload();
-            else alert('Lỗi: ' + data.Message);
+            else appAlert('Lỗi: ' + data.Message);
         });
     }
 
-    function doCancel() {
-        if (!confirm('Bạn có chắc muốn hủy phiếu này?')) return;
+    async function doCancel() {
+        if (!await appConfirm('Bạn có chắc muốn hủy phiếu này?')) return;
         doAction('/Stock/Cancel/' + transId);
     }
 
@@ -522,7 +522,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.Success) location.reload();
-                else alert('Lỗi: ' + data.Message);
+                else appAlert('Lỗi: ' + data.Message);
             });
     }
 

@@ -433,14 +433,14 @@
     <script>
         var quotationId = @Model.QuotationId;
 
-        function doAction(action, id) {
+        async function doAction(action, id) {
             var msg = {
                 'Send': 'Bạn có chắc muốn gửi báo giá này cho khách hàng?',
                 'Approve': 'Xác nhận khách hàng đã duyệt báo giá?',
                 'Amend': 'Tạo bản chỉnh sửa mới từ báo giá này?',
                 'Expire': 'Đánh dấu báo giá này đã hết hạn?'
             };
-            if (!confirm(msg[action] || 'Bạn có chắc?')) return;
+            if (!await appConfirm(msg[action] || 'Bạn có chắc?')) return;
 
             postAction('/Quotation/' + action + '/' + id, null, function (data) {
                 if (data.Success) {
@@ -450,7 +450,7 @@
                         location.reload();
                     }
                 } else {
-                    alert(data.Message || 'Lỗi');
+                    appAlert(data.Message || 'Lỗi');
                 }
             });
         }
@@ -467,7 +467,7 @@
                     bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
                     location.reload();
                 } else {
-                    alert(data.Message || 'Lỗi');
+                    appAlert(data.Message || 'Lỗi');
                 }
             });
         }
@@ -484,7 +484,7 @@
                     bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
                     location.reload();
                 } else {
-                    alert(data.Message || 'Lỗi');
+                    appAlert(data.Message || 'Lỗi');
                 }
             });
         }

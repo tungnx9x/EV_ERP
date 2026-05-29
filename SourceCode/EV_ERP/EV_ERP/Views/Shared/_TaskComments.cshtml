@@ -349,7 +349,7 @@
                 cancelReply();
                 loadComments();
             } else {
-                alert(data.message || 'Lỗi');
+                appAlert(data.message || 'Lỗi');
             }
         })
         .catch(function() {
@@ -410,7 +410,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.success) loadComments();
-            else alert(data.message || 'Lỗi');
+            else appAlert(data.message || 'Lỗi');
         });
     };
 
@@ -422,14 +422,14 @@
     };
 
     // ── Delete ──
-    window.deleteComment = function(commentId) {
+    window.deleteComment = async function(commentId) {
         document.querySelectorAll('.fb-more-menu.show').forEach(function(m) { m.classList.remove('show'); });
-        if (!confirm('Xóa bình luận này?')) return;
+        if (!await appConfirm('Xóa bình luận này?')) return;
         fetch('/TaskComment/Delete/' + commentId, { method: 'POST' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) loadComments();
-                else alert(data.message || 'Lỗi');
+                else appAlert(data.message || 'Lỗi');
             });
     };
 

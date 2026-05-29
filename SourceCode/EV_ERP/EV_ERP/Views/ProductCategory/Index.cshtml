@@ -183,7 +183,7 @@
             fetch('/ProductCategory/ToggleActive/' + id, { method: 'POST', body: form })
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.Success) { alert(data.Message); return; }
+                    if (!data.Success) { appAlert(data.Message); return; }
                     var badge = document.querySelector('.status-badge-' + id);
                     if (!badge) return;
                     var wasActive = badge.textContent.trim() === 'Hoạt động';

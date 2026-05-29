@@ -244,15 +244,15 @@
     <script>
         var currentResetUserId = null;
 
-        function toggleLock(userId, name, isLocked) {
+        async function toggleLock(userId, name, isLocked) {
             var action = isLocked ? 'mở khóa' : 'khóa';
-            if (!confirm('Bạn có chắc muốn ' + action + ' tài khoản "' + name + '"?')) return;
+            if (!await appConfirm('Bạn có chắc muốn ' + action + ' tài khoản "' + name + '"?')) return;
 
             fetch('/User/ToggleLock/' + userId, { method: 'POST', headers: { 'RequestVerificationToken': getAntiForgeryToken() } })
                 .then(r => r.json())
                 .then(data => {
                     if (data.Success) location.reload();
-                    else alert('Lỗi: ' + data.Message);
+                    else appAlert('Lỗi: ' + data.Message);
                 });
         }
 

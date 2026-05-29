@@ -174,7 +174,7 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-            if (!res.Success) { alert(res.Message || 'Lỗi'); return; }
+            if (!res.Success) { appAlert(res.Message || 'Lỗi'); return; }
             var d = res.Data;
 
             document.getElementById('summary_orderCount').textContent = d.Rows.length;
@@ -220,7 +220,7 @@
                 '<td class="text-end">' + formatNumber(d.TotalShippingFee) + '</td>' +
                 '</tr>';
         })
-        .catch(function () { alert('Lỗi kết nối'); });
+        .catch(function () { appAlert('Lỗi kết nối'); });
     }
 
     function exportExcel() {
@@ -234,10 +234,10 @@
             body: JSON.stringify(payload)
         })
         .then(function (r) {
-            if (!r.ok) { alert('Lỗi xuất Excel'); return; }
+            if (!r.ok) { appAlert('Lỗi xuất Excel'); return; }
             var ct = r.headers.get('Content-Type') || '';
             if (ct.indexOf('json') >= 0) {
-                return r.json().then(function (d) { alert(d.Message || 'Không có dữ liệu'); });
+                return r.json().then(function (d) { appAlert(d.Message || 'Không có dữ liệu'); });
             }
             return r.blob().then(function (blob) {
                 var cd = r.headers.get('Content-Disposition') || '';

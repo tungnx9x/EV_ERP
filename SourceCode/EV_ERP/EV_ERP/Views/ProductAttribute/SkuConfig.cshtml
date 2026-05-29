@@ -151,7 +151,7 @@
         var attrId = parseInt(opt.value);
         // Check if already added
         if (configs.some(function (c) { return c.AttributeId === attrId; })) {
-            alert('Thuộc tính này đã được thêm');
+            appAlert('Thuộc tính này đã được thêm');
             return;
         }
 
@@ -203,10 +203,9 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.Success) {
-                alert('Đã lưu cấu hình SKU thành công!');
-                location.reload();
+                appAlert('Đã lưu cấu hình SKU thành công!').then(function () { location.reload(); });
             } else {
-                alert('Lỗi: ' + data.Message);
+                appAlert('Lỗi: ' + data.Message);
             }
         });
     }

@@ -275,11 +275,12 @@
                         </tr>
                     </thead>
                     <tbody id="quotItemsTbody">
-                        @{ int idx = 1; }
+                        @{ int idx = 0; }
                         @foreach (var item in Model.Items)
                         {
+                            idx++;
                             <tr>
-                                <td class="text-center text-muted">@(idx++)</td>
+                                <td class="text-center text-muted">@idx</td>
                                 <td class="fw-semibold">
                                     @item.ProductName
                                     @if (!item.IsProductMapped)
@@ -317,7 +318,32 @@
                                         <span>—</span>
                                     }
                                 </td>
-                                <td class="text-end">@item.ImportPrice.ToString("N0")</td>
+                                <td class="text-end">
+                                    <a href="#" class="text-decoration-none fw-semibold calc-view-link"
+                                       title="Xem chi tiết tính giá nhập"
+                                       data-calc="@System.Text.Json.JsonSerializer.Serialize(new {
+                                           no = idx,
+                                           mode = item.PurchaseMode,
+                                           currency = item.PurchaseCurrency ?? "VND",
+                                           rate = item.ExchangeRate,
+                                           qty = item.PurchaseQuantity,
+                                           basePrice = item.BasePrice,
+                                           offShipping = item.OfficialShipping,
+                                           domShipping = item.UnofficialDomesticShipping,
+                                           weight = item.UnofficialWeightKg,
+                                           costPerKg = item.UnofficialCostPerKg,
+                                           handCarry = item.UnofficialHandCarryFee,
+                                           w2w = item.UnofficialW2WShipping,
+                                           tax = item.PurchaseTax,
+                                           inspection = item.InspectionFee,
+                                           banking = item.BankingFee,
+                                           other = item.OtherCosts,
+                                           importPrice = item.ImportPrice
+                                       })"
+                                       onclick="openCalcView(this); return false;">
+                                        @item.ImportPrice.ToString("N0")
+                                    </a>
+                                </td>
                                 <td class="text-end">@item.Shipping.ToString("N0")</td>
                                 <td class="text-center">@item.Coefficient.ToString("0.###")</td>
                             </tr>
@@ -404,6 +430,135 @@
                 <button type="button" class="btn btn-sm btn-danger" onclick="confirmCancel()">
                     <i class="bi bi-x-circle me-1"></i> Hủy báo giá
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Purchase Price Calc — View-only Modal -->
+<div class="modal fade" id="calcViewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-semibold">
+                    <i class="bi bi-calculator me-1 text-primary"></i> Chi tiết giá nhập — Sản phẩm <span id="cvRowNo">#</span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Mode (read-only badge) -->
+                <div class="mb-3">
+                    <span class="form-label small fw-semibold me-2 mb-0">Hình thức nhập:</span>
+                    <span id="cvModeBadge" class="badge"></span>
+                </div>
+
+                <!-- Currency/Rate + Base price + Purchase quantity -->
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Đơn giá gốc <span class="text-muted">(ngoại tệ)</span></label>
+                        <input type="text" class="form-control form-control-sm text-end" id="cvBasePrice" disabled />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold" id="cvRateLabel">Tỷ giá</label>
+                        <input type="text" class="form-control form-control-sm text-end" id="cvRate" disabled />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Số lượng mua</label>
+                        <input type="text" class="form-control form-control-sm text-end" id="cvQty" disabled />
+                    </div>
+                </div>
+
+                <!-- OFFICIAL panel — shipping only -->
+                <div id="cvOfficialPanel">
+                    <div class="card border-primary-subtle">
+                        <div class="card-header bg-primary-subtle py-2 small fw-semibold">
+                            <i class="bi bi-shield-check me-1"></i> Chi phí vận chuyển
+                        </div>
+                        <div class="card-body py-2">
+                            <input type="text" class="form-control form-control-sm text-end" id="cvOfficialShipping" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- UNOFFICIAL panel — shipping breakdown -->
+                <div id="cvUnofficialPanel" style="display:none;">
+                    <div class="card border-warning-subtle">
+                        <div class="card-header bg-warning-subtle py-2 small fw-semibold">
+                            <i class="bi bi-truck me-1"></i> Chi phí vận chuyển
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Phí vận chuyển nội địa <span class="text-muted">(VND)</span></label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvDomesticShipping" disabled />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Cân nặng (kg)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvWeight" disabled />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Phí / kg (VND)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvCostPerKg" disabled />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">Phí xách tay (VND)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvHandCarry" disabled />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">Kho trung gian → kho công ty (VND)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvW2W" disabled />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common cost components (both modes) -->
+                <div class="card border-secondary-subtle mt-3">
+                    <div class="card-header bg-light py-2 small fw-semibold">
+                        <i class="bi bi-receipt me-1"></i> Chi phí khác (VND)
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <label class="form-label small">Thuế</label>
+                                <input type="text" class="form-control form-control-sm text-end" id="cvTax" disabled />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Phí kiểm định</label>
+                                <input type="text" class="form-control form-control-sm text-end" id="cvInspection" disabled />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Phí ngân hàng</label>
+                                <input type="text" class="form-control form-control-sm text-end" id="cvBanking" disabled />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Chi phí khác</label>
+                                <input type="text" class="form-control form-control-sm text-end" id="cvOther" disabled />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live preview -->
+                <div class="card mt-3 border-0 bg-light">
+                    <div class="card-body py-2">
+                        <div class="row text-end">
+                            <div class="col-md-6">
+                                <div class="small text-muted">Tổng chi phí dòng (VND)</div>
+                                <div class="fw-semibold" id="cvLineTotal">0</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="small text-muted">Giá nhập / đơn vị (VND)</div>
+                                <div class="fw-bold text-primary fs-5" id="cvPerUnit">0</div>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-1" id="cvFormulaHint"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
             </div>
         </div>
     </div>
@@ -504,6 +659,89 @@
 
         function getAntiForgeryToken() {
             return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+
+        // ── Purchase price calc — view-only popup ───────────
+        var calcViewInstance = null;
+
+        function cvFmt(n) {
+            return Math.round(Number(n) || 0).toLocaleString('vi-VN');
+        }
+
+        function openCalcView(el) {
+            var d;
+            try { d = JSON.parse(el.getAttribute('data-calc')); } catch (e) { return; }
+
+            var mode = (d.mode || 'OFFICIAL').toString().toUpperCase();
+            var currency = d.currency || 'VND';
+            var rate = Number(d.rate) || 1;
+            var qty = Number(d.qty) > 0 ? Number(d.qty) : 1;
+            var basePrice = Number(d.basePrice) || 0;
+            var offShipping = Number(d.offShipping) || 0;
+            var domShipping = Number(d.domShipping) || 0;
+            var weight = Number(d.weight) || 0;
+            var costPerKg = Number(d.costPerKg) || 0;
+            var handCarry = Number(d.handCarry) || 0;
+            var w2w = Number(d.w2w) || 0;
+            var tax = Number(d.tax) || 0;
+            var inspection = Number(d.inspection) || 0;
+            var banking = Number(d.banking) || 0;
+            var other = Number(d.other) || 0;
+
+            document.getElementById('cvRowNo').textContent = (d.no != null ? d.no : '');
+
+            // Mode badge
+            var badge = document.getElementById('cvModeBadge');
+            if (mode === 'UNOFFICIAL') {
+                badge.className = 'badge bg-warning-subtle text-warning-emphasis';
+                badge.textContent = 'Nhập tiểu ngạch';
+            } else {
+                badge.className = 'badge bg-primary-subtle text-primary-emphasis';
+                badge.textContent = 'Nhập chính ngạch';
+            }
+
+            // Currency / rate label
+            var rateLabel = document.getElementById('cvRateLabel');
+            rateLabel.textContent = (currency && currency !== 'VND') ? ('Tỷ giá - ' + currency) : 'Tỷ giá';
+
+            document.getElementById('cvBasePrice').value = basePrice ? cvFmt(basePrice) : '';
+            document.getElementById('cvRate').value = cvFmt(rate);
+            document.getElementById('cvQty').value = qty;
+            document.getElementById('cvOfficialShipping').value = offShipping ? cvFmt(offShipping) : '';
+            document.getElementById('cvDomesticShipping').value = domShipping ? cvFmt(domShipping) : '';
+            document.getElementById('cvWeight').value = weight ? weight : '';
+            document.getElementById('cvCostPerKg').value = costPerKg ? cvFmt(costPerKg) : '';
+            document.getElementById('cvHandCarry').value = handCarry ? cvFmt(handCarry) : '';
+            document.getElementById('cvW2W').value = w2w ? cvFmt(w2w) : '';
+            document.getElementById('cvTax').value = tax ? cvFmt(tax) : '';
+            document.getElementById('cvInspection').value = inspection ? cvFmt(inspection) : '';
+            document.getElementById('cvBanking').value = banking ? cvFmt(banking) : '';
+            document.getElementById('cvOther').value = other ? cvFmt(other) : '';
+
+            document.getElementById('cvOfficialPanel').style.display = (mode === 'OFFICIAL') ? '' : 'none';
+            document.getElementById('cvUnofficialPanel').style.display = (mode === 'UNOFFICIAL') ? '' : 'none';
+
+            // Same formula as the calc popup
+            var shippingVnd, hint;
+            if (mode === 'OFFICIAL') {
+                shippingVnd = offShipping;
+                hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Vận chuyển CT + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+            } else {
+                shippingVnd = domShipping + weight * costPerKg + handCarry + w2w;
+                hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+            }
+            var feesVnd = shippingVnd + tax + inspection + banking + other;
+            var perUnit = Math.round(basePrice * rate + feesVnd / qty);
+            var lineVnd = perUnit * qty;
+
+            document.getElementById('cvLineTotal').textContent = cvFmt(lineVnd);
+            document.getElementById('cvPerUnit').textContent = cvFmt(perUnit);
+            document.getElementById('cvFormulaHint').textContent = hint;
+
+            if (!calcViewInstance) {
+                calcViewInstance = new bootstrap.Modal(document.getElementById('calcViewModal'));
+            }
+            calcViewInstance.show();
         }
 
         // ── Items table client-side pagination ──────────────

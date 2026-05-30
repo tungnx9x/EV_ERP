@@ -883,7 +883,10 @@
     // v2.5 — advance entry now starts at DRAFT step (sales enters data before sending DNTU)
     bool showAdvanceSection = Model.Status != "CANCELLED";
     bool canManageAdvance = canManageStatus && Model.Status is not "CANCELLED" and not "REPORTED";
-    bool isAccountant = currentRole is "ACCOUNTANT" or "ADMIN" or "MANAGER";
+    // ── Quyền theo vai trò trong quy trình duyệt tạm ứng (strict + ADMIN override) ──
+    bool canAccountantAct = currentRole is "ADMIN" or "ACCOUNTANT";   // bước 1→2, 3→4
+    bool canDirectorAct = currentRole is "ADMIN" or "MANAGER";        // bước 2→3
+    bool canRejectAdvance = currentRole is "ADMIN" or "MANAGER" or "ACCOUNTANT";
     var adv = Model.AdvanceSummary;
 }
 @if (showMoney && showAdvanceSection && adv != null)
@@ -918,7 +921,7 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="border rounded p-2 text-center bg-success-subtle">
-                        <div class="text-muted" style="font-size:0.72rem;">Đã nhận tiền</div>
+                        <div class="text-muted" style="font-size:0.72rem;">Đã chi tiền</div>
                         <div class="fw-bold text-success-emphasis">@adv.TotalReceived.ToString("N0")</div>
                     </div>
                 </div>
@@ -983,28 +986,39 @@
                                                class="btn btn-sm btn-outline-success py-0 px-1" title="Xuất DNTU">
                                                 <i class="bi bi-download"></i>
                                             </a>
-                                            @if (canManageAdvance && r.Status == "PENDING")
+                                            @if (canManageAdvance && r.Status == "WAIT_ACCOUNTANT")
                                             {
                                                 <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" title="Sửa"
                                                         onclick="editAdvance(@r.AdvanceRequestId)">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
                                             }
-                                            @if (isAccountant && r.Status == "PENDING")
+                                            @* Bước 1→2: Kế toán duyệt *@
+                                            @if (canAccountantAct && r.Status == "WAIT_ACCOUNTANT")
                                             {
-                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-1" title="Duyệt"
-                                                        onclick="approveAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
-                                                    <i class="bi bi-check2"></i>
+                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-1" title="Kế toán duyệt"
+                                                        onclick="accountantReview(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-check2"></i> KT duyệt
                                                 </button>
                                             }
-                                            @if (isAccountant && r.Status is "PENDING" or "APPROVED")
+                                            @* Bước 2→3: Giám đốc duyệt *@
+                                            @if (canDirectorAct && r.Status == "WAIT_DIRECTOR")
                                             {
-                                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-1" title="Đã chuyển tiền"
-                                                        onclick="receiveAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
-                                                    <i class="bi bi-cash-coin"></i>
+                                                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" title="Giám đốc duyệt"
+                                                        onclick="directorApprove(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-check2-circle"></i> GĐ duyệt
                                                 </button>
                                             }
-                                            @if (isAccountant && r.Status is "PENDING" or "APPROVED")
+                                            @* Bước 3→4: Kế toán xác nhận chi tiền *@
+                                            @if (canAccountantAct && r.Status == "WAIT_DISBURSE")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-1" title="Xác nhận chi tiền"
+                                                        onclick="disburseAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
+                                                    <i class="bi bi-cash-coin"></i> Chi tiền
+                                                </button>
+                                            }
+                                            @* Từ chối: trong các bước chờ duyệt *@
+                                            @if (canRejectAdvance && r.Status is "WAIT_ACCOUNTANT" or "WAIT_DIRECTOR" or "WAIT_DISBURSE")
                                             {
                                                 <button type="button" class="btn btn-sm btn-outline-warning py-0 px-1" title="Từ chối"
                                                         onclick="rejectAdvance(@r.AdvanceRequestId, '@r.RequestNo')">
@@ -1385,28 +1399,18 @@
                 <div class="modal-body">
                     <input type="hidden" id="advEditId" value="" />
                     <div class="row g-2 mb-3 small">
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold mb-1">Ngày yêu cầu</label>
                             <input type="date" id="advDate" class="form-control form-control-sm" />
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold mb-1">Trạng thái</label>
-                            <select id="advStatus" class="form-select form-select-sm">
-                                <option value="PENDING" selected>Chờ duyệt</option>
-                                <option value="APPROVED">Đã duyệt</option>
-                                <option value="RECEIVED">Đã nhận tiền</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold mb-1" title="% chi phí mua dự kiến">% tạm ứng</label>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold mb-1" title="% tạm ứng tổng hợp = Σ tạm ứng SP / Σ chi phí mua SP">% tạm ứng (tổng hợp)</label>
                             <div class="input-group input-group-sm">
-                                <input type="number" id="advPercent" class="form-control text-end" min="0" max="100" step="0.01" placeholder="0" />
-                                <button type="button" class="btn btn-outline-secondary" onclick="applyAdvancePercent()" title="Tính số tiền vào dòng 'Phân bổ chung'">
-                                    <i class="bi bi-arrow-right-circle"></i>
-                                </button>
+                                <input type="text" id="advPercent" class="form-control text-end fw-bold" readonly value="0" />
+                                <span class="input-group-text">%</span>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold mb-1">Tổng cộng</label>
                             <input type="text" id="advTotalDisplay" class="form-control form-control-sm text-end fw-bold" readonly value="0" />
                         </div>
@@ -1427,30 +1431,33 @@
 
                     <div class="small fw-semibold mb-1">Phân bổ theo dòng sản phẩm</div>
                     <div class="text-muted small mb-2">
-                        Nhập số tiền cho từng dòng cần tạm ứng. Dòng "Phân bổ chung" dùng cho phần không gắn vào sản phẩm cụ thể.
+                        Nhập <strong>% tạm ứng</strong> cho từng sản phẩm — số tiền sẽ tự tính theo "SL × Giá mua". Dòng "Phân bổ vận chuyển" nhập trực tiếp số tiền.
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
                             <thead class="table-light">
                                 <tr>
                                     <th>Sản phẩm</th>
-                                    <th class="text-end" style="width:130px;">SL × Giá mua</th>
-                                    <th class="text-end" style="width:130px;">Đã ứng</th>
+                                    <th class="text-end" style="width:120px;">SL × Giá mua</th>
+                                    <th class="text-end" style="width:110px;">Đã ứng</th>
+                                    <th class="text-end" style="width:90px;">% tạm ứng</th>
                                     <th class="text-end" style="width:150px;">Số tiền tạm ứng</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in Model.Items.Where(i => i.LineStatus != "CANCELLED"))
                                 {
+                                    decimal lineCost = item.PurchasePrice.HasValue && item.PurchasePrice > 0
+                                        ? item.Quantity * item.PurchasePrice.Value : 0;
                                     <tr data-so-item-id="@item.SOItemId">
                                         <td>
                                             <div class="fw-semibold">@item.ProductName</div>
                                             <div class="text-muted small">@item.UnitName · SL @item.Quantity.ToString("0.###")</div>
                                         </td>
                                         <td class="text-end small text-muted">
-                                            @if (item.PurchasePrice.HasValue && item.PurchasePrice > 0)
+                                            @if (lineCost > 0)
                                             {
-                                                @((item.Quantity * item.PurchasePrice.Value).ToString("N0"))
+                                                @(lineCost.ToString("N0"))
                                             }
                                             else
                                             {
@@ -1461,18 +1468,28 @@
                                             @(item.AdvancedAmount > 0 ? item.AdvancedAmount.ToString("N0") : "—")
                                         </td>
                                         <td>
+                                            <input type="number" min="0" max="100" step="0.01"
+                                                   class="form-control form-control-sm text-end adv-line-percent"
+                                                   data-so-item-id="@item.SOItemId"
+                                                   data-line-cost="@lineCost.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   placeholder="0" @(lineCost <= 0 ? "disabled" : "") />
+                                        </td>
+                                        <td>
                                             <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
-                                                   data-so-item-id="@item.SOItemId" placeholder="0" />
+                                                   data-so-item-id="@item.SOItemId"
+                                                   data-line-cost="@lineCost.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-adv-kind="product" placeholder="0" />
                                         </td>
                                     </tr>
                                 }
                                 <tr class="table-light">
-                                    <td class="fst-italic text-muted">Phân bổ chung cho cả đơn</td>
+                                    <td class="fst-italic text-muted"><i class="bi bi-truck me-1"></i>Phân bổ vận chuyển</td>
+                                    <td></td>
                                     <td></td>
                                     <td></td>
                                     <td>
                                         <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
-                                               data-so-item-id="" placeholder="0" />
+                                               data-so-item-id="" data-adv-kind="shipping" placeholder="0" />
                                     </td>
                                 </tr>
                             </tbody>
@@ -2418,13 +2435,12 @@
         document.getElementById('advModalTitle').textContent = 'Tạm ứng mới';
         document.getElementById('advSubmitBtnLabel').textContent = 'Tạo phiếu tạm ứng';
         document.getElementById('advDate').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('advStatus').value = 'PENDING';
         document.getElementById('advPurpose').value = '';
         document.getElementById('advNotes').value = '';
-        var pctEl = document.getElementById('advPercent');
-        if (pctEl) pctEl.value = '';
         document.querySelectorAll('.adv-line-amount').forEach(function (el) { el.value = ''; });
+        document.querySelectorAll('.adv-line-percent').forEach(function (el) { el.value = ''; });
         updateAdvTotal();
+        updateAggregatePercent();
     }
 
     function openCreateAdvanceModal() {
@@ -2453,42 +2469,96 @@
                 if (d.RequestDate) {
                     document.getElementById('advDate').value = d.RequestDate.substring(0, 10);
                 }
-                document.getElementById('advStatus').value = d.Status || 'PENDING';
                 document.getElementById('advPurpose').value = d.Purpose || '';
                 document.getElementById('advNotes').value = d.Notes || '';
 
                 // Populate per-line amounts
                 (d.Items || []).forEach(function (it) {
-                    var selector = it.SOItemId
-                        ? '.adv-line-amount[data-so-item-id="' + it.SOItemId + '"]'
-                        : '.adv-line-amount[data-so-item-id=""]';
-                    var input = document.querySelector(selector);
+                    var input;
+                    if (it.SOItemId) {
+                        input = document.querySelector('.adv-line-amount[data-so-item-id="' + it.SOItemId + '"]');
+                    } else if ((it.Purpose || '').trim() === 'Vận chuyển') {
+                        input = document.querySelector('.adv-line-amount[data-adv-kind="shipping"]');
+                    } else {
+                        input = document.querySelector('.adv-line-amount[data-adv-kind="general"]');
+                    }
                     if (input) input.value = it.Amount;
                 });
+                // Derive each product's % from its amount, then refresh totals.
+                recomputeAllPercents();
                 updateAdvTotal();
+                updateAggregatePercent();
 
                 new bootstrap.Modal(modal).show();
             })
             .catch(function (err) { appAlert('Lỗi tải dữ liệu: ' + err); });
     }
 
-    function applyAdvancePercent() {
-        var pct = parseFloat(document.getElementById('advPercent').value);
-        if (isNaN(pct) || pct <= 0) {
-            appAlert('Nhập % tạm ứng (1-100)');
-            return;
+    // Find the amount input on the same row as a given percent/amount input.
+    function advRowAmountInput(el) {
+        var tr = el.closest('tr');
+        return tr ? tr.querySelector('.adv-line-amount') : null;
+    }
+    function advRowPercentInput(el) {
+        var tr = el.closest('tr');
+        return tr ? tr.querySelector('.adv-line-percent') : null;
+    }
+
+    // % nhập ở dòng SP → tính số tiền = chi phí dòng × % / 100
+    function syncLineFromPercent(percentEl) {
+        var cost = parseFloat(percentEl.getAttribute('data-line-cost')) || 0;
+        var pct = parseFloat(percentEl.value);
+        var amountEl = advRowAmountInput(percentEl);
+        if (!amountEl) return;
+        if (cost > 0 && !isNaN(pct) && pct > 0) {
+            amountEl.value = Math.round(cost * pct / 100);
+        } else if (percentEl.value === '' || isNaN(pct) || pct <= 0) {
+            amountEl.value = '';
         }
-        if (!soPurchaseCost || soPurchaseCost <= 0) {
-            appAlert('Chưa có chi phí mua dự kiến — không tính được số tiền tạm ứng theo %.');
-            return;
+        updateAdvTotal();
+        updateAggregatePercent();
+    }
+
+    // Số tiền nhập tay ở dòng SP → tính ngược lại % = số tiền / chi phí dòng × 100
+    function syncLineFromAmount(amountEl) {
+        var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
+        var amt = parseFloat(amountEl.value);
+        var percentEl = advRowPercentInput(amountEl);
+        if (percentEl && cost > 0) {
+            percentEl.value = (!isNaN(amt) && amt > 0)
+                ? +(amt / cost * 100).toFixed(2)
+                : '';
         }
-        var amount = Math.round(soPurchaseCost * pct / 100);
-        // Write to the "Phân bổ chung" row (data-so-item-id is empty)
-        var generalRow = document.querySelector('.adv-line-amount[data-so-item-id=""]');
-        if (generalRow) {
-            generalRow.value = amount;
-            updateAdvTotal();
-        }
+        updateAdvTotal();
+        updateAggregatePercent();
+    }
+
+    // Tính lại % của mọi dòng SP từ số tiền hiện có (dùng khi mở chế độ sửa).
+    function recomputeAllPercents() {
+        document.querySelectorAll('.adv-line-amount[data-adv-kind="product"]').forEach(function (amountEl) {
+            var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
+            var amt = parseFloat(amountEl.value);
+            var percentEl = advRowPercentInput(amountEl);
+            if (percentEl && cost > 0) {
+                percentEl.value = (!isNaN(amt) && amt > 0) ? +(amt / cost * 100).toFixed(2) : '';
+            }
+        });
+    }
+
+    // % tổng hợp (chỉ hiển thị) = Σ tạm ứng SP / Σ chi phí mua SP × 100
+    function updateAggregatePercent() {
+        var totalAmt = 0, totalCost = 0;
+        document.querySelectorAll('.adv-line-amount[data-adv-kind="product"]').forEach(function (amountEl) {
+            var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
+            var amt = parseFloat(amountEl.value);
+            if (cost > 0) {
+                totalCost += cost;
+                if (!isNaN(amt) && amt > 0) totalAmt += amt;
+            }
+        });
+        var pct = totalCost > 0 ? (totalAmt / totalCost * 100) : 0;
+        var el = document.getElementById('advPercent');
+        if (el) el.value = (Math.round(pct * 100) / 100).toLocaleString('vi-VN');
     }
 
     function updateAdvTotal() {
@@ -2499,8 +2569,17 @@
         });
         document.getElementById('advTotalDisplay').value = total.toLocaleString('vi-VN');
     }
+
+    // Wire up inputs: product % drives amount; manual amount edit drives % back.
+    document.querySelectorAll('.adv-line-percent').forEach(function (el) {
+        el.addEventListener('input', function () { syncLineFromPercent(el); });
+    });
     document.querySelectorAll('.adv-line-amount').forEach(function (el) {
-        el.addEventListener('input', updateAdvTotal);
+        if (el.getAttribute('data-adv-kind') === 'product') {
+            el.addEventListener('input', function () { syncLineFromAmount(el); });
+        } else {
+            el.addEventListener('input', function () { updateAdvTotal(); updateAggregatePercent(); });
+        }
     });
 
     function confirmCreateAdvance() {
@@ -2509,9 +2588,12 @@
             var v = parseFloat(el.value);
             if (!isNaN(v) && v > 0) {
                 var raw = el.getAttribute('data-so-item-id');
+                // Mark the shipping allocation row so it can be told apart from the general one.
+                var purpose = (el.getAttribute('data-adv-kind') === 'shipping') ? 'Vận chuyển' : null;
                 items.push({
                     SOItemId: raw ? parseInt(raw) : null,
-                    Amount: v
+                    Amount: v,
+                    Purpose: purpose
                 });
             }
         });
@@ -2529,7 +2611,6 @@
         var body = {
             RequestDate: document.getElementById('advDate').value || null,
             Purpose: purpose,
-            Status: document.getElementById('advStatus').value,
             Notes: document.getElementById('advNotes').value.trim(),
             Items: items
         };
@@ -2557,17 +2638,28 @@
         });
     }
 
-    async function approveAdvance(advId, advNo) {
-        if (!await appConfirm('Duyệt đề nghị tạm ứng ' + advNo + '?')) return;
-        postAction('/AdvanceRequest/Approve?id=' + advId, null, function (data) {
+    // Bước 1→2: Kế toán duyệt
+    async function accountantReview(advId, advNo) {
+        if (!await appConfirm('Kế toán duyệt đề nghị ' + advNo + ' và chuyển sang Chờ giám đốc duyệt?')) return;
+        postAction('/AdvanceRequest/AccountantReview?id=' + advId, null, function (data) {
             if (data.Success) location.reload();
             else appAlert(data.Message || 'Lỗi');
         });
     }
 
-    async function receiveAdvance(advId, advNo) {
-        if (!await appConfirm('Xác nhận đã chuyển tiền cho đề nghị ' + advNo + '?')) return;
-        postAction('/AdvanceRequest/MarkReceived?id=' + advId, null, function (data) {
+    // Bước 2→3: Giám đốc duyệt
+    async function directorApprove(advId, advNo) {
+        if (!await appConfirm('Giám đốc duyệt đề nghị ' + advNo + ' và chuyển sang Chờ chi tiền?')) return;
+        postAction('/AdvanceRequest/DirectorApprove?id=' + advId, null, function (data) {
+            if (data.Success) location.reload();
+            else appAlert(data.Message || 'Lỗi');
+        });
+    }
+
+    // Bước 3→4: Kế toán xác nhận chi tiền
+    async function disburseAdvance(advId, advNo) {
+        if (!await appConfirm('Xác nhận đã chi tiền cho đề nghị ' + advNo + '?')) return;
+        postAction('/AdvanceRequest/Disburse?id=' + advId, null, function (data) {
             if (data.Success) location.reload();
             else appAlert(data.Message || 'Lỗi');
         });

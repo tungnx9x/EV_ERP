@@ -15,7 +15,7 @@ public interface IAdvanceRequestService
     /// <summary>Load a single advance request shaped for the edit modal. Returns null if not found.</summary>
     Task<AdvanceRequestRow?> GetForEditAsync(int advanceRequestId);
 
-    /// <summary>Update an existing advance request — only allowed while status is PENDING.</summary>
+    /// <summary>Update an existing advance request — only allowed while status is WAIT_ACCOUNTANT.</summary>
     Task<(bool Success, string? ErrorMessage)> UpdateAsync(
         int advanceRequestId, AdvanceRequestCreateModel model, int userId);
 
@@ -24,8 +24,13 @@ public interface IAdvanceRequestService
     /// <summary>Count of non-REJECTED advance requests for the SO — used by SO submit-wait validation.</summary>
     Task<int> CountActiveAsync(int salesOrderId);
 
-    Task<(bool Success, string? ErrorMessage)> ApproveAsync(int advanceRequestId, int userId);
-    Task<(bool Success, string? ErrorMessage)> MarkReceivedAsync(int advanceRequestId, int userId);
+    // ── Quy trình duyệt 4 bước ──
+    /// <summary>Bước 1→2: Kế toán duyệt (WAIT_ACCOUNTANT → WAIT_DIRECTOR).</summary>
+    Task<(bool Success, string? ErrorMessage)> AccountantReviewAsync(int advanceRequestId, int userId);
+    /// <summary>Bước 2→3: Giám đốc/Quản lý duyệt (WAIT_DIRECTOR → WAIT_DISBURSE).</summary>
+    Task<(bool Success, string? ErrorMessage)> DirectorApproveAsync(int advanceRequestId, int userId);
+    /// <summary>Bước 3→4: Kế toán xác nhận chi tiền (WAIT_DISBURSE → DISBURSED).</summary>
+    Task<(bool Success, string? ErrorMessage)> DisburseAsync(int advanceRequestId, int userId);
     Task<(bool Success, string? ErrorMessage)> RejectAsync(int advanceRequestId, string? reason, int userId);
 
     /// <summary>

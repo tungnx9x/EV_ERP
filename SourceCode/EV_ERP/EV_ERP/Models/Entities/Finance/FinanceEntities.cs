@@ -13,8 +13,12 @@ public class AdvanceRequest
     public DateTime RequestDate { get; set; } = DateTime.Today;
     public decimal RequestedAmount { get; set; }
     public string Purpose { get; set; } = string.Empty;
-    /// <summary>PENDING → APPROVED → RECEIVED → SETTLING → SETTLED → REJECTED</summary>
-    public string Status { get; set; } = "PENDING";
+    /// <summary>
+    /// Quy trình duyệt tạm ứng (4 bước):
+    /// WAIT_ACCOUNTANT (KD tạo) → WAIT_DIRECTOR (kế toán duyệt) → WAIT_DISBURSE (giám đốc duyệt) → DISBURSED (kế toán chi tiền).
+    /// REJECTED có thể xảy ra ở các bước chờ. SETTLING/SETTLED dành cho quyết toán sau khi đã chi tiền.
+    /// </summary>
+    public string Status { get; set; } = "WAIT_ACCOUNTANT";
     public int? ApprovedBy { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public decimal? ApprovedAmount { get; set; }

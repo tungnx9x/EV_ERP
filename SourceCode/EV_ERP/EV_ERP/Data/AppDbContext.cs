@@ -702,7 +702,7 @@ namespace EV_ERP.Data
                 e.HasIndex(x => x.SalesOrderId);
                 e.HasIndex(x => x.Status);
                 e.Property(x => x.RequestNo).HasMaxLength(20);
-                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("PENDING");
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("WAIT_ACCOUNTANT");
                 e.Property(x => x.RequestedAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.ApprovedAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.ActualSpent).HasColumnType("decimal(18,2)");

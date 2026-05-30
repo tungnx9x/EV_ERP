@@ -22,8 +22,18 @@ public class AdvanceRequestService : IAdvanceRequestService
         _env = env;
     }
 
+    // Nhãn hiển thị cho dòng phân bổ: theo SP, hoặc "Phân bổ vận chuyển" / "Phân bổ chung cho cả đơn".
+    private static string AllocationLabel(string? productName, string? purpose)
+    {
+        if (!string.IsNullOrWhiteSpace(productName)) return productName!;
+        if (string.Equals(purpose?.Trim(), "Vận chuyển", StringComparison.OrdinalIgnoreCase))
+            return "Phân bổ vận chuyển";
+        return "Phân bổ chung cho cả đơn";
+    }
+
     private static bool IsActiveStatus(string s) => s != "REJECTED";
-    private static bool IsReceivedStatus(string s) => s is "RECEIVED" or "SETTLING" or "SETTLED";
+    // "Đã chi tiền" trở đi được tính là đã giải ngân (gồm cả mã cũ RECEIVED + giai đoạn quyết toán)
+    private static bool IsReceivedStatus(string s) => s is "DISBURSED" or "SETTLING" or "SETTLED" or "RECEIVED";
 
     public async Task<SalesOrderAdvanceSummary> GetForSalesOrderAsync(int salesOrderId)
     {
@@ -80,7 +90,7 @@ public class AdvanceRequestService : IAdvanceRequestService
                 {
                     AdvanceRequestItemId = i.AdvanceRequestItemId,
                     SOItemId = i.SOItemId,
-                    ProductName = i.SOItem?.ProductName ?? "Phân bổ chung cho cả đơn",
+                    ProductName = AllocationLabel(i.SOItem?.ProductName, i.Purpose),
                     Amount = i.Amount,
                     Purpose = i.Purpose,
                     Notes = i.Notes
@@ -134,9 +144,8 @@ public class AdvanceRequestService : IAdvanceRequestService
                 return (false, $"Dòng SP #{i.SOItemId} không thuộc đơn hàng này", null);
         }
 
-        var status = string.IsNullOrWhiteSpace(model.Status) ? "PENDING" : model.Status.Trim().ToUpperInvariant();
-        if (status is not ("PENDING" or "APPROVED" or "RECEIVED"))
-            return (false, "Trạng thái không hợp lệ", null);
+        // Phiếu mới luôn bắt đầu ở bước "Chờ kế toán duyệt" — KD không tự đặt trạng thái.
+        const string status = "WAIT_ACCOUNTANT";
 
         var total = items.Sum(i => i.Amount);
         var now = DateTime.Now;
@@ -162,18 +171,6 @@ public class AdvanceRequestService : IAdvanceRequestService
                 CreatedAt = now
             }).ToList()
         };
-
-        // Stamp approved/received timestamps if the user records the advance as already approved/received
-        if (status is "APPROVED" or "RECEIVED")
-        {
-            req.ApprovedBy = userId;
-            req.ApprovedAt = now;
-            req.ApprovedAmount = total;
-        }
-        if (status == "RECEIVED")
-        {
-            req.ReceivedAt = now;
-        }
 
         await _uow.Repository<AdvanceRequest>().AddAsync(req);
         await _uow.SaveChangesAsync();
@@ -208,7 +205,7 @@ public class AdvanceRequestService : IAdvanceRequestService
             {
                 AdvanceRequestItemId = i.AdvanceRequestItemId,
                 SOItemId = i.SOItemId,
-                ProductName = i.SOItem?.ProductName ?? "Phân bổ chung cho cả đơn",
+                ProductName = AllocationLabel(i.SOItem?.ProductName, i.Purpose),
                 Amount = i.Amount,
                 Purpose = i.Purpose,
                 Notes = i.Notes
@@ -225,8 +222,8 @@ public class AdvanceRequestService : IAdvanceRequestService
             .FirstOrDefaultAsync(a => a.AdvanceRequestId == advanceRequestId);
         if (req == null) return (false, "Không tìm thấy đề nghị tạm ứng");
 
-        if (req.Status != "PENDING")
-            return (false, "Chỉ có thể sửa đề nghị tạm ứng ở trạng thái Chờ duyệt");
+        if (req.Status != "WAIT_ACCOUNTANT")
+            return (false, "Chỉ có thể sửa đề nghị tạm ứng khi đang ở bước Chờ kế toán duyệt");
 
         var so = req.SalesOrder;
         if (so == null) return (false, "Không tìm thấy đơn hàng liên quan");
@@ -245,10 +242,6 @@ public class AdvanceRequestService : IAdvanceRequestService
             if (i.SOItemId.HasValue && !soItemIds.Contains(i.SOItemId.Value))
                 return (false, $"Dòng SP #{i.SOItemId} không thuộc đơn hàng này");
         }
-
-        var status = string.IsNullOrWhiteSpace(model.Status) ? "PENDING" : model.Status.Trim().ToUpperInvariant();
-        if (status is not ("PENDING" or "APPROVED" or "RECEIVED"))
-            return (false, "Trạng thái không hợp lệ");
 
         var total = items.Sum(i => i.Amount);
         var now = DateTime.Now;
@@ -275,26 +268,14 @@ public class AdvanceRequestService : IAdvanceRequestService
         req.Purpose = (model.Purpose ?? "").Trim();
         req.Notes = model.Notes?.Trim();
         req.RequestedAmount = total;
-        req.Status = status;
+        // Trạng thái giữ nguyên WAIT_ACCOUNTANT khi sửa — không đổi qua form.
         req.UpdatedAt = now;
-
-        // Mirror CreateAsync: stamp approval/received metadata when sales fast-tracks status during edit
-        if (status is "APPROVED" or "RECEIVED")
-        {
-            req.ApprovedBy = userId;
-            req.ApprovedAt = now;
-            req.ApprovedAmount = total;
-        }
-        if (status == "RECEIVED")
-        {
-            req.ReceivedAt = now;
-        }
 
         _uow.Repository<AdvanceRequest>().Update(req);
         await _uow.SaveChangesAsync();
 
-        _logger.LogInformation("AdvanceRequest updated: {No} Total={Total} Status={Status} by UserId={UserId}",
-            req.RequestNo, total, status, userId);
+        _logger.LogInformation("AdvanceRequest updated: {No} Total={Total} by UserId={UserId}",
+            req.RequestNo, total, userId);
 
         return (true, null);
     }
@@ -317,15 +298,39 @@ public class AdvanceRequestService : IAdvanceRequestService
         return (true, null);
     }
 
-    // ── Status transitions (kế toán duyệt / xác nhận chuyển tiền / từ chối) ──
-    public async Task<(bool Success, string? ErrorMessage)> ApproveAsync(int advanceRequestId, int userId)
+    // ══════════════════════════════════════════════════
+    // STATUS TRANSITIONS — quy trình duyệt 4 bước
+    //   WAIT_ACCOUNTANT → WAIT_DIRECTOR → WAIT_DISBURSE → DISBURSED
+    //   (quyền theo vai trò được kiểm tra ở Controller)
+    // ══════════════════════════════════════════════════
+
+    // Bước 1→2: Kế toán duyệt, chuyển sang chờ giám đốc duyệt.
+    public async Task<(bool Success, string? ErrorMessage)> AccountantReviewAsync(int advanceRequestId, int userId)
     {
         var req = await _uow.Repository<AdvanceRequest>().GetByIdAsync(advanceRequestId);
         if (req == null) return (false, "Không tìm thấy đề nghị tạm ứng");
-        if (req.Status != "PENDING") return (false, "Chỉ có thể duyệt đề nghị đang chờ duyệt");
+        if (req.Status != "WAIT_ACCOUNTANT")
+            return (false, "Chỉ có thể duyệt khi đề nghị đang ở bước Chờ kế toán duyệt");
+
+        req.Status = "WAIT_DIRECTOR";
+        req.UpdatedAt = DateTime.Now;
+        _uow.Repository<AdvanceRequest>().Update(req);
+        await _uow.SaveChangesAsync();
+
+        _logger.LogInformation("AdvanceRequest accountant-reviewed: {No} by UserId={UserId}", req.RequestNo, userId);
+        return (true, null);
+    }
+
+    // Bước 2→3: Giám đốc (MANAGER) duyệt, chuyển sang chờ chi tiền.
+    public async Task<(bool Success, string? ErrorMessage)> DirectorApproveAsync(int advanceRequestId, int userId)
+    {
+        var req = await _uow.Repository<AdvanceRequest>().GetByIdAsync(advanceRequestId);
+        if (req == null) return (false, "Không tìm thấy đề nghị tạm ứng");
+        if (req.Status != "WAIT_DIRECTOR")
+            return (false, "Chỉ có thể duyệt khi đề nghị đang ở bước Chờ giám đốc duyệt");
 
         var now = DateTime.Now;
-        req.Status = "APPROVED";
+        req.Status = "WAIT_DISBURSE";
         req.ApprovedBy = userId;
         req.ApprovedAt = now;
         req.ApprovedAmount = req.RequestedAmount;
@@ -333,31 +338,32 @@ public class AdvanceRequestService : IAdvanceRequestService
         _uow.Repository<AdvanceRequest>().Update(req);
         await _uow.SaveChangesAsync();
 
-        _logger.LogInformation("AdvanceRequest approved: {No} by UserId={UserId}", req.RequestNo, userId);
+        _logger.LogInformation("AdvanceRequest director-approved: {No} by UserId={UserId}", req.RequestNo, userId);
         return (true, null);
     }
 
-    public async Task<(bool Success, string? ErrorMessage)> MarkReceivedAsync(int advanceRequestId, int userId)
+    // Bước 3→4: Kế toán xác nhận đã chi tiền.
+    public async Task<(bool Success, string? ErrorMessage)> DisburseAsync(int advanceRequestId, int userId)
     {
         var req = await _uow.Repository<AdvanceRequest>().GetByIdAsync(advanceRequestId);
         if (req == null) return (false, "Không tìm thấy đề nghị tạm ứng");
-        if (req.Status is not ("PENDING" or "APPROVED"))
-            return (false, "Chỉ có thể xác nhận chuyển tiền cho đề nghị Chờ duyệt hoặc Đã duyệt");
+        if (req.Status != "WAIT_DISBURSE")
+            return (false, "Chỉ có thể chi tiền khi đề nghị đang ở bước Chờ chi tiền");
 
         var now = DateTime.Now;
-        if (req.Status == "PENDING")
+        req.Status = "DISBURSED";
+        req.ReceivedAt = now;
+        if (req.ApprovedAmount == null)
         {
-            req.ApprovedBy = userId;
-            req.ApprovedAt = now;
+            req.ApprovedBy ??= userId;
+            req.ApprovedAt ??= now;
             req.ApprovedAmount = req.RequestedAmount;
         }
-        req.Status = "RECEIVED";
-        req.ReceivedAt = now;
         req.UpdatedAt = now;
         _uow.Repository<AdvanceRequest>().Update(req);
         await _uow.SaveChangesAsync();
 
-        _logger.LogInformation("AdvanceRequest marked received: {No} by UserId={UserId}", req.RequestNo, userId);
+        _logger.LogInformation("AdvanceRequest disbursed: {No} by UserId={UserId}", req.RequestNo, userId);
         return (true, null);
     }
 
@@ -365,7 +371,8 @@ public class AdvanceRequestService : IAdvanceRequestService
     {
         var req = await _uow.Repository<AdvanceRequest>().GetByIdAsync(advanceRequestId);
         if (req == null) return (false, "Không tìm thấy đề nghị tạm ứng");
-        if (req.Status is "SETTLING" or "SETTLED" or "REJECTED")
+        // Chỉ từ chối được khi còn trong các bước chờ duyệt (chưa chi tiền / chưa quyết toán).
+        if (req.Status is not ("WAIT_ACCOUNTANT" or "WAIT_DIRECTOR" or "WAIT_DISBURSE"))
             return (false, "Không thể từ chối: trạng thái hiện tại không cho phép");
 
         var now = DateTime.Now;

@@ -40,8 +40,13 @@ public class AdvanceRequestController : Controller
         return assigneeId.HasValue && assigneeId.Value == CurrentUserId;
     }
 
-    // Accountant-side: status transitions (approve/receive/reject)
-    private bool CanApproveAdvance => CurrentRoleCode is "ADMIN" or "MANAGER" or "ACCOUNTANT";
+    // ── Quyền theo vai trò trong quy trình duyệt (strict + ADMIN override) ──
+    // Kế toán: bước 1→2 (duyệt) và bước 3→4 (chi tiền)
+    private bool CanAccountantAct => CurrentRoleCode is "ADMIN" or "ACCOUNTANT";
+    // Giám đốc / Quản lý: bước 2→3 (duyệt)
+    private bool CanDirectorAct => CurrentRoleCode is "ADMIN" or "MANAGER";
+    // Từ chối: bất kỳ vai trò nào trong chuỗi duyệt
+    private bool CanRejectAdvance => CurrentRoleCode is "ADMIN" or "MANAGER" or "ACCOUNTANT";
 
     // ── GET: advance summary for a SO (used for AJAX refresh) ──
     [HttpGet]
@@ -138,45 +143,64 @@ public class AdvanceRequestController : Controller
         }
     }
 
-    // ── POST: accountant approves a pending advance request ──
+    // ── POST: bước 1→2 — Kế toán duyệt (Chờ kế toán duyệt → Chờ giám đốc duyệt) ──
     [HttpPost]
-    public async Task<IActionResult> Approve(int id)
+    public async Task<IActionResult> AccountantReview(int id)
     {
         try
         {
-            if (!CanApproveAdvance)
-                return Json(ApiResult<object>.Fail("Chỉ Kế toán hoặc Quản lý mới có quyền duyệt"));
+            if (!CanAccountantAct)
+                return Json(ApiResult<object>.Fail("Chỉ Kế toán mới có quyền duyệt bước này"));
 
-            var (success, error) = await _advanceService.ApproveAsync(id, CurrentUserId);
-            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã duyệt đề nghị tạm ứng" : error });
+            var (success, error) = await _advanceService.AccountantReviewAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã chuyển sang Chờ giám đốc duyệt" : error });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "AdvanceRequest.Approve failed for #{Id}", id);
+            _logger.LogError(ex, "AdvanceRequest.AccountantReview failed for #{Id}", id);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }
 
-    // ── POST: accountant confirms the money has been transferred ──
+    // ── POST: bước 2→3 — Giám đốc/Quản lý duyệt (Chờ giám đốc duyệt → Chờ chi tiền) ──
     [HttpPost]
-    public async Task<IActionResult> MarkReceived(int id)
+    public async Task<IActionResult> DirectorApprove(int id)
     {
         try
         {
-            if (!CanApproveAdvance)
-                return Json(ApiResult<object>.Fail("Chỉ Kế toán hoặc Quản lý mới có quyền xác nhận chuyển tiền"));
+            if (!CanDirectorAct)
+                return Json(ApiResult<object>.Fail("Chỉ Giám đốc/Quản lý mới có quyền duyệt bước này"));
 
-            var (success, error) = await _advanceService.MarkReceivedAsync(id, CurrentUserId);
-            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận chuyển tiền" : error });
+            var (success, error) = await _advanceService.DirectorApproveAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã chuyển sang Chờ chi tiền" : error });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "AdvanceRequest.MarkReceived failed for #{Id}", id);
+            _logger.LogError(ex, "AdvanceRequest.DirectorApprove failed for #{Id}", id);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }
 
-    // ── POST: accountant rejects an advance request ──
+    // ── POST: bước 3→4 — Kế toán xác nhận chi tiền (Chờ chi tiền → Đã chi tiền) ──
+    [HttpPost]
+    public async Task<IActionResult> Disburse(int id)
+    {
+        try
+        {
+            if (!CanAccountantAct)
+                return Json(ApiResult<object>.Fail("Chỉ Kế toán mới có quyền xác nhận chi tiền"));
+
+            var (success, error) = await _advanceService.DisburseAsync(id, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã xác nhận chi tiền" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AdvanceRequest.Disburse failed for #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    // ── POST: từ chối đề nghị tạm ứng ──
     public class RejectModel { public string? Reason { get; set; } }
 
     [HttpPost]
@@ -184,7 +208,7 @@ public class AdvanceRequestController : Controller
     {
         try
         {
-            if (!CanApproveAdvance)
+            if (!CanRejectAdvance)
                 return Json(ApiResult<object>.Fail("Chỉ Kế toán hoặc Quản lý mới có quyền từ chối"));
 
             var (success, error) = await _advanceService.RejectAsync(id, model?.Reason, CurrentUserId);

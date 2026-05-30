@@ -31,23 +31,35 @@ public class AdvanceRequestRow
 
     public string StatusText => Status switch
     {
-        "PENDING" => "Chờ duyệt",
-        "APPROVED" => "Đã duyệt",
-        "RECEIVED" => "Đã nhận tiền",
+        // ── Quy trình duyệt tạm ứng (4 bước) ──
+        "WAIT_ACCOUNTANT" => "Chờ kế toán duyệt",
+        "WAIT_DIRECTOR" => "Chờ giám đốc duyệt",
+        "WAIT_DISBURSE" => "Chờ chi tiền",
+        "DISBURSED" => "Đã chi tiền",
+        "REJECTED" => "Từ chối",
+        // ── Quyết toán (giai đoạn sau) ──
         "SETTLING" => "Đang quyết toán",
         "SETTLED" => "Đã quyết toán",
-        "REJECTED" => "Từ chối",
+        // ── Legacy codes (dữ liệu cũ — chưa migrate) ──
+        "PENDING" => "Chờ kế toán duyệt",
+        "APPROVED" => "Chờ chi tiền",
+        "RECEIVED" => "Đã chi tiền",
         _ => Status
     };
 
     public string StatusBadge => Status switch
     {
-        "PENDING" => "bg-secondary",
-        "APPROVED" => "bg-info",
-        "RECEIVED" => "bg-success",
+        "WAIT_ACCOUNTANT" => "bg-secondary",
+        "WAIT_DIRECTOR" => "bg-info",
+        "WAIT_DISBURSE" => "bg-warning text-dark",
+        "DISBURSED" => "bg-success",
+        "REJECTED" => "bg-danger",
         "SETTLING" => "bg-warning text-dark",
         "SETTLED" => "bg-primary",
-        "REJECTED" => "bg-danger",
+        // ── Legacy codes ──
+        "PENDING" => "bg-secondary",
+        "APPROVED" => "bg-warning text-dark",
+        "RECEIVED" => "bg-success",
         _ => "bg-light text-dark"
     };
 }
@@ -67,7 +79,7 @@ public class AdvanceRequestCreateModel
 {
     public DateTime? RequestDate { get; set; }
     public string Purpose { get; set; } = string.Empty;
-    public string Status { get; set; } = "RECEIVED";          // default — money already in
+    // Trạng thái khởi tạo luôn là WAIT_ACCOUNTANT (do server quyết định) — KD không tự đặt được.
     public string? Notes { get; set; }
     public List<AdvanceRequestItemCreateModel> Items { get; set; } = [];
 }

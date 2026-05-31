@@ -154,15 +154,21 @@
                 <div class="mb-3">
                     <div class="d-flex gap-4">
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="calcMode" id="calcModeOfficial" value="OFFICIAL">
-                            <label class="form-check-label" for="calcModeOfficial">
-                                Nhập chính ngạch
+                            <input class="form-check-input" type="radio" name="calcMode" id="calcModeDomestic" value="DOMESTIC">
+                            <label class="form-check-label" for="calcModeDomestic">
+                                Mua trong nước
                             </label>
-                        </div>
+                        </div>                      
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="calcMode" id="calcModeUnofficial" value="UNOFFICIAL">
                             <label class="form-check-label" for="calcModeUnofficial">
                                 Nhập tiểu ngạch
+                            </label>
+                        </div>
+                         <div class="form-check">
+                            <input class="form-check-input" type="radio" name="calcMode" id="calcModeOfficial" value="OFFICIAL">
+                            <label class="form-check-label" for="calcModeOfficial">
+                                Nhập chính ngạch
                             </label>
                         </div>
                     </div>
@@ -171,7 +177,7 @@
                 <!-- Currency/Rate (dual-mode) + Base price + Purchase quantity -->
                 <div class="row g-2 mb-3">
                     <div class="col-md-4">
-                        <label class="form-label small fw-semibold">Đơn giá gốc <span class="text-muted">(ngoại tệ)</span></label>
+                        <label class="form-label small fw-semibold">Đơn giá gốc</label>
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                id="calcBasePrice" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
                     </div>
@@ -187,7 +193,7 @@
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold">Số lượng mua</label>
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcQty" oninput="sanitizeNumberInput(this); onCalcInput();" onfocus="this.select()" />
+                               id="calcQty" oninput="onCalcInput();" onfocus="this.select()" />
                     </div>
                 </div>
 
@@ -247,7 +253,7 @@
                 </div>
 
                 <!-- Common cost components (both modes) -->
-                <div class="card border-secondary-subtle mt-3">
+                <div class="card border-secondary-subtle mt-3" id="calcCommonCostCard">
                     <div class="card-header bg-light py-2 small fw-semibold">
                         <i class="bi bi-receipt me-1"></i> Chi phí khác (VND)
                     </div>
@@ -360,6 +366,7 @@
         padding: 1px 6px; border-radius: 4px; margin-left: 4px;
         vertical-align: middle;
     }
+    .qi-mode-DOMESTIC { background: #dcfce7; color: #166534; }
     .qi-mode-OFFICIAL { background: #dbeafe; color: #1e40af; }
     .qi-mode-UNOFFICIAL { background: #fef3c7; color: #92400e; }
 
@@ -635,7 +642,7 @@
             SortOrder: items.length,
             Notes: globalNotes,
             IsProductMapped: false,
-            PurchaseMode: 'OFFICIAL',
+            PurchaseMode: 'DOMESTIC',
             PurchaseQuantity: null,
             BasePrice: null,
             PurchaseTax: null,
@@ -1440,8 +1447,9 @@
         // Dual-mode currency/rate: VND → show dropdown; non-VND → show rate input + label "Tỷ giá - <code>" + × button
         updateCalcCurrRateUI();
 
-        var mode = (item.PurchaseMode || 'OFFICIAL').toUpperCase();
-        document.getElementById('calcModeOfficial').checked = (mode !== 'UNOFFICIAL');
+        var mode = (item.PurchaseMode || 'DOMESTIC').toUpperCase();
+        document.getElementById('calcModeDomestic').checked = (mode === 'DOMESTIC');
+        document.getElementById('calcModeOfficial').checked = (mode === 'OFFICIAL');
         document.getElementById('calcModeUnofficial').checked = (mode === 'UNOFFICIAL');
 
         document.getElementById('calcBasePrice').value = item.BasePrice ? formatNumber(item.BasePrice) : '';
@@ -1475,9 +1483,25 @@
     }
 
     function updateCalcPanels() {
-        var mode = document.querySelector('input[name="calcMode"]:checked')?.value || 'OFFICIAL';
-        document.getElementById('calcOfficialPanel').style.display = (mode === 'OFFICIAL') ? '' : 'none';
+        var mode = document.querySelector('input[name="calcMode"]:checked')?.value || 'DOMESTIC';
+        // Domestic reuses the single-shipping (official) panel; unofficial gets the breakdown panel.
+        document.getElementById('calcOfficialPanel').style.display = (mode === 'OFFICIAL' || mode === 'DOMESTIC') ? '' : 'none';
         document.getElementById('calcUnofficialPanel').style.display = (mode === 'UNOFFICIAL') ? '' : 'none';
+        // Domestic formula is just BasePrice + Shipping/Qty, so the extra-costs card is irrelevant.
+        var commonCard = document.getElementById('calcCommonCostCard');
+        if (commonCard) commonCard.style.display = (mode === 'DOMESTIC') ? 'none' : '';
+        // Domestic purchase is always priced in VND — force it and lock the currency selector.
+        var currSel = document.getElementById('calcCurrency');
+        if (mode === 'DOMESTIC') {
+            if (currSel.value !== 'VND') {
+                currSel.value = 'VND';
+                document.getElementById('calcRate').value = formatNumber(1);
+            }
+            currSel.disabled = true;
+            updateCalcCurrRateUI();
+        } else {
+            currSel.disabled = false;
+        }
     }
 
     function onCalcCurrencyChange() {
@@ -1559,6 +1583,16 @@
     function calcComputePreview() {
         var f = calcReadFields();
         var qty = f.qty > 0 ? f.qty : 1;
+        if (f.mode === 'DOMESTIC') {
+            // Domestic: priced in VND (rate = 1), no extra fees. Giá nhập = Đơn giá gốc + (Phí vận chuyển / SL mua)
+            var domPerUnit = Math.round(f.basePrice + f.offShipping / qty);
+            return {
+                lineVnd: domPerUnit * qty,
+                perUnit: domPerUnit,
+                hint: 'Giá nhập = Đơn giá gốc + (Phí vận chuyển / SL mua)',
+                fields: f
+            };
+        }
         var shippingVnd;
         var hint;
         if (f.mode === 'OFFICIAL') {
@@ -1603,7 +1637,17 @@
         item.BankingFee = f.banking || null;
         item.OtherCosts = f.other || null;
 
-        if (f.mode === 'OFFICIAL') {
+        // Domestic purchase ignores extra costs (formula = BasePrice + Shipping/Qty) and is always VND.
+        if (f.mode === 'DOMESTIC') {
+            item.PurchaseTax = null;
+            item.InspectionFee = null;
+            item.BankingFee = null;
+            item.OtherCosts = null;
+            item.PurchaseCurrency = 'VND';
+            item.ExchangeRate = 1;
+        }
+
+        if (f.mode === 'OFFICIAL' || f.mode === 'DOMESTIC') {
             item.OfficialShipping = f.offShipping || null;
             item.UnofficialDomesticShipping = null;
             item.UnofficialWeightKg = null;
@@ -1721,6 +1765,37 @@
         }
         try { input.setSelectionRange(newPos, newPos); } catch (e) { /* IE/non-text inputs */ }
     }
+
+    // After an arithmetic expression is typed in a calc-popup input, evaluate it on blur
+    // and show the computed result directly in the input (money → vi-VN formatted, decimal → up to 3dp).
+    function commitCalcExpr(input, kind) {
+        var raw = (input.value || '').trim();
+        if (raw === '') return;
+        if (kind === 'decimal') {
+            var d = parseDecimal(raw);
+            input.value = d ? String(Math.round(d * 1000) / 1000) : '';
+        } else {
+            var m = parseMoney(raw);
+            input.value = m ? formatNumber(m) : '';
+        }
+        onCalcInput();
+    }
+
+    // Wire blur-commit on every numeric input inside #calcModal (one-time; the modal markup is static).
+    (function wireCalcExprInputs() {
+        var moneyIds = ['calcBasePrice', 'calcRate', 'calcOfficialShipping', 'calcDomesticShipping',
+                        'calcCostPerKg', 'calcHandCarry', 'calcW2W', 'calcTax', 'calcInspection',
+                        'calcBanking', 'calcOther'];
+        var decimalIds = ['calcQty', 'calcWeight'];
+        function bind(ids, kind) {
+            ids.forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.addEventListener('blur', function () { commitCalcExpr(el, kind); });
+            });
+        }
+        bind(moneyIds, 'money');
+        bind(decimalIds, 'decimal');
+    })();
 
     function escapeHtml(str) {
         if (!str) return '';

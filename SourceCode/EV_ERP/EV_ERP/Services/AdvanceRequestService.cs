@@ -503,7 +503,7 @@ public class AdvanceRequestService : IAdvanceRequestService
                 {
                     ws.Cell(row, 16).Value = qItem.UnofficialWeightKg.Value;
                 }
-                if (qItem.PurchaseMode == "OFFICIAL" && qItem.OfficialShipping.HasValue)
+                if (qItem.PurchaseMode is "OFFICIAL" or "DOMESTIC" && qItem.OfficialShipping.HasValue)
                 {
                     ws.Cell(row, 17).Value = qItem.OfficialShipping.Value;
                 }

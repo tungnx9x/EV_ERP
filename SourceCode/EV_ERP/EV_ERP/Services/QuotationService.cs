@@ -1207,7 +1207,9 @@ public class QuotationService : IQuotationService
     {
         if (string.IsNullOrWhiteSpace(mode)) return "OFFICIAL";
         var u = mode.Trim().ToUpperInvariant();
-        return u == "UNOFFICIAL" ? "UNOFFICIAL" : "OFFICIAL";
+        if (u == "UNOFFICIAL") return "UNOFFICIAL";
+        if (u == "DOMESTIC") return "DOMESTIC";
+        return "OFFICIAL";
     }
 
     // ══════════════════════════════════════════════════

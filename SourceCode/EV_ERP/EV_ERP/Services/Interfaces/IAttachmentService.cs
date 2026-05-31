@@ -7,6 +7,10 @@ public interface IAttachmentService
     Task<AttachmentResult?> UploadImageAsync(IFormFile file, string referenceType, int referenceId,
         string? fileCategory, string? description, int uploadedBy);
 
+    /// <summary>Uploads any allowed document or image (PDF/Word/Excel/CSV/TXT + images, up to 20MB).</summary>
+    Task<AttachmentResult?> UploadFileAsync(IFormFile file, string referenceType, int referenceId,
+        string? fileCategory, string? description, int uploadedBy);
+
     Task<List<AttachmentDto>> GetListAsync(string referenceType, int referenceId);
 
     Task<bool> DeleteAsync(int attachmentId, int userId);

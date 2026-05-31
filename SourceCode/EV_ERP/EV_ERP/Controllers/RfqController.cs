@@ -12,11 +12,14 @@ public class RfqController : Controller
 {
     private readonly IRfqService _rfqService;
     private readonly IQuotationService _quotationService;
+    private readonly IAttachmentService _attachmentService;
 
-    public RfqController(IRfqService rfqService, IQuotationService quotationService)
+    public RfqController(IRfqService rfqService, IQuotationService quotationService,
+        IAttachmentService attachmentService)
     {
         _rfqService = rfqService;
         _quotationService = quotationService;
+        _attachmentService = attachmentService;
     }
 
     private int CurrentUserId =>
@@ -150,6 +153,61 @@ public class RfqController : Controller
             return Json(ApiResult<object>.Fail("Upload thất bại — chỉ hỗ trợ JPG/PNG/GIF/WEBP, tối đa 5MB"));
 
         return Json(ApiResult<object>.Ok(new { url }));
+    }
+
+    // ── Customer Requirement Files (Ajax) ────────────
+    private const string AttachmentRefType = "RFQ";
+    private const string AttachmentCategory = "CUSTOMER_REQUIREMENT";
+
+    // Upload tied to an existing RFQ (Edit screen)
+    [HttpPost]
+    public async Task<IActionResult> UploadAttachment(IFormFile file, int rfqId, string? description)
+    {
+        if (!CanCreate)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+        var result = await _attachmentService.UploadFileAsync(
+            file, AttachmentRefType, rfqId, AttachmentCategory, description, CurrentUserId);
+
+        if (result == null)
+            return Json(ApiResult<object>.Fail(
+                "Upload thất bại — chỉ hỗ trợ PDF/Word/Excel/CSV/TXT/ảnh, tối đa 20MB"));
+
+        return Json(ApiResult<object>.Ok(result));
+    }
+
+    // Upload before the RFQ is saved (Create screen) — staged with ReferenceId=0
+    [HttpPost]
+    public async Task<IActionResult> UploadTempAttachment(IFormFile file, string? description)
+    {
+        if (!CanCreate)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+        var result = await _attachmentService.UploadFileAsync(
+            file, AttachmentRefType, 0, AttachmentCategory, description, CurrentUserId);
+
+        if (result == null)
+            return Json(ApiResult<object>.Fail(
+                "Upload thất bại — chỉ hỗ trợ PDF/Word/Excel/CSV/TXT/ảnh, tối đa 20MB"));
+
+        return Json(ApiResult<object>.Ok(result));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteAttachment(int attachmentId)
+    {
+        if (!CanCreate)
+            return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+
+        var ok = await _attachmentService.DeleteAsync(attachmentId, CurrentUserId);
+        return Json(new ApiResult<object> { Success = ok, Message = ok ? "Đã xóa" : "Không tìm thấy tệp" });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAttachments(int rfqId)
+    {
+        var files = await _attachmentService.GetListAsync(AttachmentRefType, rfqId);
+        return Json(ApiResult<object>.Ok(files));
     }
 
     // ── Cancel (Ajax) ────────────────────────────────

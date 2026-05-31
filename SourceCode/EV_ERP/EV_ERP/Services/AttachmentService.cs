@@ -11,8 +11,15 @@ public class AttachmentService : IAttachmentService
     private readonly string _storageRoot;
     private readonly ILogger<AttachmentService> _logger;
 
-    private static readonly HashSet<string> AllowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-    private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
+    private static readonly HashSet<string> AllowedImageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    private const long MaxImageSize = 5 * 1024 * 1024; // 5MB
+
+    private static readonly HashSet<string> AllowedFileExtensions =
+    [
+        ".jpg", ".jpeg", ".png", ".gif", ".webp",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt"
+    ];
+    private const long MaxFileSize = 20 * 1024 * 1024; // 20MB
 
     public AttachmentService(IUnitOfWork uow, IConfiguration config,
         IWebHostEnvironment env, ILogger<AttachmentService> logger)
@@ -22,14 +29,25 @@ public class AttachmentService : IAttachmentService
         _logger = logger;
     }
 
-    public async Task<AttachmentResult?> UploadImageAsync(IFormFile file, string referenceType,
+    public Task<AttachmentResult?> UploadImageAsync(IFormFile file, string referenceType,
         int referenceId, string? fileCategory, string? description, int uploadedBy)
+        => SaveAsync(file, referenceType, referenceId, fileCategory, description, uploadedBy,
+            AllowedImageExtensions, MaxImageSize);
+
+    public Task<AttachmentResult?> UploadFileAsync(IFormFile file, string referenceType,
+        int referenceId, string? fileCategory, string? description, int uploadedBy)
+        => SaveAsync(file, referenceType, referenceId, fileCategory, description, uploadedBy,
+            AllowedFileExtensions, MaxFileSize);
+
+    private async Task<AttachmentResult?> SaveAsync(IFormFile file, string referenceType,
+        int referenceId, string? fileCategory, string? description, int uploadedBy,
+        HashSet<string> allowedExtensions, long maxFileSize)
     {
         if (file == null || file.Length == 0) return null;
 
         var ext = Path.GetExtension(file.FileName).ToLower();
-        if (!AllowedExtensions.Contains(ext)) return null;
-        if (file.Length > MaxFileSize) return null;
+        if (!allowedExtensions.Contains(ext)) return null;
+        if (file.Length > maxFileSize) return null;
 
         var subfolder = Path.Combine("Attachments", referenceType);
         var dir = Path.Combine(_storageRoot, subfolder);

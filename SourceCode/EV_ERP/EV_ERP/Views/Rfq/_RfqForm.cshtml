@@ -92,6 +92,23 @@
                         <textarea id="frm_notes" class="form-control form-control-sm" rows="2"
                                   placeholder="Ghi chú nội bộ...">@Model.Notes</textarea>
                     </div>
+
+                    <!-- Tệp yêu cầu khách hàng -->
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">
+                            <i class="bi bi-paperclip me-1"></i>Tệp yêu cầu khách hàng
+                        </label>
+                        <div class="border rounded p-3 bg-light-subtle">
+                            <input type="file" id="frm_attachmentInput" class="d-none" multiple
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.gif,.webp" />
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="document.getElementById('frm_attachmentInput').click()">
+                                <i class="bi bi-upload me-1"></i>Chọn tệp
+                            </button>
+                            <span class="text-muted small ms-2">PDF, Word, Excel, CSV, TXT, ảnh — tối đa 20MB/tệp</span>
+                            <div id="frm_attachmentList" class="mt-2 d-flex flex-column gap-1"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -176,8 +193,14 @@
             Priority: document.getElementById('frm_priority').value,
             AssignedTo: assignedTo,
             Description: descriptionEditor ? (descriptionEditor.getData().trim() || null) : null,
-            Notes: document.getElementById('frm_notes').value.trim() || null
+            Notes: document.getElementById('frm_notes').value.trim() || null,
+            AttachmentIds: window.rfqAttachmentIds || []
         };
+
+        if (window.rfqAttachmentUploading) {
+            appAlert('Đang tải tệp lên, vui lòng đợi hoàn tất');
+            return;
+        }
 
         var btn = document.getElementById('btnSubmit');
         btn.disabled = true;
@@ -298,6 +321,127 @@
         document.addEventListener('click', function (e) {
             if (!document.getElementById('customerWrapper').contains(e.target))
                 dd.classList.add('d-none');
+        });
+    })();
+
+    // ── Customer requirement attachments ────────────────
+    (function () {
+        var rfqIdEl = document.getElementById('frm_rfqId');
+        var isEdit = !!rfqIdEl;
+        var rfqId = isEdit ? parseInt(rfqIdEl.value) : 0;
+        var input = document.getElementById('frm_attachmentInput');
+        var listEl = document.getElementById('frm_attachmentList');
+        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+
+        window.rfqAttachmentIds = [];          // ids of files belonging to this form
+        window.rfqAttachmentUploading = false;
+        var files = {};                         // attachmentId -> { fileName, fileUrl }
+
+        function fmtSize(bytes) {
+            if (!bytes && bytes !== 0) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+        }
+        function iconFor(name) {
+            var ext = (name.split('.').pop() || '').toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) >= 0) return 'bi-file-earmark-image text-info';
+            if (ext === 'pdf') return 'bi-file-earmark-pdf text-danger';
+            if (['doc', 'docx'].indexOf(ext) >= 0) return 'bi-file-earmark-word text-primary';
+            if (['xls', 'xlsx', 'csv'].indexOf(ext) >= 0) return 'bi-file-earmark-excel text-success';
+            return 'bi-file-earmark-text text-secondary';
+        }
+        function render() {
+            var ids = window.rfqAttachmentIds;
+            if (ids.length === 0) {
+                listEl.innerHTML = '<div class="text-muted small fst-italic">Chưa có tệp nào</div>';
+                return;
+            }
+            listEl.innerHTML = ids.map(function (id) {
+                var f = files[id];
+                return '<div class="d-flex align-items-center gap-2 bg-white border rounded px-2 py-1">'
+                    + '<i class="bi ' + iconFor(f.fileName) + '"></i>'
+                    + '<a href="' + f.fileUrl + '" target="_blank" class="text-decoration-none small text-truncate flex-grow-1" title="' + f.fileName + '">' + f.fileName + '</a>'
+                    + (f.fileSize != null ? '<span class="text-muted small">' + fmtSize(f.fileSize) + '</span>' : '')
+                    + '<button type="button" class="btn btn-sm btn-link text-danger p-0" title="Xóa" data-del="' + id + '"><i class="bi bi-x-lg"></i></button>'
+                    + '</div>';
+            }).join('');
+        }
+
+        // Load existing files in edit mode
+        if (isEdit && rfqId > 0) {
+            fetch('/Rfq/GetAttachments?rfqId=' + rfqId)
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (res.Success && res.Data) {
+                        res.Data.forEach(function (a) {
+                            files[a.AttachmentId] = { fileName: a.FileName, fileUrl: a.FileUrl, fileSize: a.FileSize };
+                            window.rfqAttachmentIds.push(a.AttachmentId);
+                        });
+                    }
+                    render();
+                })
+                .catch(render);
+        } else {
+            render();
+        }
+
+        input.addEventListener('change', function () {
+            var selected = Array.prototype.slice.call(input.files);
+            input.value = '';
+            if (selected.length === 0) return;
+
+            window.rfqAttachmentUploading = true;
+            var url = (isEdit && rfqId > 0) ? '/Rfq/UploadAttachment' : '/Rfq/UploadTempAttachment';
+
+            var chain = Promise.resolve();
+            selected.forEach(function (file) {
+                chain = chain.then(function () {
+                    var data = new FormData();
+                    data.append('file', file);
+                    if (isEdit && rfqId > 0) data.append('rfqId', rfqId);
+                    data.append('__RequestVerificationToken', token);
+                    return fetch(url, { method: 'POST', body: data })
+                        .then(function (r) { return r.json(); })
+                        .then(function (res) {
+                            if (res.Success && res.Data) {
+                                files[res.Data.AttachmentId] = {
+                                    fileName: res.Data.FileName, fileUrl: res.Data.FileUrl, fileSize: file.size
+                                };
+                                window.rfqAttachmentIds.push(res.Data.AttachmentId);
+                                render();
+                            } else {
+                                appToast(res.Message || ('Tải lên thất bại: ' + file.name), 'error');
+                            }
+                        })
+                        .catch(function () { appToast('Lỗi tải lên: ' + file.name, 'error'); });
+                });
+            });
+            chain.finally(function () { window.rfqAttachmentUploading = false; });
+        });
+
+        listEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-del]');
+            if (!btn) return;
+            var id = parseInt(btn.getAttribute('data-del'));
+            appConfirm('Xóa tệp này?').then(function (ok) {
+                if (!ok) return;
+                var data = new FormData();
+                data.append('attachmentId', id);
+                data.append('__RequestVerificationToken', token);
+                fetch('/Rfq/DeleteAttachment', { method: 'POST', body: data })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (res.Success) {
+                            delete files[id];
+                            window.rfqAttachmentIds = window.rfqAttachmentIds.filter(function (x) { return x !== id; });
+                            render();
+                        } else {
+                            appToast(res.Message || 'Xóa thất bại', 'error');
+                        }
+                    })
+                    .catch(function () { appToast('Lỗi xóa tệp', 'error'); });
+            });
         });
     })();
 </script>

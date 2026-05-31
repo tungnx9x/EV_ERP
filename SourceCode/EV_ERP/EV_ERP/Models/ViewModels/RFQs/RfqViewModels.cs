@@ -93,6 +93,9 @@ public class RfqFormViewModel
 
     public string? Notes { get; set; }
 
+    /// <summary>Temp customer-requirement attachments (uploaded with ReferenceId=0) to link on create.</summary>
+    public List<int> AttachmentIds { get; set; } = [];
+
     public string? CurrentStatus { get; set; }
 
     public int? CreatedBy { get; set; }

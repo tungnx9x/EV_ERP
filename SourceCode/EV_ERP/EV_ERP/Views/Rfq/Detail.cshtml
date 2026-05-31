@@ -199,7 +199,7 @@
 
     <!-- RIGHT: Linked Quotations -->
     <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
+        <div class="card border-0 shadow-sm mb-3">
             <div class="card-header bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 fw-semibold small text-uppercase">
                     <i class="bi bi-file-earmark-text me-1"></i> Báo giá liên quan
@@ -261,6 +261,17 @@
                         </table>
                     </div>
                 }
+            </div>
+        </div>
+         <!-- Tệp yêu cầu khách hàng -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted text-uppercase mb-2" style="font-size:0.72rem;letter-spacing:.06em;">
+                    <i class="bi bi-paperclip me-1"></i> Tệp yêu cầu khách hàng
+                </h6>
+                <div id="rfqAttachmentList" class="d-flex flex-column gap-1">
+                    <div class="text-muted small fst-italic">Đang tải...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -383,6 +394,47 @@
             document.getElementById('cancelReason').value = '';
             new bootstrap.Modal(document.getElementById('cancelModal')).show();
         }
+
+        // ── Load customer requirement attachments ───────
+        (function () {
+            var listEl = document.getElementById('rfqAttachmentList');
+            if (!listEl) return;
+
+            function fmtSize(bytes) {
+                if (bytes == null) return '';
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+                return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+            }
+            function iconFor(name) {
+                var ext = (name.split('.').pop() || '').toLowerCase();
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].indexOf(ext) >= 0) return 'bi-file-earmark-image text-info';
+                if (ext === 'pdf') return 'bi-file-earmark-pdf text-danger';
+                if (['doc', 'docx'].indexOf(ext) >= 0) return 'bi-file-earmark-word text-primary';
+                if (['xls', 'xlsx', 'csv'].indexOf(ext) >= 0) return 'bi-file-earmark-excel text-success';
+                return 'bi-file-earmark-text text-secondary';
+            }
+
+            fetch('/Rfq/GetAttachments?rfqId=@Model.RfqId')
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    var data = (res.Success && res.Data) ? res.Data : [];
+                    if (data.length === 0) {
+                        listEl.innerHTML = '<div class="text-muted small fst-italic">Chưa có tệp nào</div>';
+                        return;
+                    }
+                    listEl.innerHTML = data.map(function (a) {
+                        return '<div class="d-flex align-items-center gap-2 bg-light border rounded px-2 py-1">'
+                            + '<i class="bi ' + iconFor(a.FileName) + '"></i>'
+                            + '<a href="' + a.FileUrl + '" target="_blank" class="text-decoration-none small text-truncate flex-grow-1" title="' + a.FileName + '">' + a.FileName + '</a>'
+                            + (a.FileSize != null ? '<span class="text-muted small">' + fmtSize(a.FileSize) + '</span>' : '')
+                            + '</div>';
+                    }).join('');
+                })
+                .catch(function () {
+                    listEl.innerHTML = '<div class="text-danger small">Không tải được danh sách tệp</div>';
+                });
+        })();
 
         function doRfqImport() {
             var salesPersonId = document.getElementById('rfqImportSalesPersonId').value;

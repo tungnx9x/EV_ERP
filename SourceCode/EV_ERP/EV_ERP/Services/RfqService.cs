@@ -1,6 +1,7 @@
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Sales;
+using EV_ERP.Models.Entities.System;
 using EV_ERP.Models.Common;
 using EV_ERP.Models.ViewModels.RFQs;
 using EV_ERP.Repositories.Interfaces;
@@ -190,6 +191,22 @@ public class RfqService : IRfqService
 
             await _uow.Repository<RFQ>().AddAsync(rfq);
             await _uow.SaveChangesAsync();
+
+            // Link temp customer-requirement attachments (ReferenceId=0) to the new RFQ
+            if (model.AttachmentIds.Count > 0)
+            {
+                var tempAtts = await _uow.Repository<Attachment>().Query()
+                    .Where(a => model.AttachmentIds.Contains(a.AttachmentId)
+                        && a.ReferenceType == "RFQ"
+                        && a.ReferenceId == 0 && a.IsActive)
+                    .ToListAsync();
+
+                foreach (var att in tempAtts)
+                    att.ReferenceId = rfq.RfqId;
+
+                if (tempAtts.Count > 0)
+                    await _uow.SaveChangesAsync();
+            }
 
             // SLA: start tracking INPROGRESS
             await _slaService.StartTrackingAsync("RFQ", rfq.RfqId, "INPROGRESS", rfq.AssignedTo);

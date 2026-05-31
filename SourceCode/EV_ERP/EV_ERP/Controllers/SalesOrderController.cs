@@ -53,7 +53,8 @@ public class SalesOrderController : Controller
         // First visit (no querystring) defaults to "filter by me as assignee".
         // Once the user submits the form or paginates, the querystring is present
         // and the actual salesPersonId value (including null = "Tất cả") is respected.
-        if (!Request.Query.Any())
+        // ACCOUNTANT isn't an SO assignee, so default-to-me would hide everything — show all instead.
+        if (!Request.Query.Any() && CurrentRoleCode != "ACCOUNTANT")
             salesPersonId = CurrentUserId;
 
         var vm = await _salesOrderService.GetListAsync(keyword, status, customerId, salesPersonId, page);

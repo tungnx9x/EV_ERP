@@ -9,6 +9,8 @@
             ? "active" : "";
 
     bool IsAdmin() => currentUser?.RoleCode == "ADMIN";
+    // ACCOUNTANT chỉ có Workspace, Dashboard, Đơn hàng.
+    bool IsAccountant() => currentUser?.RoleCode == "ACCOUNTANT";
 }
 <!DOCTYPE html>
 <html lang="vi">
@@ -239,12 +241,15 @@
         </a>
 
         <span class="nav-section-label">Nghiệp vụ</span>
-        <a href="/Customer" class="sidebar-link @NavClass("/Customer")">
-            <i class="bi bi-building"></i> Khách hàng
-        </a>
-        <a href="/Product" class="sidebar-link @NavClass("/Product")">
-            <i class="bi bi-box-seam"></i> Sản phẩm
-        </a>
+        @if (!IsAccountant())
+        {
+            <a href="/Customer" class="sidebar-link @NavClass("/Customer")">
+                <i class="bi bi-building"></i> Khách hàng
+            </a>
+            <a href="/Product" class="sidebar-link @NavClass("/Product")">
+                <i class="bi bi-box-seam"></i> Sản phẩm
+            </a>
+        }
         @if (currentUser?.RoleCode is "ADMIN" or "MANAGER")
         {
             <a href="/ProductCategory" class="sidebar-link @NavClass("/ProductCategory")" style="padding-left:2.2rem;font-size:0.82rem;">
@@ -266,6 +271,8 @@
         <a href="/SalesOrder" class="sidebar-link @NavClass("/SalesOrder")">
             <i class="bi bi-receipt"></i> Đơn hàng
         </a>
+        @if (!IsAccountant())
+        {
         <a href="/Inventory" class="sidebar-link @NavClass("/Inventory")">
             <i class="bi bi-archive"></i> Tồn kho
         </a>
@@ -278,7 +285,7 @@
         <a href="#" class="sidebar-link">
                <i class="bi bi-bar-chart-line"></i> Báo cáo
         </a>
-        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER" or "ACCOUNTANT")
+        @if (currentUser?.RoleCode is "ADMIN" or "MANAGER")
         {
               <a href="/Report/SalesRevenue" class="sidebar-link @NavClass("/Report/SalesRevenue")" style="padding-left:2.2rem;font-size:0.82rem;">
                 <i class="bi bi-cash-stack"></i> Báo cáo doanh thu
@@ -296,6 +303,8 @@
                 <i class="bi bi-cash-stack"></i> Báo cáo tồn kho
               </a>  
         }  
+
+        }
 
         @if (IsAdmin())
         {

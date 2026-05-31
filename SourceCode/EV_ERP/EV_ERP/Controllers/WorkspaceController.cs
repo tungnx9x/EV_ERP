@@ -2,6 +2,7 @@ using EV_ERP.Filters;
 using EV_ERP.Helpers;
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
+using EV_ERP.Models.Entities.Finance;
 using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.Entities.System;
@@ -38,6 +39,10 @@ public class WorkspaceController : Controller
         // 10-card workspace is empty for them. Route them to a calendar of upcoming receipts/deliveries.
         if (currentUser.RoleCode == "WAREHOUSE")
             return RedirectToAction(nameof(Warehouse));
+
+        // ACCOUNTANT works the advance-payment approval flow, not the sales pipeline.
+        if (currentUser.RoleCode == "ACCOUNTANT")
+            return RedirectToAction(nameof(Accountant));
 
         // Determine which user's tasks to show
         var userId = currentUser.UserId;
@@ -89,10 +94,11 @@ public class WorkspaceController : Controller
                 .ToListAsync();
         }
 
-        // Manager overview: team summary per card
+        // Manager overview: team summary per card + advance-payment monitoring flow
         if (isManagerOverview)
         {
             await BuildManagerOverviewAsync(vm);
+            vm.AdvanceCards = await BuildAdvanceCardsAsync();
             return View(vm);
         }
 
@@ -538,6 +544,111 @@ public class WorkspaceController : Controller
         };
 
         return View(vm);
+    }
+
+    // ═══════════════════════════════════════════════════
+    // ACCOUNTANT WORKSPACE — card flow theo trạng thái duyệt tạm ứng
+    //   WAIT_ACCOUNTANT → WAIT_DIRECTOR → WAIT_DISBURSE → DISBURSED
+    // ═══════════════════════════════════════════════════
+    public async Task<IActionResult> Accountant()
+    {
+        ViewData["Title"] = "Workspace - Kế toán";
+        var currentUser = CurrentUserObj;
+
+        var vm = new WorkspaceViewModel
+        {
+            CanViewOthers = false,
+            IsManagerOverview = false,
+            ViewingUserId = currentUser.UserId,
+            ViewingUserName = currentUser.FullName,
+            Cards = await BuildAdvanceCardsAsync()
+        };
+
+        return View("Index", vm);
+    }
+
+    /// <summary>
+    /// Build the advance-payment approval flow cards (4 steps by status), each listing the
+    /// advance requests as task items linking to their SO Detail. Shared by the ACCOUNTANT
+    /// workspace and the MANAGER overview monitoring section.
+    /// </summary>
+    private async Task<List<WorkspaceCard>> BuildAdvanceCardsAsync()
+    {
+        // Các bước trong quy trình duyệt tạm ứng (4 cột flow)
+        var cardDefs = new (int Step, string Status, string Title, string Icon, string Badge)[]
+        {
+            (1, "WAIT_ACCOUNTANT", "Chờ kế toán duyệt", "bi-clipboard-check", "secondary"),
+            (2, "WAIT_DIRECTOR",   "Chờ giám đốc duyệt", "bi-hourglass-split", "info"),
+            (3, "WAIT_DISBURSE",   "Chờ chi tiền",       "bi-cash-coin",       "warning"),
+            (4, "DISBURSED",       "Đã chi tiền",        "bi-check-circle",    "success"),
+        };
+        var statuses = cardDefs.Select(c => c.Status).ToArray();
+
+        var advances = await _uow.Repository<AdvanceRequest>().Query()
+            .Include(a => a.SalesOrder).ThenInclude(s => s.Customer)
+            .Where(a => statuses.Contains(a.Status))
+            .OrderByDescending(a => a.RequestDate).ThenByDescending(a => a.AdvanceRequestId)
+            .Select(a => new
+            {
+                a.AdvanceRequestId,
+                a.RequestNo,
+                a.RequestDate,
+                a.RequestedAmount,
+                a.Status,
+                a.Notes,
+                a.CreatedAt,
+                a.SalesOrderId,
+                SalesOrderNo = a.SalesOrder.SalesOrderNo,
+                CustomerName = a.SalesOrder.Customer.CustomerName,
+                Currency = a.SalesOrder.Currency
+            })
+            .ToListAsync();
+
+        var cards = new List<WorkspaceCard>();
+        foreach (var def in cardDefs)
+        {
+            var tasks = advances
+                .Where(a => a.Status == def.Status)
+                .Select(a => new WorkspaceTaskItem
+                {
+                    RfqNo = a.RequestNo,
+                    SalesOrderNo = a.SalesOrderNo,
+                    CustomerName = a.CustomerName,
+                    DetailUrl = $"/SalesOrder/Detail/{a.SalesOrderId}",
+                    EntityType = "SALES_ORDER",
+                    EntityId = a.SalesOrderId,
+                    Notes = a.Notes,
+                    CreatedAt = a.CreatedAt,
+                    IsShowElapsed = def.Status != "DISBURSED",   // show waiting-time on pending cards
+                    ExtraInfos =
+                    [
+                        new TaskExtraInfo
+                        {
+                            Title = "Số tiền",
+                            Value = $"{a.RequestedAmount:N0} {a.Currency}",
+                            CssClass = "bg-warning text-dark border"
+                        },
+                        new TaskExtraInfo
+                        {
+                            Title = "Ngày YC",
+                            Value = a.RequestDate.ToString("dd/MM/yyyy"),
+                            CssClass = "bg-light text-muted border"
+                        }
+                    ]
+                })
+                .ToList();
+
+            cards.Add(new WorkspaceCard
+            {
+                StepNumber = def.Step,
+                Title = def.Title,
+                Icon = def.Icon,
+                BadgeColor = def.Badge,
+                Tasks = tasks
+            });
+        }
+
+        return cards;
     }
 
     private static string SoStatusText(string status) => status switch

@@ -4,6 +4,10 @@ public class WorkspaceViewModel
 {
     public List<WorkspaceCard> Cards { get; set; } = [];
 
+    // Advance-payment approval flow (task cards by advance status).
+    // Used as the main flow for ACCOUNTANT, and as a secondary monitoring section in MANAGER overview.
+    public List<WorkspaceCard> AdvanceCards { get; set; } = [];
+
     // Manager view-as feature
     public bool CanViewOthers { get; set; }
     public bool IsManagerOverview { get; set; }          // true = team overview mode

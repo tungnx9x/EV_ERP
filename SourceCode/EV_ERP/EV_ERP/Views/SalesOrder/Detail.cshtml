@@ -600,8 +600,8 @@
                                 }
                                 @if (showMoney)
                                 {
+                                    <th class="text-end" style="background-color:#fff3cd;" title="Giá nhập hiện tại - bấm để nhập lại">Giá nhập hiện tại</th>
                                     <th class="text-end bg-success-subtle">Đơn giá bán</th>
-                                    <th class="text-end" style="background-color:#fff3cd;" title="Gia nhap hien tai - bam de nhap lai">Giá hiện tại</th>
                                     <th class="text-end bg-success-subtle">Thành tiền</th>
                                     <th class="text-end bg-success-subtle">Hệ số</th>
                                 }
@@ -718,7 +718,6 @@
                                     }
                                     @if (showMoney)
                                     {
-                                        <td class="text-end">@item.UnitPrice.ToString("N0")</td>
                                         <td class="text-end" style="background-color:#fff3cd;">
                                             @if (canManageStatus && item.LineStatus != "CANCELLED")
                                             {
@@ -733,6 +732,7 @@
                                                 @(item.PurchasePrice?.ToString("N0") ?? "—")
                                             }
                                         </td>
+                                        <td class="text-end">@item.UnitPrice.ToString("N0")</td>
                                         <td class="text-end fw-semibold text-success">@item.LineTotal.ToString("N0")</td>
                                     }
                                     @if (showMoney && showBuyingInfo)

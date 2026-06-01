@@ -127,6 +127,7 @@ public class SalesOrderService : ISalesOrderService
 
         var advanceSummary = await _advanceService.GetForSalesOrderAsync(salesOrderId);
         var advancedByItem = await _advanceService.GetAdvancedByItemAsync(salesOrderId);
+        var advancedByItemSplit = await _advanceService.GetAdvancedByItemSplitAsync(salesOrderId);
 
         return new SalesOrderDetailViewModel
         {
@@ -206,6 +207,7 @@ public class SalesOrderService : ISalesOrderService
                 CancelReason = i.CancelReason,
                 CancelledAt = i.CancelledAt,
                 UnitPrice = i.UnitPrice,
+                ShippingFee = i.ShippingFee,
                 DiscountType = i.DiscountType,
                 DiscountValue = i.DiscountValue,
                 DiscountAmount = i.DiscountAmount,
@@ -217,6 +219,8 @@ public class SalesOrderService : ISalesOrderService
                 Notes = i.Notes,
                 IsProductMapped = i.IsProductMapped,
                 AdvancedAmount = advancedByItem.TryGetValue(i.SOItemId, out var adv) ? adv : 0,
+                AdvancedProductAmount = advancedByItemSplit.TryGetValue(i.SOItemId, out var advs) ? advs.Product : 0,
+                AdvancedShippingAmount = advancedByItemSplit.TryGetValue(i.SOItemId, out var advs2) ? advs2.Shipping : 0,
                 Coefficient = i.Coefficient,
                 // v2.9 — giá nhập hiện tại + breakdown (seed popup)
                 PurchaseCurrency = i.PurchaseCurrency,

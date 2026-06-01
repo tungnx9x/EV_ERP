@@ -114,6 +114,31 @@ public class AdvanceRequestService : IAdvanceRequestService
         return rows.ToDictionary(r => r.SOItemId, r => r.Total);
     }
 
+    public async Task<Dictionary<int, (decimal Product, decimal Shipping)>> GetAdvancedByItemSplitAsync(int salesOrderId)
+    {
+        var rows = await _uow.Repository<AdvanceRequestItem>().Query()
+            .Where(i => i.AdvanceRequest.SalesOrderId == salesOrderId
+                     && i.AdvanceRequest.Status != "REJECTED"
+                     && i.SOItemId.HasValue)
+            .Select(i => new { i.SOItemId, i.Amount, i.Purpose })
+            .ToListAsync();
+
+        // Classify in-memory with NFC normalization so NFD/NFC stored forms both match.
+        static bool IsShip(string? p) =>
+            string.Equals((p ?? "").Trim().Normalize(System.Text.NormalizationForm.FormC),
+                          "Vận chuyển".Normalize(System.Text.NormalizationForm.FormC),
+                          StringComparison.OrdinalIgnoreCase);
+
+        return rows
+            .GroupBy(r => r.SOItemId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    Product: g.Where(x => !IsShip(x.Purpose)).Sum(x => x.Amount),
+                    Shipping: g.Where(x => IsShip(x.Purpose)).Sum(x => x.Amount)
+                ));
+    }
+
     public async Task<int> CountActiveAsync(int salesOrderId) =>
         await _uow.Repository<AdvanceRequest>().Query()
             .Where(a => a.SalesOrderId == salesOrderId && a.Status != "REJECTED")

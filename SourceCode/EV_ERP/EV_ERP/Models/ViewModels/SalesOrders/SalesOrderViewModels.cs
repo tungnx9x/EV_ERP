@@ -217,6 +217,7 @@ public class SalesOrderItemDetailViewModel
     public decimal EffectiveQty => Quantity - CancelledQty;
     // Bán
     public decimal UnitPrice { get; set; }
+    public decimal? ShippingFee { get; set; }   // phí vận chuyển từ báo giá (mỗi SP)
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }
@@ -249,6 +250,9 @@ public class SalesOrderItemDetailViewModel
 
     // v2.2 — tổng đã tạm ứng cho dòng này (Σ AdvanceRequestItem.Amount, non-rejected)
     public decimal AdvancedAmount { get; set; }
+    // v2.9 — tách đã tạm ứng theo loại: hàng hóa vs vận chuyển (Purpose "Vận chuyển")
+    public decimal AdvancedProductAmount { get; set; }
+    public decimal AdvancedShippingAmount { get; set; }
     public decimal? Coefficient { get; set; }
 
     /// <summary>Derived line status — matches vw_OrderItemProgress.LineStatus.</summary>

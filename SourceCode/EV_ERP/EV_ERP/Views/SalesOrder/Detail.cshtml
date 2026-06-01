@@ -602,6 +602,7 @@
                                 {
                                     <th class="text-end" style="background-color:#fff3cd;" title="Giá nhập hiện tại - bấm để nhập lại">Giá nhập hiện tại</th>
                                     <th class="text-end bg-success-subtle">Đơn giá bán</th>
+                                    <th class="text-end bg-success-subtle">Phí vận chuyển</th>
                                     <th class="text-end bg-success-subtle">Thành tiền</th>
                                     <th class="text-end bg-success-subtle">Hệ số</th>
                                 }
@@ -614,7 +615,7 @@
                                 {
                                     <th class="text-end" style="background-color:#fff7e6;min-width:110px;" title="Tổng tạm ứng đã ghi nhận cho dòng này">Đã tạm ứng</th>
                                 }
-                                <th class="d-none d-md-table-cell">Ghi chú</th>
+
                                 @if (showActionsCol)
                                 {
                                     <th class="text-center" style="width:130px;">Hành động</th>
@@ -733,7 +734,19 @@
                                             }
                                         </td>
                                         <td class="text-end">@item.UnitPrice.ToString("N0")</td>
-                                        <td class="text-end fw-semibold text-success">@item.LineTotal.ToString("N0")</td>
+                                        <td class="text-end text-muted">@(item.ShippingFee.HasValue && item.ShippingFee.Value > 0 ? item.ShippingFee.Value.ToString("N0") : "—")</td>
+                                        <td class="text-end fw-semibold text-success">
+                                            @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                            {
+                                                var effAmount = item.Quantity > 0 ? Math.Round(item.LineTotal * item.EffectiveQty / item.Quantity) : item.LineTotal;
+                                                <span class="text-muted text-decoration-line-through fw-normal small">@item.LineTotal.ToString("N0")</span>
+                                                <div>@effAmount.ToString("N0")</div>
+                                            }
+                                            else
+                                            {
+                                                @item.LineTotal.ToString("N0")
+                                            }
+                                        </td>
                                     }
                                     @if (showMoney && showBuyingInfo)
                                     {
@@ -773,7 +786,6 @@
                                             }
                                         </td>
                                     }
-                                    <td class="d-none d-md-table-cell text-muted small">@(item.Notes ?? "")</td>
                                     @if (showActionsCol)
                                     {
                                         <td class="text-center">
@@ -1641,14 +1653,15 @@
 
                     <div class="small fw-semibold mb-1">Phân bổ theo dòng sản phẩm</div>
                     <div class="text-muted small mb-2">
-                        Nhập <strong>% tạm ứng</strong> cho từng sản phẩm — số tiền sẽ tự tính theo "SL × Giá mua". Dòng "Phân bổ vận chuyển" nhập trực tiếp số tiền.
+                        Nhập <strong>% tạm ứng</strong> cho từng dòng — mỗi sản phẩm tách riêng <strong>Hàng hóa</strong> và <strong>Vận chuyển</strong>. Số tiền tự tính theo Chi phí × %.
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
                             <thead class="table-light">
                                 <tr>
                                     <th>Sản phẩm</th>
-                                    <th class="text-end" style="width:120px;">SL × Giá mua</th>
+                                    <th style="width:110px;">Khoản</th>
+                                    <th class="text-end" style="width:120px;">Chi phí</th>
                                     <th class="text-end" style="width:110px;">Đã ứng</th>
                                     <th class="text-end" style="width:90px;">% tạm ứng</th>
                                     <th class="text-end" style="width:150px;">Số tiền tạm ứng</th>
@@ -1659,8 +1672,15 @@
                                 {
                                     decimal lineCost = item.PurchasePrice.HasValue && item.PurchasePrice > 0
                                         ? item.EffectiveQty * item.PurchasePrice.Value : 0;
+                                    decimal shippingTotal = item.PurchaseMode == "UNOFFICIAL"
+                                        ? (item.UnofficialDomesticShipping ?? 0) + (item.UnofficialWeightKg ?? 0) * (item.UnofficialCostPerKg ?? 0) + (item.UnofficialHandCarryFee ?? 0) + (item.UnofficialW2WShipping ?? 0)
+                                        : (item.OfficialShipping ?? 0);
+                                    decimal pqty = item.PurchaseQuantity ?? 0;
+                                    decimal shippingBasis = (pqty > 0 && shippingTotal > 0) ? Math.Round(shippingTotal / pqty * item.EffectiveQty) : 0;
+                                    if (shippingBasis > lineCost) { shippingBasis = lineCost; }
+                                    decimal productBasis = lineCost - shippingBasis;
                                     <tr data-so-item-id="@item.SOItemId">
-                                        <td>
+                                        <td rowspan="2">
                                             <div class="fw-semibold">@item.ProductName</div>
                                             <div class="text-muted small">
                                                 @item.UnitName · SL @item.EffectiveQty.ToString("0.###")
@@ -1670,44 +1690,42 @@
                                                 }
                                             </div>
                                         </td>
-                                        <td class="text-end small text-muted">
-                                            @if (lineCost > 0)
-                                            {
-                                                @(lineCost.ToString("N0"))
-                                            }
-                                            else
-                                            {
-                                                <span>—</span>
-                                            }
-                                        </td>
-                                        <td class="text-end small @(item.AdvancedAmount > 0 ? "text-warning-emphasis fw-semibold" : "text-muted")">
-                                            @(item.AdvancedAmount > 0 ? item.AdvancedAmount.ToString("N0") : "—")
-                                        </td>
+                                        <td class="small"><i class="bi bi-box-seam me-1 text-success"></i>Hàng hóa</td>
+                                        <td class="text-end small text-muted">@(productBasis > 0 ? productBasis.ToString("N0") : "—")</td>
+                                        <td class="text-end small @(item.AdvancedProductAmount > 0 ? "text-warning-emphasis fw-semibold" : "text-muted")">@(item.AdvancedProductAmount > 0 ? item.AdvancedProductAmount.ToString("N0") : "—")</td>
                                         <td>
                                             <input type="number" min="0" max="100" step="0.01"
                                                    class="form-control form-control-sm text-end adv-line-percent"
                                                    data-so-item-id="@item.SOItemId"
-                                                   data-line-cost="@lineCost.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                   placeholder="0" @(lineCost <= 0 ? "disabled" : "") />
+                                                   data-line-cost="@productBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   placeholder="0" @(productBasis <= 0 ? "disabled" : "") />
                                         </td>
                                         <td>
                                             <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
                                                    data-so-item-id="@item.SOItemId"
-                                                   data-line-cost="@lineCost.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                   data-adv-kind="product" placeholder="0" />
+                                                   data-line-cost="@productBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-adv-kind="product" placeholder="0" @(productBasis <= 0 ? "disabled" : "") />
+                                        </td>
+                                    </tr>
+                                    <tr data-so-item-id="@item.SOItemId">
+                                        <td class="small"><i class="bi bi-truck me-1 text-primary"></i>Vận chuyển</td>
+                                        <td class="text-end small text-muted">@(shippingBasis > 0 ? shippingBasis.ToString("N0") : "—")</td>
+                                        <td class="text-end small @(item.AdvancedShippingAmount > 0 ? "text-warning-emphasis fw-semibold" : "text-muted")">@(item.AdvancedShippingAmount > 0 ? item.AdvancedShippingAmount.ToString("N0") : "—")</td>
+                                        <td>
+                                            <input type="number" min="0" max="100" step="0.01"
+                                                   class="form-control form-control-sm text-end adv-line-percent"
+                                                   data-so-item-id="@item.SOItemId"
+                                                   data-line-cost="@shippingBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   placeholder="0" @(shippingBasis <= 0 ? "disabled" : "") />
+                                        </td>
+                                        <td>
+                                            <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                                   data-so-item-id="@item.SOItemId"
+                                                   data-line-cost="@shippingBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-adv-kind="shipping" placeholder="0" @(shippingBasis <= 0 ? "disabled" : "") />
                                         </td>
                                     </tr>
                                 }
-                                <tr class="table-light">
-                                    <td class="fst-italic text-muted"><i class="bi bi-truck me-1"></i>Phân bổ vận chuyển</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td>
-                                        <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
-                                               data-so-item-id="" data-adv-kind="shipping" placeholder="0" />
-                                    </td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -2694,14 +2712,9 @@
 
                 // Populate per-line amounts
                 (d.Items || []).forEach(function (it) {
-                    var input;
-                    if (it.SOItemId) {
-                        input = document.querySelector('.adv-line-amount[data-so-item-id="' + it.SOItemId + '"]');
-                    } else if ((it.Purpose || '').trim() === 'Vận chuyển') {
-                        input = document.querySelector('.adv-line-amount[data-adv-kind="shipping"]');
-                    } else {
-                        input = document.querySelector('.adv-line-amount[data-adv-kind="general"]');
-                    }
+                    if (!it.SOItemId) return;
+                    var kind = ((it.Purpose || '').trim().normalize('NFC') === 'Vận chuyển'.normalize('NFC')) ? 'shipping' : 'product';
+                    var input = document.querySelector('.adv-line-amount[data-so-item-id="' + it.SOItemId + '"][data-adv-kind="' + kind + '"]');
                     if (input) input.value = it.Amount;
                 });
                 // Derive each product's % from its amount, then refresh totals.
@@ -2728,6 +2741,12 @@
     function syncLineFromPercent(percentEl) {
         var cost = parseFloat(percentEl.getAttribute('data-line-cost')) || 0;
         var pct = parseFloat(percentEl.value);
+        // Giới hạn % tạm ứng tối đa 100% (không vượt quá chi phí).
+        if (!isNaN(pct) && pct > 100) {
+            pct = 100;
+            percentEl.value = 100;
+            if (typeof appToast === 'function') appToast('% tạm ứng tối đa là 100%', 'warning');
+        }
         var amountEl = advRowAmountInput(percentEl);
         if (!amountEl) return;
         if (cost > 0 && !isNaN(pct) && pct > 0) {
@@ -2743,6 +2762,12 @@
     function syncLineFromAmount(amountEl) {
         var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
         var amt = parseFloat(amountEl.value);
+        // Không cho nhập số tiền tạm ứng vượt quá chi phí (100%).
+        if (cost > 0 && !isNaN(amt) && amt > cost) {
+            amt = Math.round(cost);
+            amountEl.value = amt;
+            if (typeof appToast === 'function') appToast('Số tiền tạm ứng không được vượt quá chi phí dòng', 'warning');
+        }
         var percentEl = advRowPercentInput(amountEl);
         if (percentEl && cost > 0) {
             percentEl.value = (!isNaN(amt) && amt > 0)
@@ -2755,7 +2780,7 @@
 
     // Tính lại % của mọi dòng SP từ số tiền hiện có (dùng khi mở chế độ sửa).
     function recomputeAllPercents() {
-        document.querySelectorAll('.adv-line-amount[data-adv-kind="product"]').forEach(function (amountEl) {
+        document.querySelectorAll('.adv-line-amount').forEach(function (amountEl) {
             var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
             var amt = parseFloat(amountEl.value);
             var percentEl = advRowPercentInput(amountEl);
@@ -2768,7 +2793,7 @@
     // % tổng hợp (chỉ hiển thị) = Σ tạm ứng SP / Σ chi phí mua SP × 100
     function updateAggregatePercent() {
         var totalAmt = 0, totalCost = 0;
-        document.querySelectorAll('.adv-line-amount[data-adv-kind="product"]').forEach(function (amountEl) {
+        document.querySelectorAll('.adv-line-amount').forEach(function (amountEl) {
             var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
             var amt = parseFloat(amountEl.value);
             if (cost > 0) {
@@ -2795,15 +2820,23 @@
         el.addEventListener('input', function () { syncLineFromPercent(el); });
     });
     document.querySelectorAll('.adv-line-amount').forEach(function (el) {
-        if (el.getAttribute('data-adv-kind') === 'product') {
-            el.addEventListener('input', function () { syncLineFromAmount(el); });
-        } else {
-            el.addEventListener('input', function () { updateAdvTotal(); updateAggregatePercent(); });
-        }
+        el.addEventListener('input', function () { syncLineFromAmount(el); });
     });
 
     function confirmCreateAdvance() {
         var items = [];
+        // Guard: không cho số tiền tạm ứng vượt quá chi phí dòng (>100%).
+        var overLimitEl = null;
+        document.querySelectorAll('.adv-line-amount').forEach(function (el) {
+            var v = parseFloat(el.value);
+            var cost = parseFloat(el.getAttribute('data-line-cost')) || 0;
+            if (!isNaN(v) && v > 0 && cost > 0 && v > cost) overLimitEl = el;
+        });
+        if (overLimitEl) {
+            appAlert('Số tiền tạm ứng không được vượt quá chi phí dòng (tối đa 100%).');
+            overLimitEl.focus();
+            return;
+        }
         document.querySelectorAll('.adv-line-amount').forEach(function (el) {
             var v = parseFloat(el.value);
             if (!isNaN(v) && v > 0) {

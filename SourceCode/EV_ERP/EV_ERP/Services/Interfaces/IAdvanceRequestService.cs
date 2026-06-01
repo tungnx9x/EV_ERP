@@ -9,8 +9,8 @@ public interface IAdvanceRequestService
     /// <summary>Sum of AdvanceRequestItem.Amount per SOItemId for the given SO (only non-rejected requests).</summary>
     Task<Dictionary<int, decimal>> GetAdvancedByItemAsync(int salesOrderId);
 
-    /// <summary>Sum of AdvanceRequestItem.Amount per SOItemId split into (Product, Shipping) — shipping = Purpose "Vận chuyển".</summary>
-    Task<Dictionary<int, (decimal Product, decimal Shipping)>> GetAdvancedByItemSplitAsync(int salesOrderId);
+    /// <summary>Sum of AdvanceRequestItem.Amount per SOItemId split into (Product, Shipping, CustomerShipping) by Purpose ("Vận chuyển" / "Vận chuyển KH").</summary>
+    Task<Dictionary<int, (decimal Product, decimal Shipping, decimal CustomerShipping)>> GetAdvancedByItemSplitAsync(int salesOrderId);
 
     Task<(bool Success, string? ErrorMessage, int? AdvanceRequestId)> CreateAsync(
         int salesOrderId, AdvanceRequestCreateModel model, int userId);

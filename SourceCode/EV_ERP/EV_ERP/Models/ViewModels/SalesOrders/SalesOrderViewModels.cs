@@ -250,9 +250,10 @@ public class SalesOrderItemDetailViewModel
 
     // v2.2 — tổng đã tạm ứng cho dòng này (Σ AdvanceRequestItem.Amount, non-rejected)
     public decimal AdvancedAmount { get; set; }
-    // v2.9 — tách đã tạm ứng theo loại: hàng hóa vs vận chuyển (Purpose "Vận chuyển")
+    // v2.9 — tách đã tạm ứng theo loại: hàng hóa / vận chuyển (mua) / vận chuyển KH
     public decimal AdvancedProductAmount { get; set; }
     public decimal AdvancedShippingAmount { get; set; }
+    public decimal AdvancedCustomerShippingAmount { get; set; }
     public decimal? Coefficient { get; set; }
 
     /// <summary>Derived line status — matches vw_OrderItemProgress.LineStatus.</summary>

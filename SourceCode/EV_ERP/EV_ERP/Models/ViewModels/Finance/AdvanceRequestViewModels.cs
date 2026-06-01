@@ -4,12 +4,17 @@ namespace EV_ERP.Models.ViewModels.Finance;
 public class SalesOrderAdvanceSummary
 {
     public int SalesOrderId { get; set; }
-    public decimal PurchaseCost { get; set; }      // basis to compare against
+    public decimal PurchaseCost { get; set; }      // basis to compare against (chi phí mua)
+    public decimal CustomerShippingCost { get; set; }  // Σ ShippingFee (phí vận chuyển KH dự kiến)
     public string Currency { get; set; } = "VND";
 
     public decimal TotalRequested { get; set; }     // Σ RequestedAmount over non-rejected
     public decimal TotalReceived { get; set; }      // Σ ApprovedAmount over RECEIVED/SETTLING/SETTLED
-    public decimal RemainingVsCost => Math.Max(0, PurchaseCost - TotalReceived);
+    public decimal ReceivedCustomerShipping { get; set; }  // phần TotalReceived đã chi cho VC khách hàng
+
+    public decimal ReceivedPurchase => Math.Max(0, TotalReceived - ReceivedCustomerShipping);
+    public decimal RemainingVsCost => Math.Max(0, PurchaseCost - ReceivedPurchase);
+    public decimal RemainingVsCustomerShipping => Math.Max(0, CustomerShippingCost - ReceivedCustomerShipping);
 
     public List<AdvanceRequestRow> Requests { get; set; } = [];
 }

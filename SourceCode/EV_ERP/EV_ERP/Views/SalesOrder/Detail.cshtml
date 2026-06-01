@@ -300,15 +300,17 @@
                              <input type="text" id="draftCustomerPoNo" class="form-control form-control-sm"
                                     placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
                          </div>
-                         <div class="mb-2">
-                             <label class="form-label small fw-semibold mb-1">Ngày nhận PO</label>
-                             <input type="text" id="draftCustomerPoDate" class="form-control form-control-sm js-flatpickr"
-                                    value="@(Model.CustomerPoDate?.ToString("yyyy-MM-dd"))" />
-                         </div>
-                         <div class="mb-2">
-                             <label class="form-label small fw-semibold mb-1">Dự kiến giao hàng</label>
-                             <input type="text" id="draftExpectedDeliveryDate" class="form-control form-control-sm js-flatpickr"
-                                    value="@(Model.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"))" />
+                         <div class="row g-2 mb-2">
+                             <div class="col-6">
+                                 <label class="form-label small fw-semibold mb-1">Ngày nhận PO</label>
+                                 <input type="text" id="draftCustomerPoDate" class="form-control form-control-sm js-flatpickr"
+                                        value="@(Model.CustomerPoDate?.ToString("yyyy-MM-dd"))" />
+                             </div>
+                             <div class="col-6">
+                                 <label class="form-label small fw-semibold mb-1">Dự kiến giao hàng</label>
+                                 <input type="text" id="draftExpectedDeliveryDate" class="form-control form-control-sm js-flatpickr"
+                                        value="@(Model.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"))" />
+                             </div>
                          </div>
                          <div class="mb-2">
                              <label class="form-label small fw-semibold mb-1">File PO khách hàng</label>
@@ -763,27 +765,6 @@
                                                 @item.LineTotal.ToString("N0")
                                             }
                                         </td>
-                                    }
-                                    @if (showMoney && showBuyingInfo)
-                                    {
-                                        <td class="text-end">@(item.PurchasePrice?.ToString("N0") ?? "—")</td>
-                                        <td class="text-end text-warning-emphasis">@(item.LineCost?.ToString("N0") ?? "—")</td>
-                                    }
-                                    @if (showMoney && showAdvanceCol)
-                                    {
-                                        <td class="text-end" style="background-color:#fffaf0;">
-                                            @if (item.AdvancedAmount > 0)
-                                            {
-                                                <span class="fw-semibold text-warning-emphasis">@item.AdvancedAmount.ToString("N0")</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted small">—</span>
-                                            }
-                                        </td>
-                                    }
-                                    @if (showMoney)
-                                    {
                                         <td class="text-end" style="background-color:#fffaf0;">
                                             @if (item.PurchasePrice.HasValue && item.PurchasePrice.Value > 0 && item.UnitPrice > 0)
                                             {
@@ -798,6 +779,24 @@
                                                     <i class="bi bi-exclamation-triangle-fill text-danger ms-1"
                                                        title="Hệ số đã tăng vượt hệ số báo giá - @quoteCoef.ToString("0.##")"></i>
                                                 }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">—</span>
+                                            }
+                                        </td>
+                                    }
+                                    @if (showMoney && showBuyingInfo)
+                                    {
+                                        <td class="text-end">@(item.PurchasePrice?.ToString("N0") ?? "—")</td>
+                                        <td class="text-end text-warning-emphasis">@(item.LineCost?.ToString("N0") ?? "—")</td>
+                                    }
+                                    @if (showMoney && showAdvanceCol)
+                                    {
+                                        <td class="text-end" style="background-color:#fffaf0;">
+                                            @if (item.AdvancedAmount > 0)
+                                            {
+                                                <span class="fw-semibold text-warning-emphasis">@item.AdvancedAmount.ToString("N0")</span>
                                             }
                                             else
                                             {
@@ -982,30 +981,35 @@
         <div class="card-body">
             <!-- Summary strip -->
             <div class="row g-2 mb-3 small">
-                <div class="col-6 col-md-3">
-                    <div class="border rounded p-2 text-center bg-light">
+                <div class="col-6 col-md">
+                    <div class="border rounded p-2 text-center bg-light h-100">
                         <div class="text-muted" style="font-size:0.72rem;">Chi phí mua dự kiến</div>
                         <div class="fw-bold">@adv.PurchaseCost.ToString("N0") <span class="text-muted small">@adv.Currency</span></div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="border rounded p-2 text-center bg-info-subtle">
+                <div class="col-6 col-md">
+                    <div class="border rounded p-2 text-center bg-light h-100">
+                        <div class="text-muted" style="font-size:0.72rem;">Chi phí vận chuyển dự kiến</div>
+                        <div class="fw-bold">@adv.CustomerShippingCost.ToString("N0") <span class="text-muted small">@adv.Currency</span></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md">
+                    <div class="border rounded p-2 text-center bg-info-subtle h-100">
                         <div class="text-muted" style="font-size:0.72rem;">Tổng đã yêu cầu</div>
                         <div class="fw-bold text-info-emphasis">@adv.TotalRequested.ToString("N0")</div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="border rounded p-2 text-center bg-success-subtle">
+                <div class="col-6 col-md">
+                    <div class="border rounded p-2 text-center bg-success-subtle h-100">
                         <div class="text-muted" style="font-size:0.72rem;">Đã chi tiền</div>
                         <div class="fw-bold text-success-emphasis">@adv.TotalReceived.ToString("N0")</div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="border rounded p-2 text-center @(adv.RemainingVsCost > 0 ? "bg-warning-subtle" : "bg-success-subtle")">
-                        <div class="text-muted" style="font-size:0.72rem;">Còn lại (so chi phí mua)</div>
-                        <div class="fw-bold @(adv.RemainingVsCost > 0 ? "text-warning-emphasis" : "text-success-emphasis")">
-                            @adv.RemainingVsCost.ToString("N0")
-                        </div>
+                <div class="col-6 col-md">
+                    <div class="border rounded p-2 @((adv.RemainingVsCost > 0 || adv.RemainingVsCustomerShipping > 0) ? "bg-warning-subtle" : "bg-success-subtle") h-100">
+                        <div class="text-muted text-center" style="font-size:0.72rem;">Còn lại</div>
+                        <div class="d-flex justify-content-between"><span class="text-muted">Mua:</span> <span class="fw-bold @(adv.RemainingVsCost > 0 ? "text-warning-emphasis" : "text-success-emphasis")">@adv.RemainingVsCost.ToString("N0")</span></div>
+                        <div class="d-flex justify-content-between"><span class="text-muted">VC khách:</span> <span class="fw-bold @(adv.RemainingVsCustomerShipping > 0 ? "text-warning-emphasis" : "text-success-emphasis")">@adv.RemainingVsCustomerShipping.ToString("N0")</span></div>
                     </div>
                 </div>
             </div>
@@ -1672,7 +1676,7 @@
 
                     <div class="small fw-semibold mb-1">Phân bổ theo dòng sản phẩm</div>
                     <div class="text-muted small mb-2">
-                        Nhập <strong>% tạm ứng</strong> cho từng dòng — mỗi sản phẩm tách riêng <strong>Hàng hóa</strong> và <strong>Vận chuyển</strong>. Số tiền tự tính theo Chi phí × %.
+                        Nhập <strong>% tạm ứng</strong> cho từng dòng — mỗi sản phẩm tách riêng <strong>Hàng hóa</strong>, <strong>Vận chuyển</strong> (mua) và <strong>Vận chuyển KH</strong>. Số tiền tự tính theo Chi phí × %.
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
@@ -1681,7 +1685,7 @@
                                     <th>Sản phẩm</th>
                                     <th style="width:110px;">Khoản</th>
                                     <th class="text-end" style="width:120px;">Chi phí</th>
-                                    <th class="text-end" style="width:110px;">Đã ứng</th>
+                                    <th class="text-end" style="width:110px;">Đã yêu cầu</th>
                                     <th class="text-end" style="width:90px;">% tạm ứng</th>
                                     <th class="text-end" style="width:150px;">Số tiền tạm ứng</th>
                                 </tr>
@@ -1698,8 +1702,9 @@
                                     decimal shippingBasis = (pqty > 0 && shippingTotal > 0) ? Math.Round(shippingTotal / pqty * item.EffectiveQty) : 0;
                                     if (shippingBasis > lineCost) { shippingBasis = lineCost; }
                                     decimal productBasis = lineCost - shippingBasis;
+                                    decimal customerShipBasis = item.ShippingFee ?? 0;
                                     <tr data-so-item-id="@item.SOItemId">
-                                        <td rowspan="2">
+                                        <td rowspan="3">
                                             <div class="fw-semibold">@item.ProductName</div>
                                             <div class="text-muted small">
                                                 @item.UnitName · SL @item.EffectiveQty.ToString("0.###")
@@ -1742,6 +1747,24 @@
                                                    data-so-item-id="@item.SOItemId"
                                                    data-line-cost="@shippingBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                                    data-adv-kind="shipping" placeholder="0" @(shippingBasis <= 0 ? "disabled" : "") />
+                                        </td>
+                                    </tr>
+                                    <tr data-so-item-id="@item.SOItemId">
+                                        <td class="small"><i class="bi bi-truck me-1 text-info"></i>Vận chuyển KH</td>
+                                        <td class="text-end small text-muted">@(customerShipBasis > 0 ? customerShipBasis.ToString("N0") : "—")</td>
+                                        <td class="text-end small @(item.AdvancedCustomerShippingAmount > 0 ? "text-warning-emphasis fw-semibold" : "text-muted")">@(item.AdvancedCustomerShippingAmount > 0 ? item.AdvancedCustomerShippingAmount.ToString("N0") : "—")</td>
+                                        <td>
+                                            <input type="number" min="0" max="100" step="0.01"
+                                                   class="form-control form-control-sm text-end adv-line-percent"
+                                                   data-so-item-id="@item.SOItemId"
+                                                   data-line-cost="@customerShipBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   placeholder="0" @(customerShipBasis <= 0 ? "disabled" : "") />
+                                        </td>
+                                        <td>
+                                            <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                                   data-so-item-id="@item.SOItemId"
+                                                   data-line-cost="@customerShipBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-adv-kind="customer_shipping" placeholder="0" @(customerShipBasis <= 0 ? "disabled" : "") />
                                         </td>
                                     </tr>
                                 }
@@ -2766,7 +2789,8 @@
                 // Populate per-line amounts
                 (d.Items || []).forEach(function (it) {
                     if (!it.SOItemId) return;
-                    var kind = ((it.Purpose || '').trim().normalize('NFC') === 'Vận chuyển'.normalize('NFC')) ? 'shipping' : 'product';
+                    var pn = (it.Purpose || '').trim().normalize('NFC');
+                    var kind = (pn === 'Vận chuyển KH'.normalize('NFC')) ? 'customer_shipping' : ((pn === 'Vận chuyển'.normalize('NFC')) ? 'shipping' : 'product');
                     var input = document.querySelector('.adv-line-amount[data-so-item-id="' + it.SOItemId + '"][data-adv-kind="' + kind + '"]');
                     if (input) input.value = it.Amount;
                 });
@@ -2895,7 +2919,8 @@
             if (!isNaN(v) && v > 0) {
                 var raw = el.getAttribute('data-so-item-id');
                 // Mark the shipping allocation row so it can be told apart from the general one.
-                var purpose = (el.getAttribute('data-adv-kind') === 'shipping') ? 'Vận chuyển' : null;
+                var advKind = el.getAttribute('data-adv-kind');
+                var purpose = advKind === 'shipping' ? 'Vận chuyển' : (advKind === 'customer_shipping' ? 'Vận chuyển KH' : null);
                 items.push({
                     SOItemId: raw ? parseInt(raw) : null,
                     Amount: v,

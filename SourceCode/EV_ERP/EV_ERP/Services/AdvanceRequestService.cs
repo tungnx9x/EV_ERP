@@ -53,12 +53,24 @@ public class AdvanceRequestService : IAdvanceRequestService
                 .SumAsync(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
         }
 
+        // Phí vận chuyển KH dự kiến = Σ ShippingFee (alive lines).
+        decimal customerShippingCost = await _uow.Repository<SalesOrderItem>().Query()
+            .Where(i => i.SalesOrderId == salesOrderId && i.CancelledQty < i.Quantity)
+            .SumAsync(i => i.ShippingFee ?? 0);
+
         var summary = new SalesOrderAdvanceSummary
         {
             SalesOrderId = salesOrderId,
             PurchaseCost = purchaseCost,
+            CustomerShippingCost = customerShippingCost,
             Currency = so?.Currency ?? "VND"
         };
+
+        // Phân loại "Vận chuyển KH" theo Purpose (NFC-normalize để khớp NFD/NFC).
+        static bool IsCustShip(string? p) =>
+            string.Equals((p ?? "").Trim().Normalize(System.Text.NormalizationForm.FormC),
+                          "Vận chuyển KH".Normalize(System.Text.NormalizationForm.FormC),
+                          StringComparison.OrdinalIgnoreCase);
 
         var requests = await _uow.Repository<AdvanceRequest>().Query()
             .Include(a => a.Items).ThenInclude(i => i.SOItem)
@@ -72,7 +84,18 @@ public class AdvanceRequestService : IAdvanceRequestService
             if (IsActiveStatus(r.Status))
                 summary.TotalRequested += r.RequestedAmount;
             if (IsReceivedStatus(r.Status))
-                summary.TotalReceived += r.ApprovedAmount ?? r.RequestedAmount;
+            {
+                var received = r.ApprovedAmount ?? r.RequestedAmount;
+                summary.TotalReceived += received;
+
+                // Phân bổ phần đã chi cho VC khách hàng theo tỉ lệ approved/requested (nếu duyệt 1 phần).
+                var custShipItems = r.Items.Where(i => IsCustShip(i.Purpose)).Sum(i => i.Amount);
+                if (custShipItems > 0)
+                {
+                    var factor = r.RequestedAmount > 0 ? received / r.RequestedAmount : 1m;
+                    summary.ReceivedCustomerShipping += custShipItems * factor;
+                }
+            }
 
             summary.Requests.Add(new AdvanceRequestRow
             {
@@ -114,7 +137,7 @@ public class AdvanceRequestService : IAdvanceRequestService
         return rows.ToDictionary(r => r.SOItemId, r => r.Total);
     }
 
-    public async Task<Dictionary<int, (decimal Product, decimal Shipping)>> GetAdvancedByItemSplitAsync(int salesOrderId)
+    public async Task<Dictionary<int, (decimal Product, decimal Shipping, decimal CustomerShipping)>> GetAdvancedByItemSplitAsync(int salesOrderId)
     {
         var rows = await _uow.Repository<AdvanceRequestItem>().Query()
             .Where(i => i.AdvanceRequest.SalesOrderId == salesOrderId
@@ -124,9 +147,9 @@ public class AdvanceRequestService : IAdvanceRequestService
             .ToListAsync();
 
         // Classify in-memory with NFC normalization so NFD/NFC stored forms both match.
-        static bool IsShip(string? p) =>
+        static bool Eq(string? p, string label) =>
             string.Equals((p ?? "").Trim().Normalize(System.Text.NormalizationForm.FormC),
-                          "Vận chuyển".Normalize(System.Text.NormalizationForm.FormC),
+                          label.Normalize(System.Text.NormalizationForm.FormC),
                           StringComparison.OrdinalIgnoreCase);
 
         return rows
@@ -134,8 +157,9 @@ public class AdvanceRequestService : IAdvanceRequestService
             .ToDictionary(
                 g => g.Key,
                 g => (
-                    Product: g.Where(x => !IsShip(x.Purpose)).Sum(x => x.Amount),
-                    Shipping: g.Where(x => IsShip(x.Purpose)).Sum(x => x.Amount)
+                    Product: g.Where(x => !Eq(x.Purpose, "Vận chuyển") && !Eq(x.Purpose, "Vận chuyển KH")).Sum(x => x.Amount),
+                    Shipping: g.Where(x => Eq(x.Purpose, "Vận chuyển")).Sum(x => x.Amount),
+                    CustomerShipping: g.Where(x => Eq(x.Purpose, "Vận chuyển KH")).Sum(x => x.Amount)
                 ));
     }
 

@@ -221,6 +221,7 @@ public class SalesOrderService : ISalesOrderService
                 AdvancedAmount = advancedByItem.TryGetValue(i.SOItemId, out var adv) ? adv : 0,
                 AdvancedProductAmount = advancedByItemSplit.TryGetValue(i.SOItemId, out var advs) ? advs.Product : 0,
                 AdvancedShippingAmount = advancedByItemSplit.TryGetValue(i.SOItemId, out var advs2) ? advs2.Shipping : 0,
+                AdvancedCustomerShippingAmount = advancedByItemSplit.TryGetValue(i.SOItemId, out var advs3) ? advs3.CustomerShipping : 0,
                 Coefficient = i.Coefficient,
                 // v2.9 — giá nhập hiện tại + breakdown (seed popup)
                 PurchaseCurrency = i.PurchaseCurrency,
@@ -376,8 +377,8 @@ public class SalesOrderService : ISalesOrderService
         if (so == null) return (false, "Không tìm thấy đơn hàng");
         if (so.Status != "DRAFT") return (false, "Chỉ có thể gửi đề nghị tạm ứng ở trạng thái Nháp");
 
-        // Validate: all items must be mapped to a real product
-        var unmappedCount = so.Items.Count(i => !i.IsProductMapped);
+        // Validate: all items must be mapped to a real product (bỏ qua dòng đã hủy toàn bộ)
+        var unmappedCount = so.Items.Count(i => !i.IsProductMapped && i.CancelledQty < i.Quantity);
         if (unmappedCount > 0)
             return (false, $"Còn {unmappedCount} sản phẩm chưa được gắn vào hệ thống. Vui lòng hoàn thiện thông tin sản phẩm trước khi gửi DNTU.");
 

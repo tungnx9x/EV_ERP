@@ -787,7 +787,10 @@
                                         <td class="text-end" style="background-color:#fffaf0;">
                                             @if (item.PurchasePrice.HasValue && item.PurchasePrice.Value > 0 && item.UnitPrice > 0)
                                             {
-                                                var curCoef = item.PurchasePrice.Value / item.UnitPrice;
+                                                @* Hệ số = Giá nhập / (Đơn giá bán − Phí vận chuyển / SL); từ CT: Đơn giá bán = Giá nhập / Hệ số + Phí vận chuyển / SL *@
+                                                var perUnitShip = item.EffectiveQty > 0 ? (item.ShippingFee ?? 0) / item.EffectiveQty : 0;
+                                                var coefDenom = item.UnitPrice - perUnitShip;
+                                                var curCoef = coefDenom > 0 ? item.PurchasePrice.Value / coefDenom : 0;
                                                 var quoteCoef = item.Coefficient ?? 0;
                                                 <span class="fw-semibold text-warning-emphasis">@curCoef.ToString("0.#")</span>
                                                 @if (quoteCoef > 0 && Math.Round(curCoef, 4) > quoteCoef)

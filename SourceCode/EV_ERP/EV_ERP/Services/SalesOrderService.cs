@@ -146,6 +146,7 @@ public class SalesOrderService : ISalesOrderService
             Status = s.Status,
             CustomerPoNo = s.CustomerPoNo,
             CustomerPoFile = s.CustomerPoFile,
+            CustomerPoDate = s.CustomerPoDate,
             PurchaseSource = s.PurchaseSource,
             ExpectedReceiveDate = s.ExpectedReceiveDate,
             BuyingNotes = s.BuyingNotes,
@@ -744,13 +745,14 @@ public class SalesOrderService : ISalesOrderService
     // ══════════════════════════════════════════════════
     public async Task<(bool Success, string? ErrorMessage)> UpdateDraftInfoAsync(
         int salesOrderId, string? customerPoNo, IFormFile? customerPoFile,
-        DateTime? expectedDeliveryDate, int userId)
+        DateTime? expectedDeliveryDate, DateTime? customerPoDate, int userId)
     {
         var so = await _uow.Repository<SalesOrder>().GetByIdAsync(salesOrderId);
         if (so == null) return (false, "Không tìm thấy đơn hàng");
         if (so.Status != "DRAFT") return (false, "Chỉ có thể cập nhật ở trạng thái Nháp");
 
         so.CustomerPoNo = customerPoNo?.Trim();
+        so.CustomerPoDate = customerPoDate;
         so.ExpectedDeliveryDate = expectedDeliveryDate;
 
         if (customerPoFile != null && customerPoFile.Length > 0)

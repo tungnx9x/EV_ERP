@@ -121,6 +121,7 @@ public class SalesOrderDetailViewModel
     // Customer PO
     public string? CustomerPoNo { get; set; }
     public string? CustomerPoFile { get; set; }
+    public DateTime? CustomerPoDate { get; set; }
 
     // Purchasing (mua online từ nhiều nguồn)
     public string? PurchaseSource { get; set; }

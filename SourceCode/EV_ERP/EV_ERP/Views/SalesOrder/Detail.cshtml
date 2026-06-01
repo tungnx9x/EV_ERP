@@ -251,6 +251,13 @@
                             <div class="fw-semibold">@Model.CustomerPoNo</div>
                         </div>
                     }
+                    @if (Model.Status != "DRAFT" && Model.CustomerPoDate.HasValue)
+                    {
+                        <div class="col-6">
+                            <div class="text-muted">Ngày nhận PO</div>
+                            <div class="fw-semibold">@Model.CustomerPoDate.Value.ToString("dd/MM/yyyy")</div>
+                        </div>
+                    }
                     @if (Model.Status != "DRAFT" && Model.CustomerPoFile != null)
                     {
                         <div class="col-6">
@@ -294,8 +301,13 @@
                                     placeholder="Nhập mã PO..." value="@Model.CustomerPoNo" />
                          </div>
                          <div class="mb-2">
+                             <label class="form-label small fw-semibold mb-1">Ngày nhận PO</label>
+                             <input type="text" id="draftCustomerPoDate" class="form-control form-control-sm js-flatpickr"
+                                    value="@(Model.CustomerPoDate?.ToString("yyyy-MM-dd"))" />
+                         </div>
+                         <div class="mb-2">
                              <label class="form-label small fw-semibold mb-1">Dự kiến giao hàng</label>
-                             <input type="date" id="draftExpectedDeliveryDate" class="form-control form-control-sm"
+                             <input type="text" id="draftExpectedDeliveryDate" class="form-control form-control-sm js-flatpickr"
                                     value="@(Model.ExpectedDeliveryDate?.ToString("yyyy-MM-dd"))" />
                          </div>
                          <div class="mb-2">
@@ -619,10 +631,10 @@
                                         @if (showProgress)
                                         {
                                             <span class="badge @item.LineStatusBadge ms-1" style="font-size:0.65rem;">@item.LineStatusText</span>
-                                            @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
-                                            {
-                                                <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">Hủy @item.CancelledQty.ToString("0.###")</span>
-                                            }
+                                        }
+                                        @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">Hủy @item.CancelledQty.ToString("0.###")</span>
                                         }
                                     </td>
                                     @if (canEdit && Model.Status == "DRAFT")
@@ -651,7 +663,17 @@
                                         </td>
                                     }
                                     <td>@item.UnitName</td>
-                                    <td class="text-end">@item.Quantity.ToString("0.###")</td>
+                                    <td class="text-end">
+                                        @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                        {
+                                            <span class="text-muted text-decoration-line-through">@item.Quantity.ToString("0.###")</span>
+                                            <div class="fw-semibold text-danger-emphasis">@item.EffectiveQty.ToString("0.###")</div>
+                                        }
+                                        else
+                                        {
+                                            @item.Quantity.ToString("0.###")
+                                        }
+                                    </td>
                                     @if (showProgress)
                                     {
                                         <td class="text-center small">
@@ -1448,11 +1470,17 @@
                                 @foreach (var item in Model.Items.Where(i => i.LineStatus != "CANCELLED"))
                                 {
                                     decimal lineCost = item.PurchasePrice.HasValue && item.PurchasePrice > 0
-                                        ? item.Quantity * item.PurchasePrice.Value : 0;
+                                        ? item.EffectiveQty * item.PurchasePrice.Value : 0;
                                     <tr data-so-item-id="@item.SOItemId">
                                         <td>
                                             <div class="fw-semibold">@item.ProductName</div>
-                                            <div class="text-muted small">@item.UnitName · SL @item.Quantity.ToString("0.###")</div>
+                                            <div class="text-muted small">
+                                                @item.UnitName · SL @item.EffectiveQty.ToString("0.###")
+                                                @if (item.CancelledQty > 0)
+                                                {
+                                                    <span class="text-danger-emphasis">(đã hủy @item.CancelledQty.ToString("0.###"))</span>
+                                                }
+                                            </div>
                                         </td>
                                         <td class="text-end small text-muted">
                                             @if (lineCost > 0)
@@ -1718,6 +1746,10 @@
     function saveDraftInfo() {
         var formData = new FormData();
         formData.append('customerPoNo', document.getElementById('draftCustomerPoNo').value.trim());
+        var poDate = document.getElementById('draftCustomerPoDate').value;
+        if (poDate) {
+            formData.append('customerPoDate', poDate);
+        }
         var expectedDate = document.getElementById('draftExpectedDeliveryDate').value;
         if (expectedDate) {
             formData.append('expectedDeliveryDate', expectedDate);
@@ -2719,5 +2751,22 @@
         nextEl && nextEl.addEventListener('click', function () { page++; render(); });
 
         render();
+    })();
+</script>
+
+<!-- Flatpickr: force dd/mm/yyyy display while keeping yyyy-MM-dd as the submitted value -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+<script>
+    (function () {
+        if (typeof flatpickr === 'undefined') return;
+        document.querySelectorAll('.js-flatpickr').forEach(function (el) {
+            flatpickr(el, {
+                dateFormat: 'Y-m-d',   // value kept ISO -> server parses unchanged
+                altInput: true,
+                altFormat: 'd/m/Y',    // what the user sees
+                allowInput: true
+            });
+        });
     })();
 </script>

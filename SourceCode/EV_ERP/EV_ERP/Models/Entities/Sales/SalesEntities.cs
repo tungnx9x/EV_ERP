@@ -176,6 +176,7 @@ public class SalesOrder : AuditableEntity
     // ── Thông tin PO phía khách sạn ──
     public string? CustomerPoNo { get; set; }
     public string? CustomerPoFile { get; set; }
+    public DateTime? CustomerPoDate { get; set; }
 
     // ── Thông tin mua hàng (mua online từ nhiều nguồn) ──
     public string? PurchaseSource { get; set; }

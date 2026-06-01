@@ -55,7 +55,7 @@ public interface ISalesOrderService
     // ── Update draft info (PO KH + file + expected delivery date) ──────────────
     Task<(bool Success, string? ErrorMessage)> UpdateDraftInfoAsync(
         int salesOrderId, string? customerPoNo, IFormFile? customerPoFile,
-        DateTime? expectedDeliveryDate, int userId);
+        DateTime? expectedDeliveryDate, DateTime? customerPoDate, int userId);
 
     // ── Create product & map to SO item ────────────────
     Task<(bool Success, string? ErrorMessage)> CreateProductAndMapAsync(

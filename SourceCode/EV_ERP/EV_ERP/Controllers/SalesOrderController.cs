@@ -153,14 +153,23 @@ public class SalesOrderController : Controller
 
     // ── Update Draft Info (PO KH + file) ──────────────
     [HttpPost]
-    public async Task<IActionResult> UpdateDraftInfo(int id, string? customerPoNo, IFormFile? customerPoFile, DateTime? expectedDeliveryDate)
+    public async Task<IActionResult> UpdateDraftInfo(int id, string? customerPoNo, IFormFile? customerPoFile, DateTime? expectedDeliveryDate, string? customerPoDate)
     {
         try
         {
             if (!CanEdit)
                 return Json(ApiResult<object>.Fail("Bạn không có quyền"));
 
-            var (success, error) = await _salesOrderService.UpdateDraftInfoAsync(id, customerPoNo, customerPoFile, expectedDeliveryDate, CurrentUserId);
+            // datetime-local arrives as "yyyy-MM-ddTHH:mm" — parse culture-invariantly so binding never silently nulls.
+            DateTime? poDate = null;
+            if (!string.IsNullOrWhiteSpace(customerPoDate)
+                && DateTime.TryParse(customerPoDate, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var parsed))
+            {
+                poDate = parsed;
+            }
+
+            var (success, error) = await _salesOrderService.UpdateDraftInfoAsync(id, customerPoNo, customerPoFile, expectedDeliveryDate, poDate, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã lưu thông tin PO khách hàng" : error });
         }
         catch (Exception ex)

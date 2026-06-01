@@ -45,6 +45,10 @@ public interface ISalesOrderService
     Task<(bool Success, string? ErrorMessage)> UpdateItemPurchasePriceAsync(
         int salesOrderId, int soItemId, UpdateItemPurchasePriceModel model, int userId);
 
+    /// <summary>Cập nhật Phí vận chuyển (Shipping Cost) cho 1 dòng SO (sửa inline).</summary>
+    Task<(bool Success, string? ErrorMessage)> UpdateItemShippingFeeAsync(
+        int salesOrderId, int soItemId, decimal? shippingFee, int userId);
+
     Task<(bool Success, string? ErrorMessage)> ReturnAsync(
         int salesOrderId, SalesOrderReturnModel model, int userId);
 

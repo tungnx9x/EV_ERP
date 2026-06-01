@@ -734,7 +734,23 @@
                                             }
                                         </td>
                                         <td class="text-end">@item.UnitPrice.ToString("N0")</td>
-                                        <td class="text-end text-muted">@(item.ShippingFee.HasValue && item.ShippingFee.Value > 0 ? item.ShippingFee.Value.ToString("N0") : "—")</td>
+                                        <td class="text-end text-muted">
+                                            @if (canManageStatus && item.LineStatus != "CANCELLED")
+                                            {
+                                                <a href="#" class="ship-fee-display" style="cursor:pointer;" title="Bấm để sửa phí vận chuyển" onclick="startEditShipFee(this)">
+                                                    @(item.ShippingFee.HasValue && item.ShippingFee.Value > 0 ? item.ShippingFee.Value.ToString("N0") : "—")
+                                                    <i class="bi bi-pencil-square small text-primary"></i>
+                                                </a>
+                                                <input type="number" min="0" step="1" class="form-control form-control-sm text-end ship-fee-input d-none"
+                                                       value="@(item.ShippingFee.HasValue && item.ShippingFee.Value > 0 ? item.ShippingFee.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture) : "")"
+                                                       data-so-item-id="@item.SOItemId"
+                                                       onblur="saveShipFee(this)" onkeydown="shipFeeKey(event, this)" />
+                                            }
+                                            else
+                                            {
+                                                @(item.ShippingFee.HasValue && item.ShippingFee.Value > 0 ? item.ShippingFee.Value.ToString("N0") : "—")
+                                            }
+                                        </td>
                                         <td class="text-end fw-semibold text-success">
                                             @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
                                             {
@@ -1945,6 +1961,40 @@
         postAction('/SalesOrder/' + action + '/' + soId, null, function (data) {
             if (data.Success) location.reload();
             else appAlert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ── Inline edit Phí vận chuyển (Shipping Cost) ────
+    function startEditShipFee(spanEl) {
+        var td = spanEl.closest('td');
+        var input = td.querySelector('.ship-fee-input');
+        if (!input) return;
+        spanEl.classList.add('d-none');
+        input.classList.remove('d-none');
+        input.focus();
+        input.select();
+    }
+    function shipFeeKey(e, input) {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape') { input.dataset.cancelled = '1'; input.blur(); }
+    }
+    function saveShipFee(input) {
+        var td = input.closest('td');
+        var span = td.querySelector('.ship-fee-display');
+        if (input.dataset.cancelled === '1') {
+            input.dataset.cancelled = '';
+            input.classList.add('d-none');
+            if (span) span.classList.remove('d-none');
+            return;
+        }
+        var soItemId = parseInt(input.getAttribute('data-so-item-id'));
+        var raw = (input.value || '').trim();
+        var val = raw === '' ? null : parseFloat(raw);
+        if (val !== null && (isNaN(val) || val < 0)) { appAlert('Phí vận chuyển không hợp lệ'); input.focus(); return; }
+        input.disabled = true;
+        postAction('/SalesOrder/UpdateItemShippingFee/' + soId + '?soItemId=' + soItemId, { ShippingFee: val }, function (data) {
+            if (data.Success) { location.reload(); }
+            else { appAlert(data.Message || 'Lỗi'); input.disabled = false; }
         });
     }
 

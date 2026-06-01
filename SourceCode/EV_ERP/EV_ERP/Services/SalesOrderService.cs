@@ -722,6 +722,35 @@ public class SalesOrderService : ISalesOrderService
         return (true, null);
     }
 
+    // ── Cập nhật Phí vận chuyển (Shipping Cost) cho 1 dòng — sửa inline tại bảng ──
+    public async Task<(bool Success, string? ErrorMessage)> UpdateItemShippingFeeAsync(
+        int salesOrderId, int soItemId, decimal? shippingFee, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status is "CANCELLED" or "COMPLETED" or "REPORTED" or "RETURNED")
+            return (false, "Không thể sửa phí vận chuyển ở trạng thái này");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+        if (shippingFee.HasValue && shippingFee.Value < 0)
+            return (false, "Phí vận chuyển không hợp lệ");
+
+        item.ShippingFee = (shippingFee.HasValue && shippingFee.Value > 0) ? shippingFee : null;
+
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        _logger.LogInformation("SO {No} update shipping fee line {Item}: fee={Fee} by UserId={UserId}",
+            so.SalesOrderNo, item.ProductName, item.ShippingFee, userId);
+        return (true, null);
+    }
+
     // DELIVERED → RETURNED (khách trả hàng)
     public async Task<(bool Success, string? ErrorMessage)> ReturnAsync(
         int salesOrderId, SalesOrderReturnModel model, int userId)

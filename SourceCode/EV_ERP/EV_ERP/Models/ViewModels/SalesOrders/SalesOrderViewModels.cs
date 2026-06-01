@@ -341,6 +341,12 @@ public class CancelItemModel
     public string? Reason { get; set; }
 }
 
+// v2.9 — cập nhật Phí vận chuyển (Shipping Cost) cho 1 dòng SO (sửa inline)
+public class UpdateItemShippingFeeModel
+{
+    public decimal? ShippingFee { get; set; }
+}
+
 // v2.9 — cập nhật "Giá nhập hiện tại" cho 1 dòng SO (popup máy tính giá nhập)
 public class UpdateItemPurchasePriceModel
 {

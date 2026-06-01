@@ -295,6 +295,27 @@ public class SalesOrderController : Controller
         }
     }
 
+    // ── v2.9: Per-line update Phí vận chuyển (inline edit) ──
+    [HttpPost]
+    public async Task<IActionResult> UpdateItemShippingFee(int id, int soItemId, [FromBody] UpdateItemShippingFeeModel model)
+    {
+        try
+        {
+            if (CurrentRoleCode == "WAREHOUSE")
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
+
+            var (success, error) = await _salesOrderService.UpdateItemShippingFeeAsync(id, soItemId, model.ShippingFee, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã cập nhật phí vận chuyển" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UpdateItemShippingFee failed for SO #{Id} item #{ItemId}", id, soItemId);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
     // ── v2.2: Create batch INBOUND (1 phiếu nhập cho nhiều dòng) ─
     [HttpPost]
     public async Task<IActionResult> ReceiveBatch(int id, [FromBody] ReceiveBatchModel model)

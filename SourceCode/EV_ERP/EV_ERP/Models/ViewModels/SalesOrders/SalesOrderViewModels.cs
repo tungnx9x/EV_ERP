@@ -188,6 +188,9 @@ public class SalesOrderDetailViewModel
 
     // v2.2 Advance requests (multi-row)
     public Models.ViewModels.Finance.SalesOrderAdvanceSummary? AdvanceSummary { get; set; }
+
+    // v2.9 — danh sách tiền tệ cho popup máy tính giá nhập (cột "Giá hiện tại")
+    public List<Quotations.CurrencyOptionViewModel> Currencies { get; set; } = [];
 }
 
 public class SalesOrderItemDetailViewModel
@@ -221,6 +224,24 @@ public class SalesOrderItemDetailViewModel
     // Mua
     public decimal? PurchasePrice { get; set; }
     public decimal? LineCost { get; set; }
+
+    // v2.9 — Giá nhập hiện tại + breakdown (seed cho popup máy tính giá nhập)
+    public string? PurchaseCurrency { get; set; }
+    public decimal? PurchaseExchangeRate { get; set; }
+    public string PurchaseMode { get; set; } = "OFFICIAL";
+    public decimal? PurchaseQuantity { get; set; }
+    public decimal? BasePrice { get; set; }
+    public decimal? PurchaseTax { get; set; }
+    public decimal? InspectionFee { get; set; }
+    public decimal? BankingFee { get; set; }
+    public decimal? OtherCosts { get; set; }
+    public decimal? OfficialShipping { get; set; }
+    public decimal? UnofficialDomesticShipping { get; set; }
+    public decimal? UnofficialWeightKg { get; set; }
+    public decimal? UnofficialCostPerKg { get; set; }
+    public decimal? UnofficialHandCarryFee { get; set; }
+    public decimal? UnofficialW2WShipping { get; set; }
+
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
     public string? Notes { get; set; }
@@ -314,6 +335,27 @@ public class CancelItemModel
 {
     public decimal? CancelQty { get; set; }   // null = hủy hết phần còn lại
     public string? Reason { get; set; }
+}
+
+// v2.9 — cập nhật "Giá nhập hiện tại" cho 1 dòng SO (popup máy tính giá nhập)
+public class UpdateItemPurchasePriceModel
+{
+    public decimal? PurchasePrice { get; set; }   // giá nhập / đơn vị (đã tính sẵn ở client)
+    public string PurchaseMode { get; set; } = "OFFICIAL";
+    public string? PurchaseCurrency { get; set; }
+    public decimal? PurchaseExchangeRate { get; set; }
+    public decimal? PurchaseQuantity { get; set; }
+    public decimal? BasePrice { get; set; }
+    public decimal? PurchaseTax { get; set; }
+    public decimal? InspectionFee { get; set; }
+    public decimal? BankingFee { get; set; }
+    public decimal? OtherCosts { get; set; }
+    public decimal? OfficialShipping { get; set; }
+    public decimal? UnofficialDomesticShipping { get; set; }
+    public decimal? UnofficialWeightKg { get; set; }
+    public decimal? UnofficialCostPerKg { get; set; }
+    public decimal? UnofficialHandCarryFee { get; set; }
+    public decimal? UnofficialW2WShipping { get; set; }
 }
 
 public class ReceiveBatchItemModel

@@ -291,6 +291,22 @@ public class SalesOrderItem
     public bool IsProductMapped { get; set; }
     public string? PurchaseCurrency { get; set; }       // v2.1 — currency của giá mua thực tế
     public decimal? PurchaseExchangeRate { get; set; } = 1;
+
+    // v2.9 — Giá nhập hiện tại: popup máy tính Giá nhập (giống QuotationItem) — cho nhập lại tại SO Detail
+    public string PurchaseMode { get; set; } = "OFFICIAL";
+    public decimal? PurchaseQuantity { get; set; }
+    public decimal? BasePrice { get; set; }
+    public decimal? PurchaseTax { get; set; }
+    public decimal? InspectionFee { get; set; }
+    public decimal? BankingFee { get; set; }
+    public decimal? OtherCosts { get; set; }
+    public decimal? OfficialShipping { get; set; }
+    public decimal? UnofficialDomesticShipping { get; set; }
+    public decimal? UnofficialWeightKg { get; set; }
+    public decimal? UnofficialCostPerKg { get; set; }
+    public decimal? UnofficialHandCarryFee { get; set; }
+    public decimal? UnofficialW2WShipping { get; set; }
+
     public virtual SalesOrder SalesOrder { get; set; } = null!;
     public virtual Product? Product { get; set; }
     public virtual Currency? PurchaseCurrencyRef { get; set; }

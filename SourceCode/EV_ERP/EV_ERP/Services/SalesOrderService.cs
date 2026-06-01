@@ -217,9 +217,35 @@ public class SalesOrderService : ISalesOrderService
                 Notes = i.Notes,
                 IsProductMapped = i.IsProductMapped,
                 AdvancedAmount = advancedByItem.TryGetValue(i.SOItemId, out var adv) ? adv : 0,
-                Coefficient = i.Coefficient
+                Coefficient = i.Coefficient,
+                // v2.9 — giá nhập hiện tại + breakdown (seed popup)
+                PurchaseCurrency = i.PurchaseCurrency,
+                PurchaseExchangeRate = i.PurchaseExchangeRate,
+                PurchaseMode = i.PurchaseMode,
+                PurchaseQuantity = i.PurchaseQuantity,
+                BasePrice = i.BasePrice,
+                PurchaseTax = i.PurchaseTax,
+                InspectionFee = i.InspectionFee,
+                BankingFee = i.BankingFee,
+                OtherCosts = i.OtherCosts,
+                OfficialShipping = i.OfficialShipping,
+                UnofficialDomesticShipping = i.UnofficialDomesticShipping,
+                UnofficialWeightKg = i.UnofficialWeightKg,
+                UnofficialCostPerKg = i.UnofficialCostPerKg,
+                UnofficialHandCarryFee = i.UnofficialHandCarryFee,
+                UnofficialW2WShipping = i.UnofficialW2WShipping
             }).ToList(),
-            AdvanceSummary = advanceSummary
+            AdvanceSummary = advanceSummary,
+            Currencies = await _uow.Repository<EV_ERP.Models.Entities.Reference.Currency>().Query()
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.CurrencyCode)
+                .Select(c => new Models.ViewModels.Quotations.CurrencyOptionViewModel
+                {
+                    CurrencyCode = c.CurrencyCode,
+                    CurrencyName = c.CurrencyName,
+                    Symbol = c.Symbol,
+                    DecimalPlaces = c.DecimalPlaces
+                }).ToListAsync()
         };
     }
 
@@ -300,7 +326,23 @@ public class SalesOrderService : ISalesOrderService
                 SourceName = i.SourceName,
                 SortOrder = i.SortOrder,
                 Notes = i.Notes,
-                IsProductMapped = i.IsProductMapped
+                IsProductMapped = i.IsProductMapped,
+                // v2.9 — copy giá nhập hiện tại + breakdown từ báo giá
+                PurchaseCurrency = i.PurchaseCurrency,
+                PurchaseExchangeRate = i.PurchaseExchangeRate,
+                PurchaseMode = i.PurchaseMode,
+                PurchaseQuantity = i.PurchaseQuantity,
+                BasePrice = i.BasePrice,
+                PurchaseTax = i.PurchaseTax,
+                InspectionFee = i.InspectionFee,
+                BankingFee = i.BankingFee,
+                OtherCosts = i.OtherCosts,
+                OfficialShipping = i.OfficialShipping,
+                UnofficialDomesticShipping = i.UnofficialDomesticShipping,
+                UnofficialWeightKg = i.UnofficialWeightKg,
+                UnofficialCostPerKg = i.UnofficialCostPerKg,
+                UnofficialHandCarryFee = i.UnofficialHandCarryFee,
+                UnofficialW2WShipping = i.UnofficialW2WShipping
             }).ToList()
         };
 
@@ -621,6 +663,58 @@ public class SalesOrderService : ISalesOrderService
 
         _logger.LogInformation("SO {No} cancel line {Item}: qty={Qty} by UserId={UserId}",
             so.SalesOrderNo, item.ProductName, qty, userId);
+        return (true, null);
+    }
+
+    // ══════════════════════════════════════════════════
+    // UPDATE "GIÁ NHẬP HIỆN TẠI" (per-line) — popup máy tính giá nhập
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage)> UpdateItemPurchasePriceAsync(
+        int salesOrderId, int soItemId, UpdateItemPurchasePriceModel model, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status is "CANCELLED" or "COMPLETED" or "REPORTED" or "RETURNED")
+            return (false, "Không thể sửa giá nhập ở trạng thái này");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+
+        item.PurchasePrice = model.PurchasePrice;
+        item.PurchaseMode = string.IsNullOrWhiteSpace(model.PurchaseMode) ? "OFFICIAL" : model.PurchaseMode;
+        item.PurchaseCurrency = model.PurchaseCurrency ?? "VND";
+        item.PurchaseExchangeRate = model.PurchaseExchangeRate ?? 1;
+        item.PurchaseQuantity = model.PurchaseQuantity;
+        item.BasePrice = model.BasePrice;
+        item.PurchaseTax = model.PurchaseTax;
+        item.InspectionFee = model.InspectionFee;
+        item.BankingFee = model.BankingFee;
+        item.OtherCosts = model.OtherCosts;
+        item.OfficialShipping = model.OfficialShipping;
+        item.UnofficialDomesticShipping = model.UnofficialDomesticShipping;
+        item.UnofficialWeightKg = model.UnofficialWeightKg;
+        item.UnofficialCostPerKg = model.UnofficialCostPerKg;
+        item.UnofficialHandCarryFee = model.UnofficialHandCarryFee;
+        item.UnofficialW2WShipping = model.UnofficialW2WShipping;
+
+        // LineCost theo SL còn hiệu lực (đã trừ phần hủy) × giá nhập mới
+        var eff = item.Quantity - item.CancelledQty;
+        item.LineCost = (item.PurchasePrice ?? 0) * (eff > 0 ? eff : 0);
+
+        // Recompute tổng chi phí mua (alive lines)
+        so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
+                                  .Sum(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
+
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        _logger.LogInformation("SO {No} update purchase price line {Item}: price={Price} mode={Mode} by UserId={UserId}",
+            so.SalesOrderNo, item.ProductName, item.PurchasePrice, item.PurchaseMode, userId);
         return (true, null);
     }
 

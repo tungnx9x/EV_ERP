@@ -773,11 +773,11 @@
                                                 var coefDenom = item.UnitPrice - perUnitShip;
                                                 var curCoef = coefDenom > 0 ? item.PurchasePrice.Value / coefDenom : 0;
                                                 var quoteCoef = item.Coefficient ?? 0;
-                                                <span class="fw-semibold text-warning-emphasis">@curCoef.ToString("0.#")</span>
+                                                <span class="fw-semibold text-warning-emphasis">@curCoef.ToString("0.####")</span>
                                                 @if (quoteCoef > 0 && Math.Round(curCoef, 4) > quoteCoef)
                                                 {
                                                     <i class="bi bi-exclamation-triangle-fill text-danger ms-1"
-                                                       title="Hệ số đã tăng vượt hệ số báo giá - @quoteCoef.ToString("0.##")"></i>
+                                                       title="Hệ số đã tăng vượt hệ số báo giá - @quoteCoef.ToString("0.####")"></i>
                                                 }
                                             }
                                             else

@@ -946,7 +946,7 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 20).Value = item.ImportPrice;
             ws.Cell(row, 20).Style.NumberFormat.Format = "#,##0";
             // U Ship
-            ws.Cell(row, 21).Value = item.Shipping;
+            ws.Cell(row, 21).Value = item.Shipping/item.Quantity;
             ws.Cell(row, 21).Style.NumberFormat.Format = "#,##0";
             // V He so
             ws.Cell(row, 22).Value = item.Coefficient;

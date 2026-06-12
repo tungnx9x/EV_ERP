@@ -201,7 +201,7 @@ public class AdvanceRequestService : IAdvanceRequestService
 
         var req = new AdvanceRequest
         {
-            RequestNo = await GenerateRequestNoAsync(),
+            RequestNo = await GenerateRequestNoAsync(userId),
             SalesOrderId = salesOrderId,
             RequestDate = model.RequestDate?.Date ?? DateTime.Today,
             RequestedAmount = total,
@@ -438,9 +438,17 @@ public class AdvanceRequestService : IAdvanceRequestService
         return (true, null);
     }
 
-    private async Task<string> GenerateRequestNoAsync()
+    private async Task<string> GenerateRequestNoAsync(int userId)
     {
-        var prefix = $"TU-{DateTime.Now:yyyyMM}-";
+        // TU-yyyymm-{UserName}-SEQ ; fall back to UserCode when UserName is empty/null.
+        var user = await _uow.Repository<User>().Query()
+            .Where(u => u.UserId == userId)
+            .Select(u => new { u.UserName, u.UserCode })
+            .FirstOrDefaultAsync();
+
+        var userKey = !string.IsNullOrWhiteSpace(user?.UserName) ? user!.UserName : (user?.UserCode ?? "");
+
+        var prefix = $"TU-{DateTime.Now:yyyyMM}-{userKey}-";
         var last = await _uow.Repository<AdvanceRequest>().Query()
             .Where(a => a.RequestNo.StartsWith(prefix))
             .OrderByDescending(a => a.RequestNo)
@@ -477,6 +485,20 @@ public class AdvanceRequestService : IAdvanceRequestService
             .GroupBy(i => i.SOItemId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
         var generalAdvance = req.Items.Where(i => !i.SOItemId.HasValue).Sum(i => i.Amount);
+
+        // Số tiền tạm ứng vận chuyển do người dùng nhập (tách theo Purpose khi tạo phiếu).
+        // So khớp NFC để tránh lệch NFD/NFC của chuỗi tiếng Việt.
+        static string NormPurpose(string? s) => (s ?? "").Trim().Normalize(System.Text.NormalizationForm.FormC);
+        var shipOfficeKey = "Vận chuyển".Normalize(System.Text.NormalizationForm.FormC);
+        var shipCustomerKey = "Vận chuyển KH".Normalize(System.Text.NormalizationForm.FormC);
+        var perItemShipOffice = req.Items
+            .Where(i => i.SOItemId.HasValue && NormPurpose(i.Purpose) == shipOfficeKey)
+            .GroupBy(i => i.SOItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+        var perItemShipCustomer = req.Items
+            .Where(i => i.SOItemId.HasValue && NormPurpose(i.Purpose) == shipCustomerKey)
+            .GroupBy(i => i.SOItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
 
         // Pull BasePrice + PurchaseExchangeRate from the source quotation (matched by SortOrder).
         var qItemsBySort = new Dictionary<int, QuotationItem>();
@@ -531,9 +553,9 @@ public class AdvanceRequestService : IAdvanceRequestService
             ws.Cell(row, 2).Value = so.Customer.CustomerName;        // B: Tên dự án/KS
             ws.Cell(row, 3).Value = item.ProductName;                // C: Tên hàng hóa
             ws.Cell(row, 4).Value = item.UnitName;                   // D: ĐVT
-            ws.Cell(row, 5).Value = item.Quantity;                   // E: SL bán
+            ws.Cell(row, 5).Value = item.Quantity - item.CancelledQty; // E: SL bán (số lượng còn lại sau khi hủy)
             ws.Cell(row, 6).Value = included ? item.UnitPrice : 0;   // F: Đơn giá bán
-            ws.Cell(row, 7).Value = included ? so.TaxRate / 100m : 0; // G: VAT
+            ws.Cell(row, 7).Value = 0;                               // G: VAT — luôn = 0
 
             // H: Thành tiền = (F*E) + (F*E*G)
             ws.Cell(row, 8).FormulaA1 = $"(F{row}*E{row})+(F{row}*E{row}*G{row})";
@@ -541,28 +563,20 @@ public class AdvanceRequestService : IAdvanceRequestService
             qItemsBySort.TryGetValue(item.SortOrder, out var qItem);
             ws.Cell(row, 10).Value = included ? (qItem?.BasePrice ?? item.PurchasePrice ?? 0) : 0;
             ws.Cell(row, 11).Value = included ? (qItem?.PurchaseExchangeRate ?? 1) : 0;
-            ws.Cell(row, 12).Value = included ? (item.PurchasePrice ?? 0) : 0;
-            ws.Cell(row, 13).Value = item.Quantity;
-            ws.Cell(row, 14).Value = included ? (item.TaxRate ?? so.TaxRate) / 100m : 0;
+            // L: Đơn giá mua (VND) — chưa gồm phí vận chuyển, cùng cơ sở với cột J = Đơn giá gốc × Tỷ giá
+            ws.Cell(row, 12).FormulaA1 = $"J{row}*K{row}";
+            ws.Cell(row, 13).Value = item.Quantity - item.CancelledQty; // M: SL mua (số lượng còn lại sau khi hủy)
+            ws.Cell(row, 14).Value = 0;                              // N: thuế mua — luôn = 0
             ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})";
 
-            if (included && qItem != null)
+            if (included && qItem != null && qItem.UnofficialWeightKg.HasValue)
             {
-                if (qItem.UnofficialWeightKg.HasValue)
-                {
-                    ws.Cell(row, 16).Value = qItem.UnofficialWeightKg.Value;
-                }
-                if (qItem.PurchaseMode is "OFFICIAL" or "DOMESTIC" && qItem.OfficialShipping.HasValue)
-                {
-                    ws.Cell(row, 17).Value = qItem.OfficialShipping.Value;
-                }
-                if (qItem.PurchaseMode == "UNOFFICIAL" && qItem.UnofficialW2WShipping.HasValue)
-                {
-                    ws.Cell(row, 17).Value = qItem.UnofficialW2WShipping.Value;
-                }
+                ws.Cell(row, 16).Value = qItem.UnofficialWeightKg.Value;   // P: trọng lượng
             }
 
-            ws.Cell(row, 18).Value = included ? (item.ShippingFee ?? 0) : 0;
+            // Q & R: phí vận chuyển lấy theo số tiền tạm ứng VC người dùng đã nhập khi tạo phiếu
+            ws.Cell(row, 17).Value = perItemShipOffice.TryGetValue(item.SOItemId, out var shipOff) ? shipOff : 0;     // Q: VC về văn phòng
+            ws.Cell(row, 18).Value = perItemShipCustomer.TryGetValue(item.SOItemId, out var shipCus) ? shipCus : 0;   // R: VC giao khách
 
             ws.Cell(row, 5).Style.NumberFormat.Format = "#";
             ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
@@ -572,6 +586,7 @@ public class AdvanceRequestService : IAdvanceRequestService
             ws.Cell(row, 13).Style.NumberFormat.Format = "#";
             ws.Cell(row, 14).Style.NumberFormat.Format = "0%";
             ws.Cell(row, 15).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(row, 17).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0";
 
             ws.Range(row, 1, row, 20).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;

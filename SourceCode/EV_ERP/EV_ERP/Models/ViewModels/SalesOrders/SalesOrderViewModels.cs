@@ -206,7 +206,11 @@ public class SalesOrderItemDetailViewModel
     public decimal ReceivedQty { get; set; }
     public decimal DeliveredQty { get; set; }
     public decimal RemainingReceiveQty { get; set; }
+    // SL đang nằm trong phiếu nhập kho NHÁP (chưa xác nhận) — tránh tạo phiếu trùng
+    public decimal PendingReceiveQty { get; set; }
     public decimal InStockQty { get; set; }
+    // SL đang nằm trong phiếu xuất kho NHÁP (chưa xác nhận giao) — tránh tạo phiếu xuất trùng
+    public decimal PendingDeliverQty { get; set; }
     public decimal RemainingDeliverQty { get; set; }
     public DateTime? ExpectedReceiveDate { get; set; }
     public DateTime? ExpectedDeliveryDate { get; set; }

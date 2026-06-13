@@ -276,8 +276,41 @@ public class ReportService : IReportService
         var monthNumber = refDate.ToString("MM");
 
         using var wb = new XLWorkbook(templatePath);
-        var ws = wb.Worksheet(1);
+        var templateWs = wb.Worksheet(1);
 
+        // ── One sheet per customer ──
+        // Group rows by customer (keep original CompletedAt ordering within each group).
+        var groups = rows
+            .GroupBy(r => new { r.CustomerId, r.CustomerName })
+            .OrderBy(g => g.Key.CustomerName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        int groupIdx = 0;
+        foreach (var g in groups)
+        {
+            groupIdx++;
+            var sheetName = UniqueSheetName(wb, g.Key.CustomerName, groupIdx);
+            // Copy the template sheet (preserves layout/formatting) and fill it for this customer.
+            var ws = templateWs.CopyTo(sheetName);
+            FillSalesResultSheet(ws, g.ToList(), userName, monthLabel, monthNumber);
+        }
+
+        // Drop the original template sheet so only customer sheets remain.
+        templateWs.Delete();
+
+        var safeUser = SanitizeFileName(userName);
+        var fileName = $"BCKQKD_{refDate:yyyy.MM}_{safeUser}.xlsx";
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return (ms.ToArray(), fileName);
+    }
+
+    // Fill one BCKQKD worksheet (copied from the template) with a single customer's rows.
+    private static void FillSalesResultSheet(
+        IXLWorksheet ws, List<SalesResultRowViewModel> rows,
+        string userName, string monthLabel, string monthNumber)
+    {
         // ── Header text replacements (rows 5, 8, 9 in template) ──
         // Row 5 = title "BÁO CÁO KẾT QUẢ KINH DOANH THÁNG {MM/yyyy}" (merged A5:N6)
         // Row 8 = "Nhân viên: {Users.FullName}"
@@ -335,13 +368,29 @@ public class ReportService : IReportService
             ws.Cell(sumRow, idx).FormulaA1 = $"SUM({letter}{dataStartRow}:{letter}{lastDataRow})";
             ws.Cell(sumRow, idx).Style.NumberFormat.Format = "#,##0";
         }
+    }
 
-        var safeUser = SanitizeFileName(userName);
-        var fileName = $"BCKQKD_{refDate:yyyy.MM}_{safeUser}.xlsx";
+    // Build a valid, unique worksheet name from a customer name (Excel: max 31 chars,
+    // no : \ / ? * [ ] characters, must be unique within the workbook).
+    private static string UniqueSheetName(XLWorkbook wb, string customerName, int index)
+    {
+        var cleaned = new string((customerName ?? "").Select(c =>
+            c is ':' or '\\' or '/' or '?' or '*' or '[' or ']' ? ' ' : c).ToArray()).Trim();
+        if (string.IsNullOrWhiteSpace(cleaned)) cleaned = $"KH {index}";
 
-        using var ms = new MemoryStream();
-        wb.SaveAs(ms);
-        return (ms.ToArray(), fileName);
+        // Reserve room for a " (n)" disambiguation suffix.
+        string Truncate(string s, int max) => s.Length <= max ? s : s[..max].Trim();
+
+        var baseName = Truncate(cleaned, 31);
+        var name = baseName;
+        int dup = 2;
+        while (wb.Worksheets.Any(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            var suffix = $" ({dup})";
+            name = Truncate(cleaned, 31 - suffix.Length) + suffix;
+            dup++;
+        }
+        return name;
     }
 
     private async Task<List<SalesResultRowViewModel>> BuildSalesResultRowsAsync(
@@ -401,6 +450,7 @@ public class ReportService : IReportService
             {
                 SalesOrderId = so.SalesOrderId,
                 SalesOrderNo = so.SalesOrderNo,
+                CustomerId = so.CustomerId,
                 CustomerName = so.Customer.CustomerName,
                 CustomerPoNo = so.CustomerPoNo,
                 ProductName = productNames,

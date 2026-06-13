@@ -16,9 +16,14 @@
     </div>
     @if (canEdit)
     {
-        <a href="/Customer/Create" class="btn btn-primary">
-            <i class="bi bi-building-add me-1"></i> Thêm khách hàng
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> Import Excel
+            </button>
+            <a href="/Customer/Create" class="btn btn-primary">
+                <i class="bi bi-building-add me-1"></i> Thêm khách hàng
+            </a>
+        </div>
     }
 </div>
 
@@ -166,6 +171,51 @@
     </div>
 </div>
 
+@if (canEdit)
+{
+    <!-- Import Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importModalLabel">
+                        <i class="bi bi-file-earmark-arrow-up me-2"></i>Import khách hàng từ Excel
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        File Excel cần có các cột theo thứ tự:
+                        <strong>Tên khách hàng</strong>, <strong>Địa chỉ</strong>,
+                        <strong>Số điện thoại</strong>, <strong>Email</strong>, <strong>Website</strong>.
+                        Dòng tiêu đề (nếu có) sẽ được bỏ qua. Tất cả khách hàng nhập vào sẽ thuộc nhóm
+                        <strong>Khách hàng mới</strong>.
+                        <div class="mt-2">
+                            <a href="/Customer/ImportTemplate" class="fw-semibold text-decoration-none">
+                                <i class="bi bi-download me-1"></i>Tải file mẫu (Excel)
+                            </a>
+                        </div>
+                    </div>
+                    <form id="importForm">
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold">File Excel <span class="text-danger">*</span></label>
+                            <input type="file" id="importFile" class="form-control" accept=".xlsx,.xls" required />
+                        </div>
+                    </form>
+                    <div id="importResult" class="d-none mt-3"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-success" id="btnDoImport" onclick="doImport()">
+                        <i class="bi bi-upload me-1"></i> Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @functions {
     string GroupBadge(string? code) => code switch
     {
@@ -206,6 +256,52 @@
 
         function getAntiForgeryToken() {
             return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+
+        function doImport() {
+            var fileInput = document.getElementById('importFile');
+            var resultDiv = document.getElementById('importResult');
+
+            if (!fileInput.files.length) { appAlert('Vui lòng chọn file Excel'); return; }
+
+            var formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            var btn = document.getElementById('btnDoImport');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xử lý...';
+            resultDiv.classList.add('d-none');
+
+            fetch('/Customer/ImportFromExcel', { method: 'POST', body: formData })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+                    resultDiv.classList.remove('d-none');
+
+                    if (res.Success) {
+                        var html = '<div>' + (res.Message || 'Import thành công') + '</div>';
+                        if (res.Data && res.Data.RowErrors && res.Data.RowErrors.length) {
+                            html += '<ul class="mb-0 mt-2 small">';
+                            res.Data.RowErrors.forEach(function (e) { html += '<li>' + e + '</li>'; });
+                            html += '</ul>';
+                        }
+                        resultDiv.className = 'alert alert-success mt-3';
+                        resultDiv.innerHTML = html;
+                        setTimeout(function () { location.reload(); }, 1500);
+                    } else {
+                        resultDiv.className = 'alert alert-danger mt-3';
+                        resultDiv.innerHTML = res.Message || 'Import thất bại';
+                    }
+                })
+                .catch(function (err) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+                    resultDiv.classList.remove('d-none');
+                    resultDiv.className = 'alert alert-danger mt-3';
+                    resultDiv.innerHTML = 'Lỗi: ' + err.message;
+                });
         }
     </script>
     @Html.AntiForgeryToken()

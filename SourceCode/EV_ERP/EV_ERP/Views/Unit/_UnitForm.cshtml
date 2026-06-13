@@ -1,0 +1,27 @@
+@model EV_ERP.Models.ViewModels.Products.UnitFormViewModel
+
+<div class="row g-3">
+    <!-- Unit Name -->
+    <div class="col-12">
+        <label asp-for="UnitName" class="form-label fw-semibold small"></label>
+        <input asp-for="UnitName" class="form-control" placeholder="VD: Kilogram, Lít, Cái..." autofocus />
+        <span asp-validation-for="UnitName" class="text-danger small"></span>
+    </div>
+
+    <!-- Unit Code -->
+    <div class="col-12">
+        <label asp-for="UnitCode" class="form-label fw-semibold small"></label>
+        <input asp-for="UnitCode" class="form-control text-uppercase font-monospace"
+               placeholder="VD: KG, LIT, CAI" maxlength="10" />
+        <div class="form-text small">Mã định danh đơn vị, viết hoa, không trùng</div>
+        <span asp-validation-for="UnitCode" class="text-danger small"></span>
+    </div>
+
+    <!-- IsActive -->
+    <div class="col-12">
+        <div class="form-check form-switch">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+</div>

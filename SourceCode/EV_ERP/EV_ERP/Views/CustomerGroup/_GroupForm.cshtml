@@ -1,0 +1,41 @@
+@model EV_ERP.Models.ViewModels.Customers.CustomerGroupFormViewModel
+
+<div class="row g-3">
+    <!-- Group Name -->
+    <div class="col-12">
+        <label asp-for="GroupName" class="form-label fw-semibold small"></label>
+        <input asp-for="GroupName" class="form-control" placeholder="VD: Khách hàng VIP, Khách hàng mới..." autofocus />
+        <span asp-validation-for="GroupName" class="text-danger small"></span>
+    </div>
+
+    <!-- Group Code + Priority -->
+    <div class="col-md-7">
+        <label asp-for="GroupCode" class="form-label fw-semibold small"></label>
+        <input asp-for="GroupCode" class="form-control text-uppercase font-monospace"
+               placeholder="VD: VIP, REGULAR, NEW" maxlength="20" />
+        <div class="form-text small">Mã định danh nhóm, viết hoa, không trùng</div>
+        <span asp-validation-for="GroupCode" class="text-danger small"></span>
+    </div>
+    <div class="col-md-5">
+        <label asp-for="PriorityLevel" class="form-label fw-semibold small"></label>
+        <input asp-for="PriorityLevel" type="number" min="0" max="9999" class="form-control" />
+        <div class="form-text small">Số nhỏ hơn hiển thị trước</div>
+        <span asp-validation-for="PriorityLevel" class="text-danger small"></span>
+    </div>
+
+    <!-- Description -->
+    <div class="col-12">
+        <label asp-for="Description" class="form-label fw-semibold small"></label>
+        <textarea asp-for="Description" class="form-control" rows="2"
+                  placeholder="Mô tả ngắn về nhóm khách hàng..."></textarea>
+        <span asp-validation-for="Description" class="text-danger small"></span>
+    </div>
+
+    <!-- IsActive -->
+    <div class="col-12">
+        <div class="form-check form-switch">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox" role="switch" />
+            <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+        </div>
+    </div>
+</div>

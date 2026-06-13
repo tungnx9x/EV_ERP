@@ -1,0 +1,151 @@
+@model EV_ERP.Models.ViewModels.Products.UnitListViewModel
+@{
+    ViewData["Title"] = "Đơn vị tính";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Đơn vị tính")
+    };
+}
+
+<!-- Header -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h5 class="mb-0 fw-bold">Đơn vị tính</h5>
+        <div class="text-muted small">@Model.TotalCount đơn vị</div>
+    </div>
+    <a href="/Unit/Create" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Thêm đơn vị
+    </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-12 col-sm-5 col-md-4">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input name="keyword" value="@Model.SearchKeyword" type="text"
+                           class="form-control border-start-0 ps-0"
+                           placeholder="Tìm tên, mã đơn vị..." />
+                </div>
+            </div>
+            <div class="col-6 col-sm-4 col-md-3">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" selected="@(string.IsNullOrEmpty(Model.FilterStatus))">Tất cả</option>
+                    <option value="active" selected="@(Model.FilterStatus == "active")">Đang hoạt động</option>
+                    <option value="inactive" selected="@(Model.FilterStatus == "inactive")">Vô hiệu</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Lọc</button>
+                <a href="/Unit" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!Model.Units.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-rulers" style="font-size:2.5rem;opacity:.25;"></i>
+                <p class="mt-3 mb-0">Không tìm thấy đơn vị tính nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Đơn vị</th>
+                            <th class="text-center" style="width:120px;">Mã</th>
+                            <th class="text-center" style="width:100px;">Sản phẩm</th>
+                            <th class="text-center" style="width:110px;">Trạng thái</th>
+                            <th style="width:100px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var u in Model.Units)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td class="fw-semibold">@u.UnitName</td>
+                                <td class="text-center text-muted small font-monospace">@u.UnitCode</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">@u.ProductCount</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-@u.StatusBadge-subtle text-@u.StatusBadge-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.45rem;vertical-align:middle;"></i>
+                                        @u.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/Unit/Edit/@u.UnitId"
+                                           class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Xóa"
+                                                onclick="deleteUnit(@u.UnitId, '@u.UnitName', @u.ProductCount)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+</style>
+
+@section Scripts {
+    <script>
+        async function deleteUnit(id, name, productCount) {
+            if (productCount > 0) {
+                appAlert('Không thể xóa đơn vị "' + name + '" vì đang được dùng bởi ' + productCount +
+                    ' sản phẩm. Vui lòng chuyển các sản phẩm sang đơn vị khác hoặc vô hiệu hóa đơn vị này.');
+                return;
+            }
+
+            if (!await appConfirm('Bạn có chắc muốn xóa đơn vị "' + name + '"? Thao tác này không thể hoàn tác.')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken',
+                document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '');
+
+            fetch('/Unit/Delete/' + id, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) {
+                        appToast(data.Message || 'Đã xóa đơn vị');
+                        setTimeout(function () { location.reload(); }, 600);
+                    } else {
+                        appAlert(data.Message || 'Xóa thất bại');
+                    }
+                })
+                .catch(err => appAlert('Lỗi: ' + err.message));
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

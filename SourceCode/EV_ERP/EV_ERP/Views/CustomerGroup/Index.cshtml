@@ -1,0 +1,156 @@
+@model EV_ERP.Models.ViewModels.Customers.CustomerGroupListViewModel
+@{
+    ViewData["Title"] = "Nhóm khách hàng";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Nhóm khách hàng")
+    };
+}
+
+<!-- Header -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h5 class="mb-0 fw-bold">Nhóm khách hàng</h5>
+        <div class="text-muted small">@Model.TotalCount nhóm</div>
+    </div>
+    <a href="/CustomerGroup/Create" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Thêm nhóm
+    </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-12 col-sm-5 col-md-4">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input name="keyword" value="@Model.SearchKeyword" type="text"
+                           class="form-control border-start-0 ps-0"
+                           placeholder="Tìm tên, mã nhóm..." />
+                </div>
+            </div>
+            <div class="col-6 col-sm-4 col-md-3">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" selected="@(string.IsNullOrEmpty(Model.FilterStatus))">Tất cả</option>
+                    <option value="active" selected="@(Model.FilterStatus == "active")">Đang hoạt động</option>
+                    <option value="inactive" selected="@(Model.FilterStatus == "inactive")">Vô hiệu</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Lọc</button>
+                <a href="/CustomerGroup" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!Model.Groups.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-diagram-3" style="font-size:2.5rem;opacity:.25;"></i>
+                <p class="mt-3 mb-0">Không tìm thấy nhóm khách hàng nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th>Nhóm</th>
+                            <th class="d-none d-md-table-cell">Mô tả</th>
+                            <th class="text-center" style="width:90px;">Ưu tiên</th>
+                            <th class="text-center" style="width:100px;">Khách hàng</th>
+                            <th class="text-center" style="width:110px;">Trạng thái</th>
+                            <th style="width:100px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int idx = 1; }
+                        @foreach (var g in Model.Groups)
+                        {
+                            <tr>
+                                <td class="text-muted small">@(idx++)</td>
+                                <td>
+                                    <div class="fw-semibold">@g.GroupName</div>
+                                    <div class="text-muted small font-monospace">@g.GroupCode</div>
+                                </td>
+                                <td class="d-none d-md-table-cell text-muted small">@g.Description</td>
+                                <td class="text-center">@g.PriorityLevel</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">@g.CustomerCount</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-@g.StatusBadge-subtle text-@g.StatusBadge-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.45rem;vertical-align:middle;"></i>
+                                        @g.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/CustomerGroup/Edit/@g.CustomerGroupId"
+                                           class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Xóa"
+                                                onclick="deleteGroup(@g.CustomerGroupId, '@g.GroupName', @g.CustomerCount)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+</style>
+
+@section Scripts {
+    <script>
+        async function deleteGroup(id, name, customerCount) {
+            if (customerCount > 0) {
+                appAlert('Không thể xóa nhóm "' + name + '" vì đang có ' + customerCount +
+                    ' khách hàng. Vui lòng chuyển các khách hàng sang nhóm khác hoặc vô hiệu hóa nhóm này.');
+                return;
+            }
+
+            if (!await appConfirm('Bạn có chắc muốn xóa nhóm "' + name + '"? Thao tác này không thể hoàn tác.')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken',
+                document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '');
+
+            fetch('/CustomerGroup/Delete/' + id, { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) {
+                        appToast(data.Message || 'Đã xóa nhóm');
+                        setTimeout(function () { location.reload(); }, 600);
+                    } else {
+                        appAlert(data.Message || 'Xóa thất bại');
+                    }
+                })
+                .catch(err => appAlert('Lỗi: ' + err.message));
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

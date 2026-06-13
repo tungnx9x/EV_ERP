@@ -476,11 +476,37 @@
     }
 
     async function confirmInbound() {
+        // Bắt buộc đã chọn vị trí lưu kho cho mọi sản phẩm và đã có ảnh chứng từ trước khi xác nhận.
+        var allHaveLocation = @(Model.Items.All(i => !string.IsNullOrWhiteSpace(i.LocationCode)) ? "true" : "false");
+        var attachmentCount = @Model.Attachments.Count;
+
+        if (!allHaveLocation) {
+            appAlert('Vui lòng chọn vị trí lưu kho cho tất cả sản phẩm trước khi xác nhận nhập kho.');
+            return;
+        }
+        if (attachmentCount === 0) {
+            appAlert('Cần có ảnh chứng từ trước khi xác nhận nhập kho: bắt buộc có ảnh hóa đơn và ảnh sản phẩm.');
+            return;
+        }
+
         if (!await appConfirm('Xác nhận nhập kho? Tồn kho sẽ được cập nhật.')) return;
         doAction('/Stock/ConfirmInbound/' + transId);
     }
 
     async function startDelivery() {
+        // Bắt buộc đã chọn vị trí lưu kho cho mọi sản phẩm và đã có ảnh chứng từ trước khi xuất giao.
+        var allHaveLocation = @(Model.Items.All(i => !string.IsNullOrWhiteSpace(i.LocationCode)) ? "true" : "false");
+        var attachmentCount = @Model.Attachments.Count;
+
+        if (!allHaveLocation) {
+            appAlert('Vui lòng chọn vị trí lưu kho cho tất cả sản phẩm trước khi xuất giao.');
+            return;
+        }
+        if (attachmentCount === 0) {
+            appAlert('Cần có ảnh chứng từ trước khi xuất giao: bắt buộc có ảnh hóa đơn và ảnh sản phẩm.');
+            return;
+        }
+
         if (!await appConfirm('Bắt đầu giao hàng? Tồn kho sẽ bị trừ.')) return;
         doAction('/Stock/StartDelivery/' + transId);
     }

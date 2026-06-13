@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.ViewModels.Customers;
@@ -109,12 +110,12 @@ namespace EV_ERP.Services
         {
             var repo = _uow.Repository<Customer>();
 
-            if (!string.IsNullOrWhiteSpace(model.TaxCode))
+            if (!string.IsNullOrWhiteSpace(model.Phone))
             {
-                var taxConflict = await repo.AnyAsync(
-                    c => c.TaxCode == model.TaxCode.Trim() && c.IsActive);
-                if (taxConflict)
-                    return (false, "Mã số thuế này đã được sử dụng");
+                var phone = model.Phone.Trim();
+                var phoneConflict = await repo.AnyAsync(c => c.Phone == phone && c.IsActive);
+                if (phoneConflict)
+                    return (false, "Số điện thoại này đã được sử dụng");
             }
 
             var code = await GenerateCustomerCodeAsync();
@@ -161,14 +162,15 @@ namespace EV_ERP.Services
             if (customer == null)
                 return (false, "Không tìm thấy khách hàng");
 
-            if (!string.IsNullOrWhiteSpace(model.TaxCode))
+            if (!string.IsNullOrWhiteSpace(model.Phone))
             {
-                var taxConflict = await repo.AnyAsync(
-                    c => c.TaxCode == model.TaxCode.Trim() &&
+                var phone = model.Phone.Trim();
+                var phoneConflict = await repo.AnyAsync(
+                    c => c.Phone == phone &&
                          c.CustomerId != model.CustomerId.Value &&
                          c.IsActive);
-                if (taxConflict)
-                    return (false, "Mã số thuế này đã được sử dụng bởi khách hàng khác");
+                if (phoneConflict)
+                    return (false, "Số điện thoại này đã được sử dụng bởi khách hàng khác");
             }
 
             customer.CustomerName = model.CustomerName.Trim();
@@ -278,6 +280,172 @@ namespace EV_ERP.Services
             };
         }
 
+        // ── Import from Excel ────────────────────────────
+        // Expected columns (header row auto-detected & skipped):
+        //   A = Tên khách hàng (bắt buộc) | B = Địa chỉ | C = Số điện thoại
+        //   D = Email | E = Website
+        // Customer group is forced to "NEW" (Khách hàng mới).
+        public async Task<CustomerImportResult> ImportFromExcelAsync(IFormFile file, int createdBy)
+        {
+            var result = new CustomerImportResult();
+
+            if (file == null || file.Length == 0)
+            {
+                result.ErrorMessage = "File không hợp lệ";
+                return result;
+            }
+
+            // Resolve default "New Customer" group
+            var newGroupId = await _uow.Repository<CustomerGroup>().Query()
+                .Where(g => g.GroupCode == "NEW")
+                .Select(g => (int?)g.CustomerGroupId)
+                .FirstOrDefaultAsync();
+
+            IXLWorksheet ws;
+            try
+            {
+                using var stream = file.OpenReadStream();
+                using var wb = new XLWorkbook(stream);
+                ws = wb.Worksheet(1);
+                if (ws == null)
+                {
+                    result.ErrorMessage = "Không đọc được sheet đầu tiên";
+                    return result;
+                }
+
+                int lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
+                if (lastRow == 0)
+                {
+                    result.ErrorMessage = "File không có dữ liệu";
+                    return result;
+                }
+
+                // Detect header: if row 1 col A is non-numeric text containing "tên"/"name"
+                // or any header keyword, treat it as a header and start at row 2.
+                int startRow = 1;
+                var firstA = ws.Cell(1, 1).GetString().Trim().ToLower();
+                if (firstA.Contains("tên") || firstA.Contains("name") ||
+                    firstA.Contains("khách") || firstA == "stt" || firstA == "#")
+                    startRow = 2;
+
+                var repo = _uow.Repository<Customer>();
+
+                // Seed the running code counter once for the whole batch
+                int nextCode = await GetNextCustomerCodeNumberAsync();
+
+                // Phone-based duplicate detection: load existing active phones once,
+                // and track phones added during this import to catch intra-file dupes.
+                var existingPhones = await repo.Query()
+                    .Where(c => c.IsActive && c.Phone != null && c.Phone != "")
+                    .Select(c => c.Phone!)
+                    .ToListAsync();
+                var seenPhones = new HashSet<string>(existingPhones, StringComparer.OrdinalIgnoreCase);
+
+                for (int r = startRow; r <= lastRow; r++)
+                {
+                    var name = ws.Cell(r, 1).GetString().Trim();
+                    var address = ws.Cell(r, 2).GetString().Trim();
+                    var phone = ws.Cell(r, 3).GetString().Trim();
+                    var email = ws.Cell(r, 4).GetString().Trim();
+                    var website = ws.Cell(r, 5).GetString().Trim();
+
+                    // Skip fully-empty rows silently
+                    if (string.IsNullOrWhiteSpace(name) &&
+                        string.IsNullOrWhiteSpace(address) &&
+                        string.IsNullOrWhiteSpace(phone) &&
+                        string.IsNullOrWhiteSpace(email) &&
+                        string.IsNullOrWhiteSpace(website))
+                        continue;
+
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        result.RowErrors.Add($"Dòng {r}: thiếu tên khách hàng → bỏ qua");
+                        result.SkippedCount++;
+                        continue;
+                    }
+
+                    // Skip duplicates based on phone number (existing DB or earlier in file)
+                    if (!string.IsNullOrWhiteSpace(phone) && !seenPhones.Add(phone))
+                    {
+                        result.RowErrors.Add($"Dòng {r}: số điện thoại '{phone}' đã tồn tại → bỏ qua");
+                        result.SkippedCount++;
+                        continue;
+                    }
+
+                    var customer = new Customer
+                    {
+                        CustomerCode = $"KH-{nextCode:D4}",
+                        CustomerName = name,
+                        Address = string.IsNullOrWhiteSpace(address) ? null : address,
+                        Phone = string.IsNullOrWhiteSpace(phone) ? null : phone,
+                        Email = string.IsNullOrWhiteSpace(email) ? null : email.ToLower(),
+                        Website = string.IsNullOrWhiteSpace(website) ? null : website,
+                        CustomerGroupId = newGroupId,
+                        PaymentTermDays = 30,
+                        IsActive = true,
+                        CreatedBy = createdBy,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+
+                    await repo.AddAsync(customer);
+                    nextCode++;
+                    result.ImportedCount++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Customer Excel import failed");
+                result.ErrorMessage = "Không đọc được file Excel. Vui lòng kiểm tra định dạng.";
+                return result;
+            }
+
+            if (result.ImportedCount == 0)
+            {
+                result.ErrorMessage = result.SkippedCount > 0
+                    ? $"Không có khách hàng nào được thêm. Đã bỏ qua {result.SkippedCount} dòng (trùng hoặc thiếu dữ liệu)."
+                    : "Không có dòng dữ liệu hợp lệ để import";
+                return result;
+            }
+
+            await _uow.SaveChangesAsync();
+            result.Success = true;
+            _logger.LogInformation("Customer import: {Count} created by UserId={UserId}",
+                result.ImportedCount, createdBy);
+            return result;
+        }
+
+        // ── Import template ──────────────────────────────
+        public byte[] BuildImportTemplate()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet("Khách hàng");
+
+            string[] headers = { "Tên khách hàng (*)", "Địa chỉ", "Số điện thoại", "Email", "Website" };
+            for (int c = 0; c < headers.Length; c++)
+            {
+                var cell = ws.Cell(1, c + 1);
+                cell.Value = headers[c];
+                cell.Style.Font.Bold = true;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#E0F2FE");
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            // Sample row to illustrate the expected format
+            ws.Cell(2, 1).Value = "Khách sạn ABC";
+            ws.Cell(2, 2).Value = "123 Lê Lợi, Quận 1, TP.HCM";
+            ws.Cell(2, 3).Value = "0901234567";
+            ws.Cell(2, 4).Value = "lienhe@abc.com";
+            ws.Cell(2, 5).Value = "https://abc.com";
+
+            ws.Columns(1, 5).AdjustToContents();
+            ws.SheetView.FreezeRows(1);
+
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+            return ms.ToArray();
+        }
+
         // ── Contacts ─────────────────────────────────────
         public async Task<(bool Success, string? ErrorMessage)> SaveContactAsync(ContactFormModel model)
         {
@@ -378,6 +546,9 @@ namespace EV_ERP.Services
 
         // ── Private Helpers ──────────────────────────────
         private async Task<string> GenerateCustomerCodeAsync()
+            => $"KH-{await GetNextCustomerCodeNumberAsync():D4}";
+
+        private async Task<int> GetNextCustomerCodeNumberAsync()
         {
             var last = await _uow.Repository<Customer>().Query()
                 .Where(c => c.CustomerCode.StartsWith("KH-"))
@@ -391,7 +562,7 @@ namespace EV_ERP.Services
                     next = n + 1;
             }
 
-            return $"KH-{next:D4}";
+            return next;
         }
 
         private async Task<List<CustomerGroupOptionViewModel>> GetGroupOptionsAsync()

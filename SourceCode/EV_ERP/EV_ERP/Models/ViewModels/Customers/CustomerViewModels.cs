@@ -177,6 +177,16 @@ namespace EV_ERP.Models.ViewModels.Customers
         public string? Notes { get; set; }
     }
 
+    // ── Import ───────────────────────────────────────────
+    public class CustomerImportResult
+    {
+        public bool Success { get; set; }
+        public string? ErrorMessage { get; set; }
+        public int ImportedCount { get; set; }
+        public int SkippedCount { get; set; }
+        public List<string> RowErrors { get; set; } = [];
+    }
+
     // ── Notes ────────────────────────────────────────────
     public class NoteViewModel
     {

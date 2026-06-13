@@ -78,6 +78,7 @@ public class SalesResultRowViewModel
 {
     public int SalesOrderId { get; set; }
     public string SalesOrderNo { get; set; } = string.Empty;
+    public int CustomerId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
     public string? CustomerPoNo { get; set; }
     public string ProductName { get; set; } = string.Empty;

@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using EV_ERP.Hubs;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
 using EV_ERP.Models.Entities.Inventory;
@@ -8,6 +9,7 @@ using EV_ERP.Models.Entities.System;
 using EV_ERP.Models.ViewModels.Stock;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace EV_ERP.Services
@@ -656,6 +658,11 @@ namespace EV_ERP.Services
                 t.Status = "CANCELLED";
                 _uow.Repository<StockTransaction>().Update(t);
                 await _uow.SaveChangesAsync();
+
+                // v3.0 — hủy phiếu xuất kho Nháp ⇒ đơn có thể quay lại "đã nhập kho".
+                if (t.TransactionType == "OUTBOUND" && t.SalesOrderId.HasValue)
+                    await GetSalesOrderService().RollUpStatusAsync(t.SalesOrderId.Value, userId);
+
                 return (true, null);
             }
             catch (Exception ex)
@@ -714,6 +721,21 @@ namespace EV_ERP.Services
 
                 // Validate each line
                 var soItemMap = so.Items.ToDictionary(i => i.SOItemId);
+
+                // SL từng dòng đang nằm trong phiếu xuất kho NHÁP (chưa xác nhận giao) — chặn tạo phiếu xuất trùng.
+                Dictionary<int, decimal> pendingDeliverByItem = new();
+                if (transactionType == "OUTBOUND")
+                {
+                    pendingDeliverByItem = await _uow.Repository<StockTransactionItem>().Query()
+                        .Where(sti => sti.SOItemId != null
+                                   && sti.Transaction.TransactionType == "OUTBOUND"
+                                   && sti.Transaction.Status == "DRAFT"
+                                   && sti.Transaction.SalesOrderId == salesOrderId)
+                        .GroupBy(sti => sti.SOItemId!.Value)
+                        .Select(g => new { SOItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                        .ToDictionaryAsync(x => x.SOItemId, x => x.Qty);
+                }
+
                 foreach (var (soItemId, qty) in batchItems)
                 {
                     if (!soItemMap.TryGetValue(soItemId, out var line))
@@ -733,10 +755,13 @@ namespace EV_ERP.Services
                     }
                     else // OUTBOUND
                     {
-                        var deliverable = line.ReceivedQty - line.DeliveredQty;
+                        var pendingDeliver = pendingDeliverByItem.TryGetValue(soItemId, out var pd) ? pd : 0m;
+                        var deliverable = line.ReceivedQty - line.DeliveredQty - pendingDeliver;
                         if (qty > deliverable)
                             return (false,
-                                $"Dòng '{line.ProductName}': tối đa giao {deliverable:N3} (còn trong kho)",
+                                pendingDeliver > 0
+                                    ? $"Dòng '{line.ProductName}': tối đa giao {deliverable:N3} (đã có {pendingDeliver:N3} trong phiếu xuất kho nháp chưa xác nhận)"
+                                    : $"Dòng '{line.ProductName}': tối đa giao {deliverable:N3} (còn trong kho)",
                                 null);
                     }
                 }
@@ -785,12 +810,60 @@ namespace EV_ERP.Services
                 _logger.LogInformation("Created {Type} {No} for SO {SoNo} — {Lines} lines",
                     transactionType, transNo, so.SalesOrderNo, batchItems.Count);
 
+                // Báo cho nhân viên kho: có phiếu nhập kho mới đang chờ xử lý.
+                if (transactionType == "INBOUND")
+                    await NotifyWarehouseInboundCreatedAsync(entity, so);
+
+                // v3.0 — tạo phiếu xuất kho (dù còn Nháp) ⇒ đơn chuyển sang "đang giao".
+                if (transactionType == "OUTBOUND")
+                    await GetSalesOrderService().RollUpStatusAsync(salesOrderId, userId);
+
                 return (true, null, entity.TransactionId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating batch stock transaction for SO {Id}", salesOrderId);
                 return (false, "Lỗi hệ thống khi tạo phiếu kho", null);
+            }
+        }
+
+        // ── Notify warehouse staff that a new INBOUND receipt is waiting to be processed ─
+        private async Task NotifyWarehouseInboundCreatedAsync(StockTransaction trans, SalesOrder so)
+        {
+            try
+            {
+                var warehouseUserIds = await _uow.Repository<User>().Query()
+                    .Where(u => u.IsActive && !u.IsLocked && u.Role.RoleCode == "WAREHOUSE")
+                    .Select(u => u.UserId)
+                    .ToListAsync();
+                if (warehouseUserIds.Count == 0) return;
+
+                var notif = _services.GetRequiredService<INotificationService>();
+                var hub = _services.GetRequiredService<IHubContext<NotificationHub>>();
+
+                var title = $"Phiếu nhập kho mới: {trans.TransactionNo}";
+                var message = $"Đơn {so.SalesOrderNo} đã tạo phiếu nhập kho {trans.TransactionNo}, đang chờ kho xử lý.";
+                var actionUrl = $"/Stock/Detail/{trans.TransactionId}";
+
+                foreach (var uid in warehouseUserIds)
+                {
+                    await notif.CreateAsync(uid, title, message,
+                        "STOCK_INBOUND_CREATED", "INFO", "STOCK_TRANSACTION", (int)trans.TransactionId, actionUrl);
+
+                    await hub.Clients.Group($"user-{uid}")
+                        .SendAsync("ReceiveNotification", new
+                        {
+                            Title = title,
+                            Message = message,
+                            Severity = "INFO",
+                            ActionUrl = actionUrl
+                        });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Notification failure must not roll back the (already-saved) receipt.
+                _logger.LogError(ex, "Failed to notify warehouse staff for inbound {No}", trans.TransactionNo);
             }
         }
 

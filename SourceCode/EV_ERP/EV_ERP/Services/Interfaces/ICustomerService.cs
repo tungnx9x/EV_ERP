@@ -11,6 +11,10 @@ namespace EV_ERP.Services.Interfaces
         Task<(bool Success, string? ErrorMessage)> ToggleActiveAsync(int customerId, int updatedBy);
         Task<CustomerDetailViewModel?> GetDetailAsync(int customerId);
 
+        // Import
+        Task<CustomerImportResult> ImportFromExcelAsync(Microsoft.AspNetCore.Http.IFormFile file, int createdBy);
+        byte[] BuildImportTemplate();
+
         // Contacts
         Task<(bool Success, string? ErrorMessage)> SaveContactAsync(ContactFormModel model);
         Task<(bool Success, string? ErrorMessage)> DeleteContactAsync(int contactId);

@@ -12,6 +12,7 @@
     int currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
     string currentRole = (ViewBag.CurrentRoleCode as string) ?? "";
     bool isWarehouse = currentRole == "WAREHOUSE";
+    bool isAccountant = currentRole is "ACCOUNTANT" or "ADMIN";   // settlement approval is an accounting action
     bool showMoney = !isWarehouse;   // pricing / cost / profit / advance — hidden from warehouse role
     bool canManageStatus = isManager || Model.SalesPersonId == currentUserId;
     bool showBuyingInfo = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "RETURNED" or "COMPLETED" or "REPORTED";
@@ -129,17 +130,8 @@
             }
             @if (Model.Status == "DELIVERED" && canManageStatus)
             {
-                <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
-                    <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
-                </button>
                 <button class="btn btn-sm btn-warning" onclick="showReturnModal()">
                     <i class="bi bi-arrow-return-left me-1"></i> Trả hàng
-                </button>
-            }
-            @if (Model.Status == "RETURNED" && canManageStatus)
-            {
-                <button class="btn btn-sm btn-success" onclick="showCompleteModal()">
-                    <i class="bi bi-check-all me-1"></i> Hoàn tất quyết toán
                 </button>
             }
             @* @if (Model.Status == "COMPLETED" && canManageStatus)
@@ -148,6 +140,13 @@
                     <i class="bi bi-file-earmark-bar-graph me-1"></i> Nộp báo cáo KQKD
                 </button>
             } *@
+        }
+        @* Hoàn tất quyết toán — chỉ Kế toán mới được duyệt & chuyển trạng thái (DELIVERED/RETURNED → COMPLETED) *@
+        @if (isAccountant && Model.Status is "DELIVERED" or "RETURNED")
+        {
+            <button class="btn btn-sm btn-success" onclick="confirmComplete()">
+                <i class="bi bi-check-all me-1"></i> Duyệt quyết toán
+            </button>
         }
     </div>
 </div>
@@ -223,8 +222,27 @@
     </div>
 </div>
 <!-- Info cards -->
+@{
+    // When a status has no secondary cards to show on the right (e.g. WAIT / "Chờ tạm ứng"),
+    // render Order Information full-width instead of leaving the right half empty.
+    bool hasSecondaryCards = (canEdit && Model.Status == "DRAFT")
+        || showBuyingInfo
+        || Model.DeliveringAt.HasValue || Model.DeliveredAt.HasValue || Model.ReturnedAt.HasValue
+        || Model.CompletedAt.HasValue || Model.ReportedAt.HasValue
+        || (showMoney && Model.Status is "COMPLETED" or "REPORTED" or "RETURNED" && Model.ActualCost.HasValue)
+        || Model.Status is "CANCELLED" or "RETURNED"
+        || !string.IsNullOrEmpty(Model.Notes)
+        || !string.IsNullOrEmpty(Model.InternalNotes);
+}
+<style>
+    /* When Order Information spans the full width, pack its fields 4-per-row on desktop
+       so they don't stretch into a sparse 2-per-row layout. */
+    @@media (min-width: 768px) {
+        .order-info-full .row.g-2.small > [class*="col-"] { flex: 0 0 auto; width: 25%; }
+    }
+</style>
 <div class="row g-3">
-    <div class="col-lg-6">
+    <div class="col-lg-@(hasSecondaryCards ? "6" : "12") @(hasSecondaryCards ? "" : "order-info-full")">
         <!-- Order info -->
         <div class="card border-0 shadow-sm mb-3 border-start border-4 border-info">
             <div class="card-body">
@@ -285,6 +303,8 @@
 
         @* Advance info — moved to dedicated full-width card below items/totals (v2.2 multi-advance) *@
     </div>
+    @if (hasSecondaryCards)
+    {
     <div class="col-lg-6">
          <!-- PO KH editable (DRAFT only) -->
          @if (canEdit && Model.Status == "DRAFT")
@@ -515,6 +535,7 @@
                </div>
            }
         </div>
+    }
 </div>
 <!-- Items + Totals -->
 <div class="row g-3">
@@ -687,6 +708,13 @@
                                                     @item.ReceivedQty.ToString("0.###") / @item.EffectiveQty.ToString("0.###")
                                                 </span>
                                             </div>
+                                            @if (item.PendingReceiveQty > 0)
+                                            {
+                                                <div class="badge bg-warning-subtle text-warning-emphasis border" style="font-size:0.65rem;"
+                                                     title="Đang chờ Kho xác nhận phiếu nhập đã tạo">
+                                                    Chờ nhập kho: @item.PendingReceiveQty.ToString("0.###")
+                                                </div>
+                                            }
                                             <div>
                                                 <span class="text-muted">Giao:</span>
                                                 <span class="fw-semibold @(item.RemainingDeliverQty > 0 ? "text-warning-emphasis" : "text-success")">
@@ -697,6 +725,13 @@
                                             {
                                                 <div class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:0.65rem;">
                                                     Trong kho: @item.InStockQty.ToString("0.###")
+                                                </div>
+                                            }
+                                            @if (item.PendingDeliverQty > 0)
+                                            {
+                                                <div class="badge bg-warning-subtle text-warning-emphasis border" style="font-size:0.65rem;"
+                                                     title="Đang chờ Kho xác nhận phiếu xuất đã tạo">
+                                                    Chờ xuất kho: @item.PendingDeliverQty.ToString("0.###")
                                                 </div>
                                             }
                                         </td>
@@ -846,7 +881,7 @@
                                                         <li>
                                                             <a class="dropdown-item small" href="#"
                                                                onclick="openEditItemModal(@item.SOItemId); return false;">
-                                                                <i class="bi bi-pencil me-1"></i> Sửa giá / nguồn / ngày
+                                                                <i class="bi bi-pencil me-1"></i> Sửa ngày dự kiến
                                                             </a>
                                                         </li>
                                                         @if (item.RemainingReceiveQty > 0)
@@ -1261,28 +1296,27 @@
                                 <th class="text-end" style="width:70px;">SL</th>
                                 <th class="text-end" style="width:130px;">Giá mua</th>
                                 <th class="text-end" style="width:110px;">Chi phí</th>
-                                <th style="width:140px;">Dự kiến về</th>
+                                <th style="width:140px;">Dự kiến về <span class="text-danger">*</span></th>
                                 <th style="width:160px;">Nguồn</th>
                             </tr>
                         </thead>
                         <tbody id="buyingItemsBody">
-                            @foreach (var item in Model.Items)
+                            @foreach (var item in Model.Items.Where(i => i.EffectiveQty > 0))
                             {
                                 <tr data-item-id="@item.SOItemId">
                                     <td class="text-center">
                                         <input type="checkbox" class="buying-include" checked />
                                     </td>
                                     <td>@item.ProductName</td>
-                                    <td class="text-end">@item.Quantity.ToString("0.###")</td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm text-end purchase-price-input"
-                                               data-item-id="@item.SOItemId" data-qty="@item.Quantity"
-                                               value="@(item.PurchasePrice ?? 0)" min="0" />
+                                    <td class="text-end">@item.EffectiveQty.ToString("0.###")</td>
+                                    <td class="text-end purchase-price-cell" data-item-id="@item.SOItemId"
+                                        data-qty="@item.EffectiveQty" data-price="@(item.PurchasePrice ?? 0)">
+                                        @((item.PurchasePrice ?? 0).ToString("N0"))
                                     </td>
                                     <td class="text-end line-cost-cell">0</td>
                                     <td>
                                         <input type="date" class="form-control form-control-sm expected-receive-input"
-                                               data-item-id="@item.SOItemId" />
+                                               data-item-id="@item.SOItemId" required />
                                     </td>
                                     <td>
                                         <input type="text" class="form-control form-control-sm source-url-input"
@@ -1321,16 +1355,12 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Sửa thông tin mua dòng <span id="editItemLabel" class="text-muted small ms-1"></span></h6>
+                <h6 class="modal-title fw-bold">Sửa ngày dự kiến <span id="editItemLabel" class="text-muted small ms-1"></span></h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editItemId" />
                 <div class="row g-2 small">
-                    <div class="col-6">
-                        <label class="form-label small fw-semibold mb-1">Giá mua</label>
-                        <input type="number" id="editItemPrice" class="form-control form-control-sm text-end" min="0" />
-                    </div>
                     <div class="col-6">
                         <label class="form-label small fw-semibold mb-1">Dự kiến về</label>
                         <input type="date" id="editItemExpReceive" class="form-control form-control-sm" />
@@ -1338,18 +1368,6 @@
                     <div class="col-6">
                         <label class="form-label small fw-semibold mb-1">Dự kiến giao</label>
                         <input type="date" id="editItemExpDeliver" class="form-control form-control-sm" />
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label small fw-semibold mb-1">Tên nguồn</label>
-                        <input type="text" id="editItemSourceName" class="form-control form-control-sm" />
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-semibold mb-1">URL nguồn</label>
-                        <input type="text" id="editItemSourceUrl" class="form-control form-control-sm" />
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-semibold mb-1">Ghi chú</label>
-                        <textarea id="editItemNotes" class="form-control form-control-sm" rows="2"></textarea>
                     </div>
                 </div>
             </div>
@@ -1595,22 +1613,38 @@
                                 </th>
                                 <th>Sản phẩm</th>
                                 <th class="text-end" style="width:110px;">Còn cần nhập</th>
+                                <th class="text-end" style="width:110px;" title="Số lượng đã có trong phiếu nhập kho nháp chưa xác nhận">Đã có phiếu nháp</th>
                                 <th class="text-end" style="width:130px;">SL nhập đợt này</th>
                             </tr>
                         </thead>
                         <tbody id="recvBatchBody">
                             @foreach (var item in Model.Items.Where(i => i.RemainingReceiveQty > 0))
                             {
-                                <tr data-item-id="@item.SOItemId" data-max="@item.RemainingReceiveQty">
+                                var pendingRecv = item.PendingReceiveQty;
+                                var availableRecv = item.RemainingReceiveQty - pendingRecv;
+                                if (availableRecv < 0) { availableRecv = 0; }
+                                var availStr = availableRecv.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                                <tr data-item-id="@item.SOItemId" data-max="@availStr">
                                     <td class="text-center">
-                                        <input type="checkbox" class="recv-include" />
+                                        <input type="checkbox" class="recv-include" @(availableRecv <= 0 ? "disabled" : "") />
                                     </td>
                                     <td>@item.ProductName <span class="text-muted small">(@item.UnitName)</span></td>
                                     <td class="text-end text-info-emphasis fw-semibold">@item.RemainingReceiveQty.ToString("0.###")</td>
+                                    <td class="text-end">
+                                        @if (pendingRecv > 0)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border"
+                                                  title="Đã có trong phiếu nhập kho nháp chưa xác nhận">@pendingRecv.ToString("0.###")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
+                                        }
+                                    </td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end recv-qty"
-                                               min="0" max="@item.RemainingReceiveQty" step="0.001"
-                                               value="@item.RemainingReceiveQty.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)" />
+                                               min="0" max="@availStr" step="0.001"
+                                               value="@availStr" @(availableRecv <= 0 ? "disabled" : "") />
                                     </td>
                                 </tr>
                             }
@@ -1823,23 +1857,39 @@
                                     <input type="checkbox" id="delivBatchCheckAll" title="Chọn/bỏ tất cả" />
                                 </th>
                                 <th>Sản phẩm</th>
-                                <th class="text-end" style="width:110px;">Trong kho</th>
-                                <th class="text-end" style="width:130px;">SL giao đợt này</th>
+                                <th class="text-end" style="width:90px;">Trong kho</th>
+                                <th class="text-end" style="width:110px;" title="Số lượng đã có trong phiếu xuất kho nháp chưa xác nhận">Đã có phiếu nháp</th>
+                                <th class="text-end" style="width:120px;">SL giao đợt này</th>
                             </tr>
                         </thead>
                         <tbody id="delivBatchBody">
                             @foreach (var item in Model.Items.Where(i => i.InStockQty > 0))
                             {
-                                <tr data-item-id="@item.SOItemId" data-max="@item.InStockQty">
+                                var pendingDel = item.PendingDeliverQty;
+                                var availableDel = item.InStockQty - pendingDel;
+                                if (availableDel < 0) { availableDel = 0; }
+                                var availDelStr = availableDel.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                                <tr data-item-id="@item.SOItemId" data-max="@availDelStr">
                                     <td class="text-center">
-                                        <input type="checkbox" class="deliv-include" />
+                                        <input type="checkbox" class="deliv-include" @(availableDel <= 0 ? "disabled" : "") />
                                     </td>
                                     <td>@item.ProductName <span class="text-muted small">(@item.UnitName)</span></td>
                                     <td class="text-end text-warning-emphasis fw-semibold">@item.InStockQty.ToString("0.###")</td>
+                                    <td class="text-end">
+                                        @if (pendingDel > 0)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border"
+                                                  title="Đã có trong phiếu xuất kho nháp chưa xác nhận">@pendingDel.ToString("0.###")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
+                                        }
+                                    </td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-end deliv-qty"
-                                               min="0" max="@item.InStockQty" step="0.001"
-                                               value="@item.InStockQty.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)" />
+                                               min="0" max="@availDelStr" step="0.001"
+                                               value="@availDelStr" @(availableDel <= 0 ? "disabled" : "") />
                                     </td>
                                 </tr>
                             }
@@ -1851,36 +1901,6 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                 <button type="button" class="btn btn-sm btn-warning" onclick="confirmDeliverBatch()">
                     <i class="bi bi-truck me-1"></i> Tạo phiếu xuất
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Complete Modal (DELIVERED → COMPLETED) -->
-<div class="modal fade" id="completeModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Hoàn tất quyết toán</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Chi phí thực tế</label>
-                    <input type="number" id="inputActualCost" class="form-control form-control-sm"
-                           placeholder="0" value="@(Model.PurchaseCost ?? 0)" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Ghi chú quyết toán</label>
-                    <textarea id="inputSettlementNotes" class="form-control form-control-sm" rows="3"
-                              placeholder="Hoàn ứng / thanh toán bổ sung..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-sm btn-success" onclick="confirmComplete()">
-                    <i class="bi bi-check-all me-1"></i> Hoàn tất
                 </button>
             </div>
         </div>
@@ -2461,19 +2481,15 @@
 
     function recalcBuying() {
         var total = 0;
-        document.querySelectorAll('.purchase-price-input').forEach(function (input) {
-            var price = parseFloat(input.value) || 0;
-            var qty = parseFloat(input.dataset.qty) || 0;
+        document.querySelectorAll('#buyingItemsBody .purchase-price-cell').forEach(function (cell) {
+            var price = parseFloat(cell.dataset.price) || 0;
+            var qty = parseFloat(cell.dataset.qty) || 0;
             var cost = price * qty;
             total += cost;
-            input.closest('tr').querySelector('.line-cost-cell').textContent = cost.toLocaleString('vi-VN');
+            cell.closest('tr').querySelector('.line-cost-cell').textContent = cost.toLocaleString('vi-VN');
         });
         document.getElementById('totalPurchaseCost').textContent = total.toLocaleString('vi-VN');
     }
-
-    document.querySelectorAll('.purchase-price-input').forEach(function (input) {
-        input.addEventListener('input', recalcBuying);
-    });
 
     // Check-all toggle for buying modal
     document.getElementById('buyingCheckAll')?.addEventListener('change', function (e) {
@@ -2483,17 +2499,24 @@
     function confirmBuying() {
         var items = [];
         var checkedAny = false;
+        var missingDate = false;
         document.querySelectorAll('#buyingItemsBody tr').forEach(function (tr) {
             var itemId = parseInt(tr.dataset.itemId);
             var include = tr.querySelector('.buying-include').checked;
             if (include) checkedAny = true;
-            var priceEl = tr.querySelector('.purchase-price-input');
+            var priceCell = tr.querySelector('.purchase-price-cell');
             var sourceUrlEl = tr.querySelector('.source-url-input');
             var expRecvEl = tr.querySelector('.expected-receive-input');
+            if (include && (!expRecvEl || !expRecvEl.value)) {
+                missingDate = true;
+                if (expRecvEl) expRecvEl.classList.add('is-invalid');
+            } else if (expRecvEl) {
+                expRecvEl.classList.remove('is-invalid');
+            }
             items.push({
                 SOItemId: itemId,
                 IncludeInBatch: include,
-                PurchasePrice: parseFloat(priceEl.value) || 0,
+                PurchasePrice: priceCell ? (parseFloat(priceCell.dataset.price) || 0) : 0,
                 SourceName: null,
                 SourceUrl: sourceUrlEl ? sourceUrlEl.value.trim() : null,
                 ExpectedReceiveDate: expRecvEl && expRecvEl.value ? expRecvEl.value : null
@@ -2501,6 +2524,8 @@
         });
 
         if (!checkedAny) { appAlert('Tích chọn ít nhất 1 dòng để bắt đầu mua'); return; }
+
+        if (missingDate) { appAlert('Vui lòng nhập "Dự kiến về" cho các dòng đã chọn'); return; }
 
         var body = {
             PurchaseSource: null,
@@ -2541,23 +2566,15 @@
         var it = findItem(soItemId); if (!it) return;
         document.getElementById('editItemId').value = soItemId;
         document.getElementById('editItemLabel').textContent = '— ' + it.name;
-        document.getElementById('editItemPrice').value = it.price ?? '';
         document.getElementById('editItemExpReceive').value = it.expReceive ?? '';
         document.getElementById('editItemExpDeliver').value = it.expDeliver ?? '';
-        document.getElementById('editItemSourceName').value = it.sourceName ?? '';
-        document.getElementById('editItemSourceUrl').value = it.sourceUrl ?? '';
-        document.getElementById('editItemNotes').value = it.notes ?? '';
         new bootstrap.Modal(document.getElementById('editItemModal')).show();
     }
     function confirmEditItem() {
         var id = parseInt(document.getElementById('editItemId').value);
         var body = {
-            PurchasePrice: parseFloat(document.getElementById('editItemPrice').value) || null,
             ExpectedReceiveDate: document.getElementById('editItemExpReceive').value || null,
-            ExpectedDeliveryDate: document.getElementById('editItemExpDeliver').value || null,
-            SourceName: document.getElementById('editItemSourceName').value.trim(),
-            SourceUrl: document.getElementById('editItemSourceUrl').value.trim(),
-            Notes: document.getElementById('editItemNotes').value.trim()
+            ExpectedDeliveryDate: document.getElementById('editItemExpDeliver').value || null
         };
         postAction('/SalesOrder/UpdateItemPurchase/' + soId + '?soItemId=' + id, body, function (data) {
             if (data.Success) location.reload(); else appAlert(data.Message || 'Lỗi');
@@ -2592,26 +2609,27 @@
     function openReceiveItemModal(soItemId) {
         var modal = document.getElementById('receiveBatchModal');
         modal.querySelectorAll('.recv-include').forEach(function (cb) {
-            cb.checked = (parseInt(cb.closest('tr').dataset.itemId) === soItemId);
+            cb.checked = (!cb.disabled && parseInt(cb.closest('tr').dataset.itemId) === soItemId);
         });
         document.getElementById('recvBatchDate').value = new Date().toISOString().slice(0, 10);
         new bootstrap.Modal(modal).show();
     }
     function showReceiveBatchModal() {
         var modal = document.getElementById('receiveBatchModal');
-        modal.querySelectorAll('.recv-include').forEach(function (cb) { cb.checked = true; });
+        modal.querySelectorAll('.recv-include').forEach(function (cb) { if (!cb.disabled) cb.checked = true; });
         document.getElementById('recvBatchDate').value = new Date().toISOString().slice(0, 10);
         new bootstrap.Modal(modal).show();
     }
     document.getElementById('recvBatchCheckAll')?.addEventListener('change', function (e) {
-        document.querySelectorAll('#recvBatchBody .recv-include').forEach(function (cb) { cb.checked = e.target.checked; });
+        document.querySelectorAll('#recvBatchBody .recv-include').forEach(function (cb) { if (!cb.disabled) cb.checked = e.target.checked; });
     });
     function confirmReceiveBatch() {
         var rows = document.querySelectorAll('#recvBatchBody tr');
         var items = [];
         var bad = null;
         rows.forEach(function (tr) {
-            if (!tr.querySelector('.recv-include').checked) return;
+            var inc = tr.querySelector('.recv-include');
+            if (!inc.checked || inc.disabled) return;
             var soItemId = parseInt(tr.dataset.itemId);
             var max = parseFloat(tr.dataset.max);
             var qty = parseFloat(tr.querySelector('.recv-qty').value);
@@ -2630,8 +2648,7 @@
         };
         postAction('/SalesOrder/ReceiveBatch/' + soId, body, function (data) {
             if (data.Success) {
-                appAlert(data.Message || 'Đã tạo phiếu nhập');
-                location.reload();
+                appAlert(data.Message || 'Đã tạo phiếu nhập').then(function () { location.reload(); });
             } else appAlert(data.Message || 'Lỗi');
         });
     }
@@ -2640,31 +2657,32 @@
     function openDeliverItemModal(soItemId) {
         var modal = document.getElementById('deliverBatchModal');
         modal.querySelectorAll('.deliv-include').forEach(function (cb) {
-            cb.checked = (parseInt(cb.closest('tr').dataset.itemId) === soItemId);
+            cb.checked = (!cb.disabled && parseInt(cb.closest('tr').dataset.itemId) === soItemId);
         });
         document.getElementById('delivBatchDate').value = new Date().toISOString().slice(0, 10);
         new bootstrap.Modal(modal).show();
     }
     function showDeliverBatchModal() {
         var modal = document.getElementById('deliverBatchModal');
-        modal.querySelectorAll('.deliv-include').forEach(function (cb) { cb.checked = true; });
+        modal.querySelectorAll('.deliv-include').forEach(function (cb) { if (!cb.disabled) cb.checked = true; });
         document.getElementById('delivBatchDate').value = new Date().toISOString().slice(0, 10);
         new bootstrap.Modal(modal).show();
     }
     document.getElementById('delivBatchCheckAll')?.addEventListener('change', function (e) {
-        document.querySelectorAll('#delivBatchBody .deliv-include').forEach(function (cb) { cb.checked = e.target.checked; });
+        document.querySelectorAll('#delivBatchBody .deliv-include').forEach(function (cb) { if (!cb.disabled) cb.checked = e.target.checked; });
     });
     function confirmDeliverBatch() {
         var rows = document.querySelectorAll('#delivBatchBody tr');
         var items = [];
         var bad = null;
         rows.forEach(function (tr) {
-            if (!tr.querySelector('.deliv-include').checked) return;
+            var inc = tr.querySelector('.deliv-include');
+            if (!inc.checked || inc.disabled) return;
             var soItemId = parseInt(tr.dataset.itemId);
             var max = parseFloat(tr.dataset.max);
             var qty = parseFloat(tr.querySelector('.deliv-qty').value);
             if (!qty || qty <= 0) { bad = 'Số lượng phải > 0'; return; }
-            if (qty > max) { bad = 'SL giao (' + qty + ') vượt quá tồn trong kho (' + max + ')'; return; }
+            if (qty > max) { bad = 'SL giao (' + qty + ') vượt quá SL có thể giao (' + max + ')'; return; }
             items.push({ SOItemId: soItemId, Quantity: qty });
         });
         if (bad) { appAlert(bad); return; }
@@ -2681,25 +2699,18 @@
         };
         postAction('/SalesOrder/DeliverBatch/' + soId, body, function (data) {
             if (data.Success) {
-                appAlert(data.Message || 'Đã tạo phiếu xuất');
-                location.reload();
+                appAlert(data.Message || 'Đã tạo phiếu xuất').then(function () { location.reload(); });
             } else appAlert(data.Message || 'Lỗi');
         });
     }
 
-    // ── DELIVERED → COMPLETED ───────────────────────
-    function showCompleteModal() {
-        new bootstrap.Modal(document.getElementById('completeModal')).show();
-    }
-
-    function confirmComplete() {
-        var body = {
-            ActualCost: parseFloat(document.getElementById('inputActualCost').value) || null,
-            SettlementNotes: document.getElementById('inputSettlementNotes').value.trim()
-        };
-        postAction('/SalesOrder/Complete/' + soId, body, function (data) {
-            if (data.Success) location.reload();
-            else appAlert(data.Message || 'Lỗi');
+    // ── DELIVERED|RETURNED → COMPLETED (Kế toán duyệt quyết toán, không popup) ──
+    async function confirmComplete() {
+        if (!await appConfirm('Duyệt quyết toán và hoàn tất đơn hàng này?')) return;
+        postAction('/SalesOrder/Complete/' + soId, {}, function (data) {
+            if (data.Success) {
+                appAlert(data.Message || 'Đã hoàn tất đơn hàng').then(function () { location.reload(); });
+            } else appAlert(data.Message || 'Lỗi');
         });
     }
 

@@ -131,6 +131,48 @@ namespace EV_ERP.Controllers
             return View(vm);
         }
 
+        // ── Import from Excel (Ajax) ─────────────────────
+        [HttpPost]
+        public async Task<IActionResult> ImportFromExcel(IFormFile file)
+        {
+            if (!CanEdit)
+                return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
+
+            try
+            {
+                var result = await _customerService.ImportFromExcelAsync(file, CurrentUserId);
+                if (!result.Success)
+                    return Json(ApiResult<object>.Fail(result.ErrorMessage ?? "Import thất bại"));
+
+                var msg = $"Đã import {result.ImportedCount} khách hàng thành công.";
+                if (result.SkippedCount > 0)
+                    msg += $" Bỏ qua {result.SkippedCount} dòng lỗi.";
+
+                return Json(ApiResult<object>.Ok(new
+                {
+                    result.ImportedCount,
+                    result.SkippedCount,
+                    result.RowErrors
+                }, msg));
+            }
+            catch (Exception)
+            {
+                return Json(ApiResult<object>.Fail("Có lỗi xảy ra khi import file"));
+            }
+        }
+
+        // ── Download Import Template ─────────────────────
+        [HttpGet]
+        public IActionResult ImportTemplate()
+        {
+            if (!CanEdit) return RedirectToAction("AccessDenied", "Auth");
+
+            var bytes = _customerService.BuildImportTemplate();
+            return File(bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "Mau_Import_KhachHang.xlsx");
+        }
+
         // ── Toggle Active (Ajax) ─────────────────────────
         [HttpPost]
         public async Task<IActionResult> ToggleActive(int id)

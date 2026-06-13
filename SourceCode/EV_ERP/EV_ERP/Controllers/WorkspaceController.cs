@@ -274,15 +274,19 @@ public class WorkspaceController : Controller
             Tasks = soWaitTasks
         });
 
-        // Pre-load SO IDs that have StockTransactions for steps 7-9
+        // Pre-load SO IDs that have StockTransactions for steps 7-9.
+        // INBOUND: only count CONFIRMED receipts — a DRAFT receipt (chưa xử lý) must keep the SO
+        // in the "đang mua" card, not move it to "đã nhập kho".
         var soIdsWithInbound = await _uow.Repository<StockTransaction>().Query()
-            .Where(st => st.SalesOrderId != null && st.TransactionType == "INBOUND")
+            .Where(st => st.SalesOrderId != null && st.TransactionType == "INBOUND"
+                      && st.Status == "CONFIRMED")
             .Select(st => st.SalesOrderId!.Value)
             .Distinct()
             .ToListAsync();
 
         var soIdsWithOutbound = await _uow.Repository<StockTransaction>().Query()
-            .Where(st => st.SalesOrderId != null && st.TransactionType == "OUTBOUND")
+            .Where(st => st.SalesOrderId != null && st.TransactionType == "OUTBOUND"
+                      && st.Status != "CANCELLED")
             .Select(st => st.SalesOrderId!.Value)
             .Distinct()
             .ToListAsync();
@@ -316,16 +320,25 @@ public class WorkspaceController : Controller
             Tasks = soBuyingTasks
         });
 
-        // ── 7. SOs with StockTransaction INBOUND (received in warehouse) ──
-        var soReceivedTasks = await _uow.Repository<SalesOrder>().Query()
+        // ── 7. SOs with a CONFIRMED INBOUND receipt (received in warehouse) ──
+        var soReceivedEntities = await _uow.Repository<SalesOrder>().Query()
             .Include(s => s.Customer)
-            .Include(s => s.Rfq)
+            .Include(s => s.Quotation)
+            .Include(s => s.Items)
             .Where(s => s.CreatedBy == userId
                      && soIdsWithInbound.Contains(s.SalesOrderId)
                      && !soIdsWithOutbound.Contains(s.SalesOrderId)
                      && s.Status != "COMPLETED" && s.Status != "REPORTED" && s.Status != "CANCELLED")
             .OrderByDescending(s => s.ReceivedAt)
-            .Select(s => new WorkspaceTaskItem
+            .ToListAsync();
+
+        var soReceivedTasks = soReceivedEntities.Select(s =>
+        {
+            // SP đã nhận / tổng SP (bỏ qua dòng đã hủy toàn bộ)
+            var activeLines = s.Items.Where(i => i.CancelledQty < i.Quantity).ToList();
+            int totalProducts = activeLines.Count;
+            int receivedProducts = activeLines.Count(i => i.ReceivedQty > 0);
+            return new WorkspaceTaskItem
             {
                 RfqNo = s.Quotation != null ? s.Quotation.QuotationNo : s.SalesOrderNo,
                 SalesOrderNo = s.SalesOrderNo,
@@ -333,9 +346,20 @@ public class WorkspaceController : Controller
                 DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
                 EntityType = "SALES_ORDER",
                 EntityId = s.SalesOrderId,
-                Notes = s.Notes
-            })
-            .ToListAsync();
+                Notes = s.Notes,
+                ExtraInfos =
+                [
+                    new TaskExtraInfo
+                    {
+                        Title = "Đã nhận",
+                        Value = $"{receivedProducts}/{totalProducts} SP",
+                        CssClass = receivedProducts >= totalProducts
+                            ? "bg-success text-white border"
+                            : "bg-info-subtle text-info-emphasis border"
+                    }
+                ]
+            };
+        }).ToList();
 
         vm.Cards.Add(new WorkspaceCard
         {
@@ -369,7 +393,7 @@ public class WorkspaceController : Controller
         vm.Cards.Add(new WorkspaceCard
         {
             StepNumber = 8,
-            Title = "Đơn hàng đã giao",
+            Title = "Đơn hàng đang giao",
             Icon = "bi-truck",
             BadgeColor = "info",
             Tasks = soDeliveringTasks
@@ -555,16 +579,74 @@ public class WorkspaceController : Controller
         ViewData["Title"] = "Workspace - Kế toán";
         var currentUser = CurrentUserObj;
 
+        var cards = await BuildAdvanceCardsAsync();
+        cards.Add(await BuildSettlementCardAsync());
+
         var vm = new WorkspaceViewModel
         {
             CanViewOthers = false,
             IsManagerOverview = false,
             ViewingUserId = currentUser.UserId,
             ViewingUserName = currentUser.FullName,
-            Cards = await BuildAdvanceCardsAsync()
+            Cards = cards
         };
 
         return View("Index", vm);
+    }
+
+    /// <summary>
+    /// Card "Đơn hàng chờ quyết toán" — mọi SO đang ở trạng thái DELIVERED đang chờ kế toán
+    /// duyệt quyết toán (DELIVERED → COMPLETED).
+    /// </summary>
+    private async Task<WorkspaceCard> BuildSettlementCardAsync()
+    {
+        // Materialize first (EF can't translate the formatted ExtraInfos projection), then map in memory.
+        var orders = await _uow.Repository<SalesOrder>().Query()
+            .Where(s => s.Status == "DELIVERED")
+            .OrderByDescending(s => s.DeliveredAt)
+            .Select(s => new
+            {
+                s.SalesOrderId,
+                s.SalesOrderNo,
+                QuotationNo = s.Quotation != null ? s.Quotation.QuotationNo : null,
+                CustomerName = s.Customer.CustomerName,
+                s.Notes,
+                s.DeliveredAt,
+                s.TotalAmount,
+                s.Currency
+            })
+            .ToListAsync();
+
+        var tasks = orders.Select(s => new WorkspaceTaskItem
+        {
+            RfqNo = s.QuotationNo ?? s.SalesOrderNo,
+            SalesOrderNo = s.SalesOrderNo,
+            CustomerName = s.CustomerName,
+            DetailUrl = $"/SalesOrder/Detail/{s.SalesOrderId}",
+            EntityType = "SALES_ORDER",
+            EntityId = s.SalesOrderId,
+            Notes = s.Notes,
+            CreatedAt = s.DeliveredAt,
+            IsShowElapsed = s.DeliveredAt.HasValue,
+            ExtraInfos =
+            [
+                new TaskExtraInfo
+                {
+                    Title = "Giá trị đơn",
+                    Value = $"{s.TotalAmount:N0} {s.Currency}",
+                    CssClass = "bg-success-subtle text-success-emphasis border"
+                }
+            ]
+        }).ToList();
+
+        return new WorkspaceCard
+        {
+            StepNumber = 5,
+            Title = "Đơn hàng chờ quyết toán",
+            Icon = "bi-calculator",
+            BadgeColor = "success",
+            Tasks = tasks
+        };
     }
 
     /// <summary>
@@ -833,13 +915,16 @@ public class WorkspaceController : Controller
             EmployeeSummaries = BuildSummaries(step5.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 
-        // Pre-load stock transaction SO IDs
+        // Pre-load stock transaction SO IDs.
+        // INBOUND: only CONFIRMED receipts move the SO into "đã nhập kho"; a DRAFT receipt keeps it in "đang mua".
         var soIdsWithInbound = await _uow.Repository<StockTransaction>().Query()
-            .Where(st => st.SalesOrderId != null && st.TransactionType == "INBOUND")
+            .Where(st => st.SalesOrderId != null && st.TransactionType == "INBOUND"
+                      && st.Status == "CONFIRMED")
             .Select(st => st.SalesOrderId!.Value).Distinct().ToListAsync();
 
         var soIdsWithOutbound = await _uow.Repository<StockTransaction>().Query()
-            .Where(st => st.SalesOrderId != null && st.TransactionType == "OUTBOUND")
+            .Where(st => st.SalesOrderId != null && st.TransactionType == "OUTBOUND"
+                      && st.Status != "CANCELLED")
             .Select(st => st.SalesOrderId!.Value).Distinct().ToListAsync();
 
         // ── 6. SOs BUYING, no INBOUND yet ──
@@ -876,7 +961,7 @@ public class WorkspaceController : Controller
             .ToListAsync();
         vm.Cards.Add(new WorkspaceCard
         {
-            StepNumber = 8, Title = "Đơn hàng đã giao", Icon = "bi-truck", BadgeColor = "info",
+            StepNumber = 8, Title = "Đơn hàng đang giao", Icon = "bi-truck", BadgeColor = "info",
             EmployeeSummaries = BuildSummaries(step8.Select(x => (x.UserId, "SALES_ORDER", x.SalesOrderId)).ToList())
         });
 

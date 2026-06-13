@@ -404,8 +404,9 @@ public class SalesOrderController : Controller
     {
         try
         {
-            if (!await CanManageStatusAsync(id))
-                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
+            // Duyệt quyết toán là nghiệp vụ kế toán — chỉ Kế toán (ADMIN override) được thực hiện.
+            if (CurrentRoleCode is not "ACCOUNTANT" and not "ADMIN")
+                return Json(ApiResult<object>.Fail("Chỉ Kế toán mới có quyền duyệt quyết toán"));
 
             var (success, error) = await _salesOrderService.CompleteAsync(id, model, CurrentUserId);
             return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hoàn tất đơn hàng" : error });

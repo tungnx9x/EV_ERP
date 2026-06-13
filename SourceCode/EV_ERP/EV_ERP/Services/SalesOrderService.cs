@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using EV_ERP.Models.Common;
 using EV_ERP.Models.Entities.Auth;
 using EV_ERP.Models.Entities.Customers;
+using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.SalesOrders;
@@ -129,6 +130,26 @@ public class SalesOrderService : ISalesOrderService
         var advancedByItem = await _advanceService.GetAdvancedByItemAsync(salesOrderId);
         var advancedByItemSplit = await _advanceService.GetAdvancedByItemSplitAsync(salesOrderId);
 
+        // SL từng dòng đang nằm trong phiếu nhập kho NHÁP (chưa xác nhận) — để cảnh báo tránh tạo trùng phiếu.
+        var pendingReceiveByItem = await _uow.Repository<StockTransactionItem>().Query()
+            .Where(sti => sti.SOItemId != null
+                       && sti.Transaction.TransactionType == "INBOUND"
+                       && sti.Transaction.Status == "DRAFT"
+                       && sti.Transaction.SalesOrderId == salesOrderId)
+            .GroupBy(sti => sti.SOItemId!.Value)
+            .Select(g => new { SOItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
+            .ToDictionaryAsync(x => x.SOItemId, x => x.Qty);
+
+        // SL từng dòng đang nằm trong phiếu xuất kho NHÁP (chưa xác nhận giao) — để tránh tạo phiếu xuất trùng.
+        var pendingDeliverByItem = await _uow.Repository<StockTransactionItem>().Query()
+            .Where(sti => sti.SOItemId != null
+                       && sti.Transaction.TransactionType == "OUTBOUND"
+                       && sti.Transaction.Status == "DRAFT"
+                       && sti.Transaction.SalesOrderId == salesOrderId)
+            .GroupBy(sti => sti.SOItemId!.Value)
+            .Select(g => new { SOItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
+            .ToDictionaryAsync(x => x.SOItemId, x => x.Qty);
+
         return new SalesOrderDetailViewModel
         {
             SalesOrderId = s.SalesOrderId,
@@ -199,7 +220,9 @@ public class SalesOrderService : ISalesOrderService
                 ReceivedQty = i.ReceivedQty,
                 DeliveredQty = i.DeliveredQty,
                 RemainingReceiveQty = i.RemainingReceiveQty,
+                PendingReceiveQty = pendingReceiveByItem.TryGetValue(i.SOItemId, out var pend) ? pend : 0,
                 InStockQty = i.InStockQty,
+                PendingDeliverQty = pendingDeliverByItem.TryGetValue(i.SOItemId, out var pendDel) ? pendDel : 0,
                 RemainingDeliverQty = i.RemainingDeliverQty,
                 ExpectedReceiveDate = i.ExpectedReceiveDate,
                 ExpectedDeliveryDate = i.ExpectedDeliveryDate,
@@ -500,9 +523,20 @@ public class SalesOrderService : ISalesOrderService
         // If everything cancelled, leave it for the user (don't auto-cancel).
         if (totalEff <= 0) return (true, so.Status);
 
+        // v3.0 — DELIVERED chỉ khi MỌI phiếu xuất kho đã được xác nhận giao (Status = DELIVERED).
+        // Còn phiếu xuất Nháp/Đang giao (DRAFT/DELIVERING) ⇒ đơn vẫn "đang giao".
+        var outboundStatuses = await _uow.Repository<StockTransaction>().Query()
+            .Where(st => st.SalesOrderId == salesOrderId
+                      && st.TransactionType == "OUTBOUND"
+                      && st.Status != "CANCELLED")
+            .Select(st => st.Status)
+            .ToListAsync();
+        bool hasActiveOutbound = outboundStatuses.Count > 0;
+        bool allOutboundConfirmed = hasActiveOutbound && outboundStatuses.All(st => st == "DELIVERED");
+
         string newStatus;
-        if (totalDeliv >= totalEff) newStatus = "DELIVERED";
-        else if (totalDeliv > 0) newStatus = "DELIVERING";
+        if (totalDeliv >= totalEff && allOutboundConfirmed) newStatus = "DELIVERED";
+        else if (totalDeliv > 0 || hasActiveOutbound) newStatus = "DELIVERING";
         else if (totalRecv >= totalEff) newStatus = "RECEIVED";
         else newStatus = "BUYING";
 
@@ -788,8 +822,10 @@ public class SalesOrderService : ISalesOrderService
             return (false, "Chỉ có thể hoàn tất ở trạng thái Đã giao hoặc Trả hàng");
 
         so.Status = "COMPLETED";
-        so.ActualCost = model.ActualCost;
-        so.SettlementNotes = model.SettlementNotes?.Trim();
+        // Không còn popup nhập chi phí — giữ chi phí thực tế đã có, mặc định = chi phí mua dự kiến.
+        so.ActualCost = model.ActualCost ?? so.ActualCost ?? so.PurchaseCost;
+        if (!string.IsNullOrWhiteSpace(model.SettlementNotes))
+            so.SettlementNotes = model.SettlementNotes.Trim();
         so.CompletedAt = DateTime.Now;
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;

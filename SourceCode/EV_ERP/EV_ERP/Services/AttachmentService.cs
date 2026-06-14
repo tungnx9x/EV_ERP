@@ -109,6 +109,19 @@ public class AttachmentService : IAttachmentService
             .ToListAsync();
     }
 
+    public async Task<Dictionary<int, int>> GetCountsByReferenceIdsAsync(
+        string referenceType, IEnumerable<int> referenceIds)
+    {
+        var ids = referenceIds.Distinct().ToList();
+        if (ids.Count == 0) return new();
+
+        return await _uow.Repository<Attachment>().Query()
+            .Where(a => a.ReferenceType == referenceType && ids.Contains(a.ReferenceId) && a.IsActive)
+            .GroupBy(a => a.ReferenceId)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Id, x => x.Count);
+    }
+
     public async Task<bool> DeleteAsync(int attachmentId, int userId)
     {
         var att = await _uow.Repository<Attachment>().Query()

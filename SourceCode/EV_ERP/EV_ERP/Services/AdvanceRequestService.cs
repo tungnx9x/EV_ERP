@@ -33,7 +33,8 @@ public class AdvanceRequestService : IAdvanceRequestService
 
     private static bool IsActiveStatus(string s) => s != "REJECTED";
     // "Đã chi tiền" trở đi được tính là đã giải ngân (gồm cả mã cũ RECEIVED + giai đoạn quyết toán)
-    private static bool IsReceivedStatus(string s) => s is "DISBURSED" or "SETTLING" or "SETTLED" or "RECEIVED";
+    // SELF_PAID = người tạo đã tự bỏ tiền → coi như khoản đã được cấp (đã chi).
+    private static bool IsReceivedStatus(string s) => s is "DISBURSED" or "SETTLING" or "SETTLED" or "RECEIVED" or "SELF_PAID";
 
     public async Task<SalesOrderAdvanceSummary> GetForSalesOrderAsync(int salesOrderId)
     {
@@ -194,7 +195,8 @@ public class AdvanceRequestService : IAdvanceRequestService
         }
 
         // Phiếu mới luôn bắt đầu ở bước "Chờ kế toán duyệt" — KD không tự đặt trạng thái.
-        const string status = "WAIT_ACCOUNTANT";
+        // Ngoại lệ: người tạo đã tự thanh toán → SELF_PAID, nằm ngoài quy trình duyệt.
+        var status = model.SelfPaid ? "SELF_PAID" : "WAIT_ACCOUNTANT";
 
         var total = items.Sum(i => i.Amount);
         var now = DateTime.Now;
@@ -207,6 +209,9 @@ public class AdvanceRequestService : IAdvanceRequestService
             RequestedAmount = total,
             Purpose = (model.Purpose ?? "").Trim(),
             Status = status,
+            // Tự thanh toán: tiền đã được cấp ngay (bởi chính người tạo) → đánh dấu thời điểm "nhận".
+            ApprovedAmount = model.SelfPaid ? total : null,
+            ReceivedAt = model.SelfPaid ? now : null,
             Notes = model.Notes?.Trim(),
             CreatedAt = now,
             UpdatedAt = now,
@@ -479,6 +484,11 @@ public class AdvanceRequestService : IAdvanceRequestService
         var so = req.SalesOrder;
         if (so == null || so.Items.Count == 0) return null;
 
+        // Bỏ các dòng đã hủy toàn bộ SL khỏi danh sách hàng hóa của ĐNTU.
+        var soItems = so.Items.Where(i => i.CancelledQty < i.Quantity)
+                              .OrderBy(i => i.SortOrder).ToList();
+        if (soItems.Count == 0) return null;
+
         // Sum advance per SOItemId in this request (general/null allocation handled separately)
         var perItemAdvance = req.Items
             .Where(i => i.SOItemId.HasValue)
@@ -521,7 +531,7 @@ public class AdvanceRequestService : IAdvanceRequestService
         var ws = wb.Worksheet(1);
 
         var now = DateTime.Now;
-        int itemCount = so.Items.Count;
+        int itemCount = soItems.Count;
         int dataStartRow = 12;
         int totalRow = 13;
 
@@ -542,7 +552,6 @@ public class AdvanceRequestService : IAdvanceRequestService
         }
 
         // ── Fill item data ──
-        var soItems = so.Items.OrderBy(i => i.SortOrder).ToList();
         for (int i = 0; i < itemCount; i++)
         {
             var item = soItems[i];

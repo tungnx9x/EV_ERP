@@ -16,6 +16,9 @@ public interface ISalesOrderService
     // ── Lightweight assignee lookup (for authz checks) ───
     Task<int?> GetSalesPersonIdAsync(int salesOrderId);
 
+    /// <summary>Xác thực 1 SOItem có thuộc đúng đơn hàng không (chống gắn/xóa nhầm đơn).</summary>
+    Task<bool> ItemBelongsToOrderAsync(int salesOrderId, int soItemId);
+
     // ── Auto-create from Quotation ───────────────────
     Task<(bool Success, string? ErrorMessage, int? SalesOrderId)> CreateFromQuotationAsync(
         int quotationId, int userId);

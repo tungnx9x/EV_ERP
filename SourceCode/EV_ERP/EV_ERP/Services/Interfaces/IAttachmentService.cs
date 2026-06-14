@@ -13,6 +13,9 @@ public interface IAttachmentService
 
     Task<List<AttachmentDto>> GetListAsync(string referenceType, int referenceId);
 
+    /// <summary>Batch count of active attachments per referenceId (one query) — tránh N+1 khi có nhiều dòng.</summary>
+    Task<Dictionary<int, int>> GetCountsByReferenceIdsAsync(string referenceType, IEnumerable<int> referenceIds);
+
     Task<bool> DeleteAsync(int attachmentId, int userId);
 }
 

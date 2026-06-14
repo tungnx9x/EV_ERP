@@ -985,6 +985,73 @@
             </div>
         </div>
         }
+
+        @* ── Ảnh hóa đơn theo từng sản phẩm (lazy-load, ẩn với WAREHOUSE) ── *@
+        @if (showMoney)
+        {
+            var totalBills = Model.Items.Sum(i => i.BillImageCount);
+            <div class="card border-0 shadow-sm mt-3" id="billSection">
+                <div class="card-header bg-white border-bottom d-flex flex-wrap align-items-center gap-2">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="bi bi-receipt me-1"></i> Ảnh hóa đơn theo sản phẩm
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1" id="billTotalBadge">@totalBills</span>
+                    </h6>
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                        <input type="text" id="billFilter" class="form-control form-control-sm" style="width:200px;"
+                               placeholder="Tìm sản phẩm..." oninput="filterBillCards()" />
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="toggleAllBills(true)" title="Mở tất cả">
+                            <i class="bi bi-arrows-expand"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="toggleAllBills(false)" title="Thu gọn tất cả">
+                            <i class="bi bi-arrows-collapse"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (Model.Items.Any())
+                    {
+                        <div class="row g-2" id="billCardGrid">
+                            @{ int bidx = 1; }
+                            @foreach (var item in Model.Items)
+                            {
+                                var collapseId = $"billCollapse-{item.SOItemId}";
+                                <div class="col-12 col-md-6 col-xl-4 bill-card" data-name="@item.ProductName.ToLowerInvariant()">
+                                    <div class="border rounded h-100">
+                                        <button type="button" class="btn btn-link text-decoration-none text-start w-100 d-flex align-items-center gap-2 px-2 py-2 text-body collapsed"
+                                                data-bs-toggle="collapse" data-bs-target="#@collapseId"
+                                                onclick="onBillToggle(@item.SOItemId)">
+                                            <span class="text-muted small">@(bidx++).</span>
+                                            <span class="fw-semibold small text-truncate flex-grow-1" title="@item.ProductName">@item.ProductName</span>
+                                            <span class="badge bg-primary-subtle text-primary-emphasis" id="billCount-@item.SOItemId">@item.BillImageCount</span>
+                                            <i class="bi bi-chevron-down small"></i>
+                                        </button>
+                                        <div class="collapse" id="@collapseId" data-loaded="false">
+                                            <div class="border-top p-2">
+                                                <div class="d-flex flex-wrap gap-2 mb-2" id="billGrid-@item.SOItemId"></div>
+                                                @if (canManageStatus)
+                                                {
+                                                    <input type="file" accept="image/*" multiple class="d-none"
+                                                           id="billFile-@item.SOItemId" onchange="uploadItemBills(@item.SOItemId, this)" />
+                                                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2"
+                                                            onclick="document.getElementById('billFile-@item.SOItemId').click()">
+                                                        <i class="bi bi-upload me-1"></i> Thêm ảnh hóa đơn
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div id="billNoMatch" class="text-center py-3 text-muted small d-none">Không tìm thấy sản phẩm phù hợp</div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-3 text-muted small">Đơn chưa có sản phẩm</div>
+                    }
+                </div>
+            </div>
+        }
     </div>
 </div>
 
@@ -1730,6 +1797,16 @@
                             <label class="form-label fw-semibold mb-1">Ghi chú</label>
                             <textarea id="advNotes" class="form-control form-control-sm" rows="2"></textarea>
                         </div>
+                        <div class="col-12" id="advSelfPaidWrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="advSelfPaid" />
+                                <label class="form-check-label small" for="advSelfPaid">
+                                    <i class="bi bi-person-check me-1 text-dark"></i>
+                                    <strong>Người tạo đã tự thanh toán khoản này</strong>
+                                    <span class="text-muted">— ghi nhận "Đã tự thanh toán", không qua quy trình duyệt (kế toán / giám đốc).</span>
+                                </label>
+                            </div>
+                        </div>
                         <div class="col-12">
                             <div class="small text-muted">
                                 Chi phí mua dự kiến (cơ sở tính %): <strong class="text-dark">@((adv?.PurchaseCost ?? 0).ToString("N0")) @(adv?.Currency ?? "VND")</strong>
@@ -2036,6 +2113,128 @@
         postAction('/SalesOrder/' + action + '/' + soId, null, function (data) {
             if (data.Success) location.reload();
             else appAlert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ══════════════════════════════════════════════════
+    // ẢNH HÓA ĐƠN theo từng sản phẩm (lazy-load, gom theo SOItem)
+    // ══════════════════════════════════════════════════
+    var canManageBills = @(canManageStatus ? "true" : "false");
+
+    // Chỉ tải ảnh khi card được MỞ (lần đầu) — tránh tải hàng loạt khi đơn nhiều dòng.
+    function onBillToggle(soItemId) {
+        var col = document.getElementById('billCollapse-' + soItemId);
+        if (!col) return;
+        var opening = !col.classList.contains('show');
+        if (opening && col.dataset.loaded !== 'true') loadItemBills(soItemId);
+    }
+
+    function loadItemBills(soItemId) {
+        var grid = document.getElementById('billGrid-' + soItemId);
+        if (!grid) return;
+        grid.innerHTML = '<div class="text-muted small">Đang tải...</div>';
+        fetch('/SalesOrder/GetItemBills/' + soId + '?soItemId=' + soItemId)
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.Success) { grid.innerHTML = '<div class="text-danger small">' + (res.Message || 'Lỗi tải ảnh') + '</div>'; return; }
+                document.getElementById('billCollapse-' + soItemId).dataset.loaded = 'true';
+                renderBillGrid(soItemId, res.Data || []);
+            })
+            .catch(function () { grid.innerHTML = '<div class="text-danger small">Lỗi tải ảnh</div>'; });
+    }
+
+    function renderBillGrid(soItemId, images) {
+        var grid = document.getElementById('billGrid-' + soItemId);
+        if (!grid) return;
+        if (!images.length) {
+            grid.innerHTML = '<div class="text-muted small">Chưa có ảnh hóa đơn</div>';
+            updateBillCount(soItemId, 0);
+            return;
+        }
+        var html = '';
+        images.forEach(function (img) {
+            html += '<div class="position-relative" style="width:90px;">'
+                + '<a href="' + img.FileUrl + '" target="_blank" title="' + (img.FileName || '') + '">'
+                + '<img src="' + img.FileUrl + '" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" /></a>';
+            if (canManageBills) {
+                html += '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 py-0 px-1" '
+                    + 'style="line-height:1;font-size:0.7rem;" title="Xóa" '
+                    + 'onclick="deleteItemBill(' + img.AttachmentId + ',' + soItemId + ')">&times;</button>';
+            }
+            html += '</div>';
+        });
+        grid.innerHTML = html;
+        updateBillCount(soItemId, images.length);
+    }
+
+    function uploadItemBills(soItemId, input) {
+        var files = Array.from(input.files || []);
+        input.value = '';
+        if (!files.length) return;
+        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        var grid = document.getElementById('billGrid-' + soItemId);
+        if (grid) grid.insertAdjacentHTML('beforeend', '<div class="text-muted small">Đang tải lên ' + files.length + ' ảnh...</div>');
+
+        var uploads = files.map(function (f) {
+            var fd = new FormData();
+            fd.append('file', f);
+            fd.append('soItemId', soItemId);
+            return fetch('/SalesOrder/UploadItemBill/' + soId, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': token },
+                body: fd
+            }).then(function (r) { return r.json(); });
+        });
+
+        Promise.all(uploads).then(function (results) {
+            var failed = results.filter(function (x) { return !x.Success; });
+            if (failed.length) appAlert(failed[0].Message || 'Một số ảnh tải lên thất bại');
+            loadItemBills(soItemId);
+        }).catch(function () {
+            appAlert('Lỗi tải ảnh lên');
+            loadItemBills(soItemId);
+        });
+    }
+
+    async function deleteItemBill(attachmentId, soItemId) {
+        if (!await appConfirm('Xóa ảnh hóa đơn này?')) return;
+        postAction('/SalesOrder/DeleteItemBill/' + soId + '?attachmentId=' + attachmentId, null, function (data) {
+            if (data.Success) loadItemBills(soItemId);
+            else appAlert(data.Message || 'Lỗi');
+        });
+    }
+
+    function updateBillCount(soItemId, n) {
+        var badge = document.getElementById('billCount-' + soItemId);
+        if (badge) badge.textContent = n;
+        var total = 0;
+        document.querySelectorAll('[id^="billCount-"]').forEach(function (b) { total += parseInt(b.textContent) || 0; });
+        var tb = document.getElementById('billTotalBadge');
+        if (tb) tb.textContent = total;
+    }
+
+    function filterBillCards() {
+        var q = (document.getElementById('billFilter').value || '').trim().toLowerCase();
+        var any = false;
+        document.querySelectorAll('#billCardGrid .bill-card').forEach(function (c) {
+            var match = !q || (c.dataset.name || '').indexOf(q) !== -1;
+            c.classList.toggle('d-none', !match);
+            if (match) any = true;
+        });
+        var nm = document.getElementById('billNoMatch');
+        if (nm) nm.classList.toggle('d-none', any);
+    }
+
+    function toggleAllBills(show) {
+        document.querySelectorAll('#billCardGrid .collapse').forEach(function (el) {
+            var inst = bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+            if (show) {
+                var soItemId = parseInt(el.id.replace('billCollapse-', ''));
+                if (el.dataset.loaded !== 'true') loadItemBills(soItemId);
+                inst.show();
+            } else {
+                inst.hide();
+            }
         });
     }
 
@@ -2791,6 +2990,10 @@
         document.getElementById('advDate').value = new Date().toISOString().slice(0, 10);
         document.getElementById('advPurpose').value = '';
         document.getElementById('advNotes').value = '';
+        var spw = document.getElementById('advSelfPaidWrap');
+        if (spw) spw.classList.remove('d-none');
+        var sp = document.getElementById('advSelfPaid');
+        if (sp) sp.checked = false;
         document.querySelectorAll('.adv-line-amount').forEach(function (el) { el.value = ''; });
         document.querySelectorAll('.adv-line-percent').forEach(function (el) { el.value = ''; });
         updateAdvTotal();
@@ -2818,6 +3021,9 @@
                 document.getElementById('advEditId').value = d.AdvanceRequestId;
                 document.getElementById('advModalTitle').textContent = 'Sửa tạm ứng ' + (d.RequestNo || '');
                 document.getElementById('advSubmitBtnLabel').textContent = 'Lưu thay đổi';
+                // "Tự thanh toán" chỉ áp dụng khi tạo mới — ẩn khi sửa.
+                var spwEdit = document.getElementById('advSelfPaidWrap');
+                if (spwEdit) spwEdit.classList.add('d-none');
 
                 // Populate header
                 if (d.RequestDate) {
@@ -2979,10 +3185,12 @@
             return;
         }
 
+        var selfPaidEl = document.getElementById('advSelfPaid');
         var body = {
             RequestDate: document.getElementById('advDate').value || null,
             Purpose: purpose,
             Notes: document.getElementById('advNotes').value.trim(),
+            SelfPaid: !!(selfPaidEl && selfPaidEl.checked),
             Items: items
         };
 

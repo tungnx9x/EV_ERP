@@ -14,18 +14,25 @@ public class SalesOrderController : Controller
     private readonly ISalesOrderService _salesOrderService;
     private readonly IProductService _productService;
     private readonly IStockService _stockService;
+    private readonly IAttachmentService _attachmentService;
     private readonly ILogger<SalesOrderController> _logger;
 
     public SalesOrderController(ISalesOrderService salesOrderService,
         IProductService productService,
         IStockService stockService,
+        IAttachmentService attachmentService,
         ILogger<SalesOrderController> logger)
     {
         _salesOrderService = salesOrderService;
         _productService = productService;
         _stockService = stockService;
+        _attachmentService = attachmentService;
         _logger = logger;
     }
+
+    // Ảnh hóa đơn gắn theo từng dòng SO (polymorphic Attachment)
+    private const string BillRefType = "SALES_ORDER_ITEM";
+    private const string BillCategory = "BILL";
 
     private int CurrentUserId =>
         HttpContext.Session.GetObject<CurrentUser>(SessionKeys.CurrentUser)!.UserId;
@@ -312,6 +319,75 @@ public class SalesOrderController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "UpdateItemShippingFee failed for SO #{Id} item #{ItemId}", id, soItemId);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    // ══════════════════════════════════════════════════
+    // ẢNH HÓA ĐƠN theo từng dòng SO (lazy-load, gom theo SOItem)
+    // ══════════════════════════════════════════════════
+    [HttpGet]
+    public async Task<IActionResult> GetItemBills(int id, int soItemId)
+    {
+        try
+        {
+            if (CurrentRoleCode == "WAREHOUSE")
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await _salesOrderService.ItemBelongsToOrderAsync(id, soItemId))
+                return Json(ApiResult<object>.Fail("Dòng không thuộc đơn hàng"));
+
+            var images = await _attachmentService.GetListAsync(BillRefType, soItemId);
+            return Json(ApiResult<object>.Ok(images));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetItemBills failed for SO #{Id} item #{ItemId}", id, soItemId);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> UploadItemBill(int id, int soItemId, IFormFile file, string? description)
+    {
+        try
+        {
+            if (CurrentRoleCode == "WAREHOUSE")
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
+            if (!await _salesOrderService.ItemBelongsToOrderAsync(id, soItemId))
+                return Json(ApiResult<object>.Fail("Dòng không thuộc đơn hàng"));
+
+            var result = await _attachmentService.UploadImageAsync(
+                file, BillRefType, soItemId, BillCategory, description, CurrentUserId);
+            if (result == null)
+                return Json(ApiResult<object>.Fail("Upload thất bại — chỉ hỗ trợ JPG/PNG/GIF/WEBP, tối đa 5MB"));
+
+            return Json(ApiResult<object>.Ok(result, "Đã tải ảnh hóa đơn"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UploadItemBill failed for SO #{Id} item #{ItemId}", id, soItemId);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> DeleteItemBill(int id, int attachmentId)
+    {
+        try
+        {
+            if (CurrentRoleCode == "WAREHOUSE")
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
+
+            var ok = await _attachmentService.DeleteAsync(attachmentId, CurrentUserId);
+            return Json(new ApiResult<object> { Success = ok, Message = ok ? "Đã xóa ảnh" : "Không tìm thấy ảnh" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DeleteItemBill failed for SO #{Id} att #{AttId}", id, attachmentId);
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
         }
     }

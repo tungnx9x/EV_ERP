@@ -21,11 +21,13 @@ public class SalesOrderService : ISalesOrderService
     private readonly ISlaService _slaService;
     private readonly IProductAttributeService _attrService;
     private readonly IAdvanceRequestService _advanceService;
+    private readonly IAttachmentService _attachmentService;
 
     public SalesOrderService(IUnitOfWork uow, ILogger<SalesOrderService> logger,
         IWebHostEnvironment env, IConfiguration config, ISlaService slaService,
         IProductAttributeService attrService,
-        IAdvanceRequestService advanceService)
+        IAdvanceRequestService advanceService,
+        IAttachmentService attachmentService)
     {
         _uow = uow;
         _logger = logger;
@@ -34,6 +36,7 @@ public class SalesOrderService : ISalesOrderService
         _slaService = slaService;
         _attrService = attrService;
         _advanceService = advanceService;
+        _attachmentService = attachmentService;
     }
 
     // ══════════════════════════════════════════════════
@@ -149,6 +152,10 @@ public class SalesOrderService : ISalesOrderService
             .GroupBy(sti => sti.SOItemId!.Value)
             .Select(g => new { SOItemId = g.Key, Qty = g.Sum(x => x.Quantity) })
             .ToDictionaryAsync(x => x.SOItemId, x => x.Qty);
+
+        // Số ảnh hóa đơn theo từng dòng — 1 query GROUP BY, tránh N+1 khi đơn có nhiều dòng.
+        var billCountByItem = await _attachmentService.GetCountsByReferenceIdsAsync(
+            "SALES_ORDER_ITEM", s.Items.Select(i => i.SOItemId));
 
         return new SalesOrderDetailViewModel
         {
@@ -266,7 +273,8 @@ public class SalesOrderService : ISalesOrderService
                 UnofficialLength = i.UnofficialLength,
                 UnofficialWidth = i.UnofficialWidth,
                 UnofficialHeight = i.UnofficialHeight,
-                UnofficialCostPerCbm = i.UnofficialCostPerCbm
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm,
+                BillImageCount = billCountByItem.TryGetValue(i.SOItemId, out var bc) ? bc : 0
             }).ToList(),
             AdvanceSummary = advanceSummary,
             Currencies = await _uow.Repository<EV_ERP.Models.Entities.Reference.Currency>().Query()
@@ -288,6 +296,12 @@ public class SalesOrderService : ISalesOrderService
             .Where(s => s.SalesOrderId == salesOrderId)
             .Select(s => (int?)s.SalesPersonId)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<bool> ItemBelongsToOrderAsync(int salesOrderId, int soItemId)
+    {
+        return await _uow.Repository<SalesOrderItem>().Query()
+            .AnyAsync(i => i.SOItemId == soItemId && i.SalesOrderId == salesOrderId);
     }
 
     // ══════════════════════════════════════════════════
@@ -978,6 +992,10 @@ public class SalesOrderService : ISalesOrderService
 
         if (so == null || so.Items.Count == 0) return null;
 
+        // Loại các dòng đã hủy toàn bộ SL — không đưa vào danh sách hàng hóa của ĐNTU.
+        var items = so.Items.Where(i => i.CancelledQty < i.Quantity).ToList();
+        if (items.Count == 0) return null;
+
         // Pull BasePrice + PurchaseExchangeRate from the source quotation (matched by SortOrder).
         var qItemsBySort = new Dictionary<int, QuotationItem>();
         if (so.QuotationId.HasValue)
@@ -999,7 +1017,7 @@ public class SalesOrderService : ISalesOrderService
         var ws = wb.Worksheet(1);
 
         var now = DateTime.Now;
-        int itemCount = so.Items.Count;
+        int itemCount = items.Count;
         int dataStartRow = 12; // template data row
         int totalRow = 13;     // template total row
 
@@ -1022,7 +1040,7 @@ public class SalesOrderService : ISalesOrderService
         // ── Fill item data ──
         for (int i = 0; i < itemCount; i++)
         {
-            var item = so.Items.ElementAt(i);
+            var item = items[i];
             int row = dataStartRow + i;
 
             ws.Cell(row, 1).Value = i + 1;                          // A: STT

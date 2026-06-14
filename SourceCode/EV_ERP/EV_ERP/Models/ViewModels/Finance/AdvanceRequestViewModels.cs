@@ -42,6 +42,8 @@ public class AdvanceRequestRow
         "WAIT_DISBURSE" => "Chờ chi tiền",
         "DISBURSED" => "Đã chi tiền",
         "REJECTED" => "Từ chối",
+        // ── Tự thanh toán (ngoài quy trình duyệt) ──
+        "SELF_PAID" => "Đã tự thanh toán",
         // ── Quyết toán (giai đoạn sau) ──
         "SETTLING" => "Đang quyết toán",
         "SETTLED" => "Đã quyết toán",
@@ -59,6 +61,7 @@ public class AdvanceRequestRow
         "WAIT_DISBURSE" => "bg-warning text-dark",
         "DISBURSED" => "bg-success",
         "REJECTED" => "bg-danger",
+        "SELF_PAID" => "bg-dark",
         "SETTLING" => "bg-warning text-dark",
         "SETTLED" => "bg-primary",
         // ── Legacy codes ──
@@ -85,6 +88,8 @@ public class AdvanceRequestCreateModel
     public DateTime? RequestDate { get; set; }
     public string Purpose { get; set; } = string.Empty;
     // Trạng thái khởi tạo luôn là WAIT_ACCOUNTANT (do server quyết định) — KD không tự đặt được.
+    // Ngoại lệ: SelfPaid = người tạo đã tự thanh toán → trạng thái SELF_PAID, không qua duyệt.
+    public bool SelfPaid { get; set; }
     public string? Notes { get; set; }
     public List<AdvanceRequestItemCreateModel> Items { get; set; } = [];
 }

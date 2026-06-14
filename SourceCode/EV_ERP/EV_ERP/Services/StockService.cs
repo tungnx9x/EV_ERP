@@ -810,9 +810,8 @@ namespace EV_ERP.Services
                 _logger.LogInformation("Created {Type} {No} for SO {SoNo} — {Lines} lines",
                     transactionType, transNo, so.SalesOrderNo, batchItems.Count);
 
-                // Báo cho nhân viên kho: có phiếu nhập kho mới đang chờ xử lý.
-                if (transactionType == "INBOUND")
-                    await NotifyWarehouseInboundCreatedAsync(entity, so);
+                // Báo cho nhân viên kho: có phiếu nhập/xuất kho mới đang chờ xử lý.
+                await NotifyWarehouseStockCreatedAsync(entity, so);
 
                 // v3.0 — tạo phiếu xuất kho (dù còn Nháp) ⇒ đơn chuyển sang "đang giao".
                 if (transactionType == "OUTBOUND")
@@ -827,13 +826,14 @@ namespace EV_ERP.Services
             }
         }
 
-        // ── Notify warehouse staff that a new INBOUND receipt is waiting to be processed ─
-        private async Task NotifyWarehouseInboundCreatedAsync(StockTransaction trans, SalesOrder so)
+        // ── Notify warehouse staff that a new INBOUND/OUTBOUND note is waiting to be processed ─
+        private async Task NotifyWarehouseStockCreatedAsync(StockTransaction trans, SalesOrder so)
         {
             try
             {
                 var warehouseUserIds = await _uow.Repository<User>().Query()
-                    .Where(u => u.IsActive && !u.IsLocked && u.Role.RoleCode == "WAREHOUSE")
+                    .Where(u => u.IsActive && !u.IsLocked && u.Role.RoleCode == "WAREHOUSE"
+                             && u.UserId != trans.CreatedBy)
                     .Select(u => u.UserId)
                     .ToListAsync();
                 if (warehouseUserIds.Count == 0) return;
@@ -841,14 +841,18 @@ namespace EV_ERP.Services
                 var notif = _services.GetRequiredService<INotificationService>();
                 var hub = _services.GetRequiredService<IHubContext<NotificationHub>>();
 
-                var title = $"Phiếu nhập kho mới: {trans.TransactionNo}";
-                var message = $"Đơn {so.SalesOrderNo} đã tạo phiếu nhập kho {trans.TransactionNo}, đang chờ kho xử lý.";
+                bool isInbound = trans.TransactionType == "INBOUND";
+                var noteLabel = isInbound ? "phiếu nhập kho" : "phiếu xuất kho";
+                var notifType = isInbound ? "STOCK_INBOUND_CREATED" : "STOCK_OUTBOUND_CREATED";
+
+                var title = $"{(isInbound ? "Phiếu nhập kho mới" : "Phiếu xuất kho mới")}: {trans.TransactionNo}";
+                var message = $"Đơn {so.SalesOrderNo} đã tạo {noteLabel} {trans.TransactionNo}, đang chờ kho xử lý.";
                 var actionUrl = $"/Stock/Detail/{trans.TransactionId}";
 
                 foreach (var uid in warehouseUserIds)
                 {
                     await notif.CreateAsync(uid, title, message,
-                        "STOCK_INBOUND_CREATED", "INFO", "STOCK_TRANSACTION", (int)trans.TransactionId, actionUrl);
+                        notifType, "INFO", "STOCK_TRANSACTION", (int)trans.TransactionId, actionUrl);
 
                     await hub.Clients.Group($"user-{uid}")
                         .SendAsync("ReceiveNotification", new
@@ -862,8 +866,9 @@ namespace EV_ERP.Services
             }
             catch (Exception ex)
             {
-                // Notification failure must not roll back the (already-saved) receipt.
-                _logger.LogError(ex, "Failed to notify warehouse staff for inbound {No}", trans.TransactionNo);
+                // Notification failure must not roll back the (already-saved) note.
+                _logger.LogError(ex, "Failed to notify warehouse staff for {Type} {No}",
+                    trans.TransactionType, trans.TransactionNo);
             }
         }
 
@@ -1049,11 +1054,20 @@ namespace EV_ERP.Services
             // Use SO items for price info if available, map by ProductId
             var soItemMap = so?.Items.ToDictionary(i => i.ProductId ?? 0, i => i) ?? new();
 
-            // Insert extra rows if more than 2 items (template has 2 data rows: 23, 24)
+            // Template có sẵn 2 dòng dữ liệu (23, 24) và toàn bộ footer (tổng, xác nhận, chữ ký).
+            // Phải khớp số dòng dữ liệu = itemCount để footer mẫu dịch về đúng vị trí code ghi đè,
+            // nếu không footer mẫu sẽ lệch hàng và bị TRÙNG (vd dòng chữ ký "ĐẠI DIỆN BÊN ...").
             int templateDataRows = 2;
             if (itemCount > templateDataRows)
             {
                 ws.Row(dataStartRow).InsertRowsBelow(itemCount - templateDataRows);
+            }
+            else if (itemCount < templateDataRows)
+            {
+                // Xóa bớt dòng dữ liệu mẫu thừa → footer dịch LÊN khớp với hàng code tính.
+                int rowsToRemove = templateDataRows - itemCount;
+                ws.Rows(dataStartRow + itemCount,
+                        dataStartRow + itemCount + rowsToRemove - 1).Delete();
             }
 
             int totalQtyPo = 0;

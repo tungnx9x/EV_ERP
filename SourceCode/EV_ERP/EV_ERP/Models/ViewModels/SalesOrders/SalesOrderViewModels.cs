@@ -265,6 +265,9 @@ public class SalesOrderItemDetailViewModel
     public decimal AdvancedCustomerShippingAmount { get; set; }
     public decimal? Coefficient { get; set; }
 
+    /// <summary>Số ảnh hóa đơn đã đính kèm cho dòng này (lazy: chỉ đếm, ảnh tải khi mở).</summary>
+    public int BillImageCount { get; set; }
+
     /// <summary>Derived line status — matches vw_OrderItemProgress.LineStatus.</summary>
     public string LineStatus
     {

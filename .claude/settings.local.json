@@ -21,7 +21,9 @@
       "Bash(xmllint --format xl/sharedStrings.xml)",
       "PowerShell($f = 'F:\\\\Dev\\\\EV_ERP\\\\SourceCode\\\\EV_ERP\\\\EV_ERP\\\\Services\\\\QuotationService.cs'; $c = [System.IO.File]::ReadAllText\\($f\\); $startIdx = $c.IndexOf\\('public async Task<\\(byte[] FileBytes, string FileName\\)?> ExportExcelAsync\\(QuotationExportRequest request\\)'\\); Write-Output \"startIdx=$startIdx\"; $endMarker = 'private static string SanitizeFileName\\(string name\\)'; $endIdx = $c.IndexOf\\($endMarker, $startIdx\\); Write-Output \"endIdx=$endIdx\"; Write-Output \"length=$\\($endIdx - $startIdx\\)\")",
       "PowerShell(dotnet build *)",
-      "Bash(sqlcmd *)"
+      "Bash(sqlcmd *)",
+      "Bash(grep -oE 'r=\"1[3-7]\"[^/]{0,60}' /tmp/qx/xl/worksheets/sheet1.xml)",
+      "Bash(grep -oE '<row [^>]{0,80}' /tmp/qx/xl/worksheets/sheet1.xml)"
     ]
   }
 }

@@ -141,16 +141,19 @@ namespace EV_ERP.Services
 
             var userCode = await GenerateUserCodeAsync();
 
+            // UserName: bỏ dấu, cắt khoảng trắng, chuyển in hoa
+            var normalizedUserName = NormalizeUserName(model.UserName);
+
             // Check unique UserName
             var userNameExists = await userRepo.AnyAsync(
-                u => u.UserName.ToLower() == model.UserName.Trim().ToLower());
+                u => u.UserName.ToUpper() == normalizedUserName);
             if (userNameExists)
                 return (false, "Tên ngắn (UserName) này đã được sử dụng");
 
             var user = new User
             {
                 UserCode = userCode,
-                UserName = model.UserName.Trim(),
+                UserName = normalizedUserName,
                 FullName = model.FullName.Trim(),
                 Email = model.Email.Trim().ToLower(),
                 Phone = model.Phone?.Trim(),
@@ -182,6 +185,9 @@ namespace EV_ERP.Services
             if (user == null)
                 return (false, "Người dùng không tồn tại");
 
+            // UserName: bỏ dấu, cắt khoảng trắng, chuyển in hoa
+            var normalizedUserName = NormalizeUserName(model.UserName);
+
             var emailConflict = await userRepo.AnyAsync(
                 u => u.Email.ToLower() == model.Email.Trim().ToLower() && u.UserId != model.UserId);
             if (emailConflict)
@@ -189,11 +195,11 @@ namespace EV_ERP.Services
 
             // Check unique UserName
             var userNameConflict = await userRepo.AnyAsync(
-                u => u.UserName.ToLower() == model.UserName.Trim().ToLower() && u.UserId != model.UserId);
+                u => u.UserName.ToUpper() == normalizedUserName && u.UserId != model.UserId);
             if (userNameConflict)
                 return (false, "Tên ngắn (UserName) này đã được sử dụng bởi tài khoản khác");
 
-            user.UserName = model.UserName.Trim();
+            user.UserName = normalizedUserName;
             user.FullName = model.FullName.Trim();
             user.Email = model.Email.Trim().ToLower();
             user.Phone = model.Phone?.Trim();
@@ -207,6 +213,34 @@ namespace EV_ERP.Services
             _logger.LogInformation("User updated: UserId={UserId} by AdminId={AdminId}",
                 model.UserId, updatedBy);
             return (true, null);
+        }
+
+        /// <summary>
+        /// Chuẩn hóa UserName: bỏ dấu tiếng Việt, cắt khoảng trắng và chuyển in hoa.
+        /// </summary>
+        private static string NormalizeUserName(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            // Xử lý riêng đ/Đ vì FormD không tách ký tự này
+            var input = value.Replace('đ', 'd').Replace('Đ', 'D');
+
+            var decomposed = input.Normalize(System.Text.NormalizationForm.FormD);
+            var sb = new System.Text.StringBuilder(decomposed.Length);
+            foreach (var ch in decomposed)
+            {
+                if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch)
+                    != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(ch);
+                }
+            }
+
+            return sb.ToString()
+                .Normalize(System.Text.NormalizationForm.FormC)
+                .Trim()
+                .ToUpperInvariant();
         }
 
         public async Task<(bool Success, string? ErrorMessage)> ToggleLockAsync(

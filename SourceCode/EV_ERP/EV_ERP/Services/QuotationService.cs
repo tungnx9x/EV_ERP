@@ -861,6 +861,13 @@ public class QuotationService : IQuotationService
         const int lastCol = 25; // Column Y — covers the GIÁ THỊ TRƯỜNG section
         int itemCount = request.Items.Count;
 
+        // Capture the template data-row height BEFORE duplicating. Range.CopyTo /
+        // InsertRowsBelow copy cell content & styles but NOT the row height, so the
+        // inserted rows collapse to the default height on save — which makes every
+        // embedded image (anchored with a fixed top offset sized for the tall row)
+        // overflow its now-short row and appear misaligned from the 2nd item onward.
+        double dataRowHeight = ws.Row(dataStartRow).Height;
+
         // Duplicate template row 14 (with formulas, styles, merges) for additional items.
         if (itemCount > 1)
         {
@@ -871,6 +878,11 @@ public class QuotationService : IQuotationService
                 templateRange.CopyTo(ws.Cell(dataStartRow + i, 1));
             }
         }
+
+        // Re-apply the template row height to every data row so the inserted rows keep
+        // the tall layout the embedded images are positioned for.
+        for (int i = 0; i < itemCount; i++)
+            ws.Row(dataStartRow + i).Height = dataRowHeight;
 
         // Fill placeholders per row — leave formula cells (I, K, P, R, S, T, W, Y)
         // and market-price input cells (O, Q, U, V, X) untouched.

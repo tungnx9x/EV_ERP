@@ -43,8 +43,11 @@ public class NotificationService : INotificationService
 
     public async Task<List<NotificationDto>> GetRecentAsync(int userId, int take = 20)
     {
+        // Chỉ hiển thị thông báo trong 3 ngày gần nhất
+        var cutoff = DateTime.Now.AddDays(-3);
+
         return await _uow.Repository<Notification>().Query()
-            .Where(n => n.UserId == userId)
+            .Where(n => n.UserId == userId && n.CreatedAt >= cutoff)
             .OrderByDescending(n => n.CreatedAt)
             .Take(take)
             .Select(n => new NotificationDto

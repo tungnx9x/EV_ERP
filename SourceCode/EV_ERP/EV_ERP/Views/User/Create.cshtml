@@ -32,7 +32,8 @@
                             <label asp-for="UserName" class="form-label fw-semibold small"></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-at"></i></span>
-                                <input asp-for="UserName" class="form-control" placeholder="hoangnv" autofocus />
+                                <input asp-for="UserName" class="form-control text-uppercase" placeholder="HOANGNV" autofocus
+                                       autocomplete="off" spellcheck="false" id="UserName" />
                             </div>
                             <span asp-validation-for="UserName" class="text-danger small"></span>
                         </div>
@@ -136,5 +137,37 @@
             input.type = input.type === 'password' ? 'text' : 'password';
             icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
         }
+
+        (function () {
+            const input = document.getElementById('UserName');
+            if (!input) return;
+
+            // Bỏ dấu tiếng Việt, cắt khoảng trắng đầu/cuối và chuyển in hoa
+            function normalize(value) {
+                return (value || '')
+                    .normalize('NFD')                       // tách dấu
+                    .replace(/[̀-ͯ]/g, '')        // xóa dấu thanh/dấu mũ
+                    .replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D')
+                    .toUpperCase();
+            }
+
+            function apply(trimEnds) {
+                const start = input.selectionStart;
+                let v = normalize(input.value);
+                if (trimEnds) v = v.trim();
+                if (v !== input.value) {
+                    input.value = v;
+                    if (start !== null) {
+                        input.setSelectionRange(start, start);
+                    }
+                }
+            }
+
+            input.addEventListener('input', function () { apply(false); });
+            input.addEventListener('blur', function () { apply(true); });
+
+            const form = input.closest('form');
+            if (form) form.addEventListener('submit', function () { apply(true); });
+        })();
     </script>
 }

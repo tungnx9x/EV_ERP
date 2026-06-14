@@ -144,7 +144,7 @@
         @* Hoàn tất quyết toán — chỉ Kế toán mới được duyệt & chuyển trạng thái (DELIVERED/RETURNED → COMPLETED) *@
         @if (isAccountant && Model.Status is "DELIVERED" or "RETURNED")
         {
-            <button class="btn btn-sm btn-success" onclick="confirmComplete()">
+            <button class="btn btn-sm btn-success" onclick="openCompleteModal()">
                 <i class="bi bi-check-all me-1"></i> Duyệt quyết toán
             </button>
         }
@@ -461,6 +461,13 @@
                                <div class="text-muted">Chi phí thực tế</div>
                                <div class="fw-bold">@Model.ActualCost?.ToString("N0") @Model.Currency</div>
                            </div>
+                           @if (!string.IsNullOrEmpty(Model.OutputInvoiceNo))
+                           {
+                               <div class="col-6">
+                                   <div class="text-muted">Số hóa đơn đầu ra</div>
+                                   <div class="fw-bold">@Model.OutputInvoiceNo</div>
+                               </div>
+                           }
                            @if (!string.IsNullOrEmpty(Model.SettlementNotes))
                            {
                                <div class="col-12">
@@ -2036,6 +2043,36 @@
     </div>
 </div>
 
+<!-- Duyệt quyết toán Modal (Kế toán nhập số hóa đơn đầu ra) -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold"><i class="bi bi-check-all text-success me-1"></i> Duyệt quyết toán</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Số hóa đơn đầu ra</label>
+                    <input type="text" id="completeOutputInvoiceNo" class="form-control form-control-sm"
+                           placeholder="VD: 00012345" maxlength="50" />
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold">Ghi chú quyết toán</label>
+                    <textarea id="completeSettlementNotes" class="form-control form-control-sm" rows="2"
+                              placeholder="Ghi chú (nếu có)..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="confirmComplete()">
+                    <i class="bi bi-check-all me-1"></i> Duyệt & hoàn tất
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Cancel Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -2932,11 +2969,20 @@
         });
     }
 
-    // ── DELIVERED|RETURNED → COMPLETED (Kế toán duyệt quyết toán, không popup) ──
-    async function confirmComplete() {
-        if (!await appConfirm('Duyệt quyết toán và hoàn tất đơn hàng này?')) return;
-        postAction('/SalesOrder/Complete/' + soId, {}, function (data) {
+    // ── DELIVERED|RETURNED → COMPLETED (Kế toán duyệt quyết toán + nhập số HĐ đầu ra) ──
+    function openCompleteModal() {
+        document.getElementById('completeOutputInvoiceNo').value = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.OutputInvoiceNo ?? ""));
+        document.getElementById('completeSettlementNotes').value = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SettlementNotes ?? ""));
+        new bootstrap.Modal(document.getElementById('completeModal')).show();
+    }
+    function confirmComplete() {
+        var body = {
+            OutputInvoiceNo: document.getElementById('completeOutputInvoiceNo').value.trim(),
+            SettlementNotes: document.getElementById('completeSettlementNotes').value.trim()
+        };
+        postAction('/SalesOrder/Complete/' + soId, body, function (data) {
             if (data.Success) {
+                bootstrap.Modal.getInstance(document.getElementById('completeModal'))?.hide();
                 appAlert(data.Message || 'Đã hoàn tất đơn hàng').then(function () { location.reload(); });
             } else appAlert(data.Message || 'Lỗi');
         });

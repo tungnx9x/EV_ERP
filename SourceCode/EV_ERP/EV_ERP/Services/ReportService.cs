@@ -402,6 +402,10 @@ public class ReportService : IReportService
             .Where(so => SalesResultStatuses.Contains(so.Status)
                          && so.SalesPersonId == userId);
 
+        // Chỉ lấy SO đã có Số hóa đơn đầu ra (mặc định bật).
+        if (filter.HasOutputInvoice)
+            query = query.Where(so => so.OutputInvoiceNo != null && so.OutputInvoiceNo != "");
+
         // Date filter: prefer CompletedAt — that's when the sales cycle finished.
         if (filter.DateFrom.HasValue)
         {

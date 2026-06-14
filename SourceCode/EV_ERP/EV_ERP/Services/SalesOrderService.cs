@@ -205,6 +205,7 @@ public class SalesOrderService : ISalesOrderService
             SalesPersonName = s.SalesPerson.FullName,
             ActualCost = s.ActualCost,
             SettlementNotes = s.SettlementNotes,
+            OutputInvoiceNo = s.OutputInvoiceNo,
             DeliveringAt = s.DeliveringAt,
             DeliveredAt = s.DeliveredAt,
             CompletedAt = s.CompletedAt,
@@ -854,6 +855,8 @@ public class SalesOrderService : ISalesOrderService
         so.ActualCost = model.ActualCost ?? so.ActualCost ?? so.PurchaseCost;
         if (!string.IsNullOrWhiteSpace(model.SettlementNotes))
             so.SettlementNotes = model.SettlementNotes.Trim();
+        if (!string.IsNullOrWhiteSpace(model.OutputInvoiceNo))
+            so.OutputInvoiceNo = model.OutputInvoiceNo.Trim();
         so.CompletedAt = DateTime.Now;
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
@@ -1161,6 +1164,11 @@ public class SalesOrderService : ISalesOrderService
 
         if (so == null || so.Items.Count == 0) return null;
 
+        // Bỏ các dòng đã hủy toàn bộ SL; dòng hủy 1 phần dùng SL còn lại (Quantity - CancelledQty).
+        var items = so.Items.Where(i => i.CancelledQty < i.Quantity)
+                            .OrderBy(i => i.SortOrder).ToList();
+        if (items.Count == 0) return null;
+
         var requestor = await _uow.Repository<User>().GetByIdAsync(userId);
         var requestorName = requestor?.FullName ?? so.SalesPerson?.FullName ?? "";
 
@@ -1172,7 +1180,7 @@ public class SalesOrderService : ISalesOrderService
         var ws = wb.Worksheet(1);
 
         var now = DateTime.Now;
-        int itemCount = so.Items.Count;
+        int itemCount = items.Count;
         const int dataStartRow = 12;
         int totalRow = dataStartRow + itemCount;       // shifts down after inserts
         int lastDataRow = dataStartRow + itemCount - 1;
@@ -1199,14 +1207,15 @@ public class SalesOrderService : ISalesOrderService
         decimal taxRateDecimal = so.TaxRate / 100m;
         for (int i = 0; i < itemCount; i++)
         {
-            var item = so.Items.ElementAt(i);
+            var item = items[i];
             int row = dataStartRow + i;
+            var effectiveQty = item.Quantity - item.CancelledQty;              // SL còn lại sau khi hủy 1 phần
 
             ws.Cell(row, 1).Value = i + 1;                                     // A: STT
             ws.Cell(row, 2).Value = so.Customer.CustomerName;                  // B: Tên dự án/KS
             ws.Cell(row, 3).Value = item.ProductName;                          // C: Tên hàng hóa
             ws.Cell(row, 4).Value = item.UnitName;                             // D: ĐVT
-            ws.Cell(row, 5).Value = item.Quantity;                             // E: SL bán
+            ws.Cell(row, 5).Value = effectiveQty;                              // E: SL bán (đã trừ phần hủy)
             ws.Cell(row, 6).Value = item.UnitPrice;                            // F: Đơn giá bán VNĐ
             ws.Cell(row, 7).Value = (item.TaxRate ?? so.TaxRate) / 100m;       // G: VAT (decimal)
             ws.Cell(row, 8).FormulaA1 = $"(F{row}*E{row})+(F{row}*E{row}*G{row})"; // H: Thành tiền
@@ -1215,7 +1224,7 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 10).Value = 0;                                        // J: Đơn giá mua nguyên tệ (chưa lưu, để trống/0)
             ws.Cell(row, 11).Value = 0;                                        // K: Tỷ giá
             ws.Cell(row, 12).Value = item.PurchasePrice ?? 0;                  // L: Đơn giá mua VNĐ
-            ws.Cell(row, 13).Value = item.Quantity;                            // M: SL mua (giả định = SL bán)
+            ws.Cell(row, 13).Value = effectiveQty;                             // M: SL mua (= SL bán, đã trừ phần hủy)
             ws.Cell(row, 14).Value = (item.TaxRate ?? so.TaxRate) / 100m;      // N: VAT mua
             ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})"; // O: Thành tiền chi phí
 

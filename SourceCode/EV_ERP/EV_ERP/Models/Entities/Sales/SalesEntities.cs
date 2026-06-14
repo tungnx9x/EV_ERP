@@ -223,6 +223,8 @@ public class SalesOrder : AuditableEntity
     // ── Quyết toán ──
     public decimal? ActualCost { get; set; }
     public string? SettlementNotes { get; set; }
+    /// <summary>Số hóa đơn đầu ra (kế toán nhập khi duyệt quyết toán).</summary>
+    public string? OutputInvoiceNo { get; set; }
 
     // ── Dropshipping ──
     public bool IsDropship { get; set; }

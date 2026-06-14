@@ -418,6 +418,7 @@ namespace EV_ERP.Data
                 e.Property(x => x.SalesOrderNo).HasMaxLength(20);
                 e.Property(x => x.Status).HasMaxLength(25).HasDefaultValue("DRAFT");
                 e.Property(x => x.AdvanceStatus).HasMaxLength(20);
+                e.Property(x => x.OutputInvoiceNo).HasMaxLength(50);
                 e.Property(x => x.AdvanceAmount).HasColumnType("decimal(18,2)");
                 e.Property(x => x.PurchaseCost).HasColumnType("decimal(18,2)");
                 e.Property(x => x.ActualCost).HasColumnType("decimal(18,2)");

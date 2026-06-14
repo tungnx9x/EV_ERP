@@ -28,7 +28,17 @@
                 <input type="date" id="filter_dateTo" class="form-control form-control-sm"
                        value="@Model.Filter.DateTo?.ToString("yyyy-MM-dd")" />
             </div>
-            <div class="col-lg-6 col-md-4 d-flex gap-2">
+            <div class="col-lg-3 col-md-4">
+                <div class="form-check mt-md-4">
+                    <input class="form-check-input" type="checkbox" id="filter_hasOutputInvoice"
+                           @(Model.Filter.HasOutputInvoice ? "checked" : "") />
+                    <label class="form-check-label small fw-semibold" for="filter_hasOutputInvoice"
+                           title="Chỉ lấy đơn đã có số hóa đơn đầu ra">
+                        Có hóa đơn đầu ra
+                    </label>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-4 d-flex gap-2">
                 <button class="btn btn-primary btn-sm" onclick="applyFilter()">
                     <i class="bi bi-funnel me-1"></i>Lọc
                 </button>
@@ -146,7 +156,8 @@
     function getFilterPayload() {
         return {
             DateFrom: document.getElementById('filter_dateFrom').value || null,
-            DateTo: document.getElementById('filter_dateTo').value || null
+            DateTo: document.getElementById('filter_dateTo').value || null,
+            HasOutputInvoice: document.getElementById('filter_hasOutputInvoice').checked
         };
     }
 

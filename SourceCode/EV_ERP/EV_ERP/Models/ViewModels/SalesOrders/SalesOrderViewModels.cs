@@ -166,6 +166,7 @@ public class SalesOrderDetailViewModel
     // Settlement
     public decimal? ActualCost { get; set; }
     public string? SettlementNotes { get; set; }
+    public string? OutputInvoiceNo { get; set; }   // Số hóa đơn đầu ra
 
     // Timestamps
     public DateTime? DeliveringAt { get; set; }
@@ -422,6 +423,7 @@ public class SalesOrderCompleteModel
 {
     public decimal? ActualCost { get; set; }
     public string? SettlementNotes { get; set; }
+    public string? OutputInvoiceNo { get; set; }   // Số hóa đơn đầu ra (kế toán nhập khi duyệt quyết toán)
 }
 
 public class SalesOrderReturnModel

@@ -58,6 +58,8 @@ public class SalesResultFilterViewModel
 {
     public DateTime? DateFrom { get; set; }
     public DateTime? DateTo { get; set; }
+    /// <summary>Mặc định true: chỉ lấy SO đã có Số hóa đơn đầu ra (OutputInvoiceNo).</summary>
+    public bool HasOutputInvoice { get; set; } = true;
 }
 
 public class SalesResultReportViewModel

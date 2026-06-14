@@ -334,6 +334,10 @@
                                            costPerKg = item.UnofficialCostPerKg,
                                            handCarry = item.UnofficialHandCarryFee,
                                            w2w = item.UnofficialW2WShipping,
+                                           length = item.UnofficialLength,
+                                           width = item.UnofficialWidth,
+                                           height = item.UnofficialHeight,
+                                           costPerCbm = item.UnofficialCostPerCbm,
                                            tax = item.PurchaseTax,
                                            inspection = item.InspectionFee,
                                            banking = item.BankingFee,
@@ -507,6 +511,28 @@
                                 <div class="col-md-6">
                                     <label class="form-label small">Kho trung gian → kho công ty (VND)</label>
                                     <input type="text" class="form-control form-control-sm text-end" id="cvW2W" disabled />
+                                </div>
+
+                                <!-- Thể tích (CBM): Dài × Rộng × Cao (m) × Phí/CBM -->
+                                <div class="col-12">
+                                    <hr class="my-1" />
+                                    <span class="small fw-semibold text-muted"><i class="bi bi-box me-1"></i>Thể tích (CBM)</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Dài (m)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvLength" disabled />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rộng (m)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvWidth" disabled />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Cao (m)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvHeight" disabled />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Phí / CBM (VND)</label>
+                                    <input type="text" class="form-control form-control-sm text-end" id="cvCostPerCbm" disabled />
                                 </div>
                             </div>
                         </div>
@@ -683,6 +709,10 @@
             var costPerKg = Number(d.costPerKg) || 0;
             var handCarry = Number(d.handCarry) || 0;
             var w2w = Number(d.w2w) || 0;
+            var length = Number(d.length) || 0;
+            var width = Number(d.width) || 0;
+            var height = Number(d.height) || 0;
+            var costPerCbm = Number(d.costPerCbm) || 0;
             var tax = Number(d.tax) || 0;
             var inspection = Number(d.inspection) || 0;
             var banking = Number(d.banking) || 0;
@@ -713,6 +743,10 @@
             document.getElementById('cvCostPerKg').value = costPerKg ? cvFmt(costPerKg) : '';
             document.getElementById('cvHandCarry').value = handCarry ? cvFmt(handCarry) : '';
             document.getElementById('cvW2W').value = w2w ? cvFmt(w2w) : '';
+            document.getElementById('cvLength').value = length ? length : '';
+            document.getElementById('cvWidth').value = width ? width : '';
+            document.getElementById('cvHeight').value = height ? height : '';
+            document.getElementById('cvCostPerCbm').value = costPerCbm ? cvFmt(costPerCbm) : '';
             document.getElementById('cvTax').value = tax ? cvFmt(tax) : '';
             document.getElementById('cvInspection').value = inspection ? cvFmt(inspection) : '';
             document.getElementById('cvBanking').value = banking ? cvFmt(banking) : '';
@@ -727,8 +761,9 @@
                 shippingVnd = offShipping;
                 hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Vận chuyển CT + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
             } else {
-                shippingVnd = domShipping + weight * costPerKg + handCarry + w2w;
-                hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+                var cbmCost = (length * width * height) * costPerCbm;
+                shippingVnd = domShipping + weight * costPerKg + handCarry + w2w + cbmCost;
+                hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + CBM×Phí/CBM + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
             }
             var feesVnd = shippingVnd + tax + inspection + banking + other;
             var perUnit = Math.round(basePrice * rate + feesVnd / qty);

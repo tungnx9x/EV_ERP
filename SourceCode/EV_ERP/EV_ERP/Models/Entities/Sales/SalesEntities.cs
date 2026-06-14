@@ -134,6 +134,11 @@ public class QuotationItem
     public decimal? UnofficialCostPerKg { get; set; }
     public decimal? UnofficialHandCarryFee { get; set; }
     public decimal? UnofficialW2WShipping { get; set; }
+    // v2.10 — Thể tích (CBM): Dài × Rộng × Cao (m) × Phí/CBM, cộng vào chi phí vận chuyển tiểu ngạch
+    public decimal? UnofficialLength { get; set; }
+    public decimal? UnofficialWidth { get; set; }
+    public decimal? UnofficialHeight { get; set; }
+    public decimal? UnofficialCostPerCbm { get; set; }
 
     public virtual Quotation Quotation { get; set; } = null!;
     public virtual Product? Product { get; set; }
@@ -306,6 +311,11 @@ public class SalesOrderItem
     public decimal? UnofficialCostPerKg { get; set; }
     public decimal? UnofficialHandCarryFee { get; set; }
     public decimal? UnofficialW2WShipping { get; set; }
+    // v2.10 — Thể tích (CBM)
+    public decimal? UnofficialLength { get; set; }
+    public decimal? UnofficialWidth { get; set; }
+    public decimal? UnofficialHeight { get; set; }
+    public decimal? UnofficialCostPerCbm { get; set; }
 
     public virtual SalesOrder SalesOrder { get; set; } = null!;
     public virtual Product? Product { get; set; }

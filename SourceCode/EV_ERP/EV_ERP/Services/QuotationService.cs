@@ -219,7 +219,11 @@ public class QuotationService : IQuotationService
                 UnofficialWeightKg = i.UnofficialWeightKg,
                 UnofficialCostPerKg = i.UnofficialCostPerKg,
                 UnofficialHandCarryFee = i.UnofficialHandCarryFee,
-                UnofficialW2WShipping = i.UnofficialW2WShipping
+                UnofficialW2WShipping = i.UnofficialW2WShipping,
+                UnofficialLength = i.UnofficialLength,
+                UnofficialWidth = i.UnofficialWidth,
+                UnofficialHeight = i.UnofficialHeight,
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm
             }).ToList(),
             Customers = customers,
             SalesPersons = salesPersons,
@@ -316,7 +320,11 @@ public class QuotationService : IQuotationService
                 UnofficialWeightKg = item.UnofficialWeightKg,
                 UnofficialCostPerKg = item.UnofficialCostPerKg,
                 UnofficialHandCarryFee = item.UnofficialHandCarryFee,
-                UnofficialW2WShipping = item.UnofficialW2WShipping
+                UnofficialW2WShipping = item.UnofficialW2WShipping,
+                UnofficialLength = item.UnofficialLength,
+                UnofficialWidth = item.UnofficialWidth,
+                UnofficialHeight = item.UnofficialHeight,
+                UnofficialCostPerCbm = item.UnofficialCostPerCbm
             });
 
             subTotal += lineTotal;
@@ -439,7 +447,11 @@ public class QuotationService : IQuotationService
                 UnofficialWeightKg = item.UnofficialWeightKg,
                 UnofficialCostPerKg = item.UnofficialCostPerKg,
                 UnofficialHandCarryFee = item.UnofficialHandCarryFee,
-                UnofficialW2WShipping = item.UnofficialW2WShipping
+                UnofficialW2WShipping = item.UnofficialW2WShipping,
+                UnofficialLength = item.UnofficialLength,
+                UnofficialWidth = item.UnofficialWidth,
+                UnofficialHeight = item.UnofficialHeight,
+                UnofficialCostPerCbm = item.UnofficialCostPerCbm
             });
 
             subTotal += lineTotal;
@@ -567,7 +579,11 @@ public class QuotationService : IQuotationService
                 UnofficialWeightKg = i.UnofficialWeightKg,
                 UnofficialCostPerKg = i.UnofficialCostPerKg,
                 UnofficialHandCarryFee = i.UnofficialHandCarryFee,
-                UnofficialW2WShipping = i.UnofficialW2WShipping
+                UnofficialW2WShipping = i.UnofficialW2WShipping,
+                UnofficialLength = i.UnofficialLength,
+                UnofficialWidth = i.UnofficialWidth,
+                UnofficialHeight = i.UnofficialHeight,
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm
             }).ToList()
         };
     }
@@ -740,7 +756,11 @@ public class QuotationService : IQuotationService
                 UnofficialWeightKg = item.UnofficialWeightKg,
                 UnofficialCostPerKg = item.UnofficialCostPerKg,
                 UnofficialHandCarryFee = item.UnofficialHandCarryFee,
-                UnofficialW2WShipping = item.UnofficialW2WShipping
+                UnofficialW2WShipping = item.UnofficialW2WShipping,
+                UnofficialLength = item.UnofficialLength,
+                UnofficialWidth = item.UnofficialWidth,
+                UnofficialHeight = item.UnofficialHeight,
+                UnofficialCostPerCbm = item.UnofficialCostPerCbm
             });
         }
 
@@ -827,7 +847,19 @@ public class QuotationService : IQuotationService
                 ImportPrice = i.PurchasePrice ?? 0,
                 Shipping = i.ShippingFee ?? 0,
                 Coefficient = i.Coefficient ?? 1,
-                Notes = i.Notes
+                Notes = i.Notes,
+                // Purchase/CBM breakdown — needed for export columns O (Giá RMB), P (Giá VND),
+                // Q (Weight), R (Volume CBM) and the S shipping formula.
+                PurchaseCurrency = i.PurchaseCurrency ?? "VND",
+                ExchangeRate = i.PurchaseExchangeRate ?? 1,
+                PurchaseMode = string.IsNullOrEmpty(i.PurchaseMode) ? "OFFICIAL" : i.PurchaseMode,
+                BasePrice = i.BasePrice,
+                UnofficialWeightKg = i.UnofficialWeightKg,
+                UnofficialCostPerKg = i.UnofficialCostPerKg,
+                UnofficialLength = i.UnofficialLength,
+                UnofficialWidth = i.UnofficialWidth,
+                UnofficialHeight = i.UnofficialHeight,
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm
             }).ToList()
         };
 
@@ -949,20 +981,34 @@ public class QuotationService : IQuotationService
             {
                 ws.Cell(row, 15).Value = 0;
             }
-            // P Gia VND
-            ws.Cell(row, 16).FormulaA1 = $"O{row}*{item.ExchangeRate}";
+            // P Gia VND = O × Tỷ giá
+            ws.Cell(row, 16).FormulaA1 = $"O{row}*{item.ExchangeRate.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
             // Q Can nang
             ws.Cell(row, 17).Value = item.UnofficialWeightKg;
             ws.Cell(row, 17).Style.NumberFormat.Format = "#,##0";
+            // R Volume (CBM) = Dài × Rộng × Cao (write as a formula so the cell shows L*W*H)
+            var unofficialLength = (item.UnofficialLength ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var unofficialWidth = (item.UnofficialWidth ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var unofficialHeight = (item.UnofficialHeight ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            ws.Cell(row, 18).FormulaA1 = $"{unofficialLength}*{unofficialWidth}*{unofficialHeight}";
+            ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0.####";
+            // S Vận chuyển tới EV = IF(Q=0, R×Phí/CBM, Q×Phí/kg)
+            var costPerCbm = (item.UnofficialCostPerCbm ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var costPerKg = (item.UnofficialCostPerKg ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            ws.Cell(row, 19).FormulaA1 = $"IF(Q{row}=0,R{row}*{costPerCbm},Q{row}*{costPerKg})";
+            ws.Cell(row, 19).Style.NumberFormat.Format = "#,##0";
             //T Gia von final
             ws.Cell(row, 20).Value = item.ImportPrice;
             ws.Cell(row, 20).Style.NumberFormat.Format = "#,##0";
             // U Ship
             ws.Cell(row, 21).Value = item.Shipping/item.Quantity;
             ws.Cell(row, 21).Style.NumberFormat.Format = "#,##0";
-            // V He so
+            // V He so — keep the original (possibly fractional) value, e.g. 0.5
             ws.Cell(row, 22).Value = item.Coefficient;
-            ws.Cell(row, 22).Style.NumberFormat.Format = "#,##0.##";
+            ws.Cell(row, 22).Style.NumberFormat.Format = "#,##0.####";
+            // X — VAT (market-price section); same fraction + "0%" format as the J column
+            ws.Cell(row, 24).Value = item.VatRate / 100m;
+            ws.Cell(row, 24).Style.NumberFormat.Format = "0%";
         }
 
         // Totals row sits immediately after the data block (was row 15 in the template,

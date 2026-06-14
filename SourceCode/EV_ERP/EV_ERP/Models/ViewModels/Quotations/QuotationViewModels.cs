@@ -175,6 +175,11 @@ public class QuotationItemFormModel
     public decimal? UnofficialCostPerKg { get; set; }
     public decimal? UnofficialHandCarryFee { get; set; }
     public decimal? UnofficialW2WShipping { get; set; }
+    // v2.10 — Thể tích (CBM)
+    public decimal? UnofficialLength { get; set; }
+    public decimal? UnofficialWidth { get; set; }
+    public decimal? UnofficialHeight { get; set; }
+    public decimal? UnofficialCostPerCbm { get; set; }
 
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
@@ -307,6 +312,11 @@ public class QuotationItemDetailViewModel
     public decimal? UnofficialCostPerKg { get; set; }
     public decimal? UnofficialHandCarryFee { get; set; }
     public decimal? UnofficialW2WShipping { get; set; }
+    // v2.10 — Thể tích (CBM)
+    public decimal? UnofficialLength { get; set; }
+    public decimal? UnofficialWidth { get; set; }
+    public decimal? UnofficialHeight { get; set; }
+    public decimal? UnofficialCostPerCbm { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }

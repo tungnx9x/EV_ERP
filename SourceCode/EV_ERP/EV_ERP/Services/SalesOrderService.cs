@@ -261,7 +261,12 @@ public class SalesOrderService : ISalesOrderService
                 UnofficialWeightKg = i.UnofficialWeightKg,
                 UnofficialCostPerKg = i.UnofficialCostPerKg,
                 UnofficialHandCarryFee = i.UnofficialHandCarryFee,
-                UnofficialW2WShipping = i.UnofficialW2WShipping
+                UnofficialW2WShipping = i.UnofficialW2WShipping,
+                // v2.10 — Thể tích (CBM)
+                UnofficialLength = i.UnofficialLength,
+                UnofficialWidth = i.UnofficialWidth,
+                UnofficialHeight = i.UnofficialHeight,
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm
             }).ToList(),
             AdvanceSummary = advanceSummary,
             Currencies = await _uow.Repository<EV_ERP.Models.Entities.Reference.Currency>().Query()
@@ -370,7 +375,12 @@ public class SalesOrderService : ISalesOrderService
                 UnofficialWeightKg = i.UnofficialWeightKg,
                 UnofficialCostPerKg = i.UnofficialCostPerKg,
                 UnofficialHandCarryFee = i.UnofficialHandCarryFee,
-                UnofficialW2WShipping = i.UnofficialW2WShipping
+                UnofficialW2WShipping = i.UnofficialW2WShipping,
+                // v2.10 — Thể tích (CBM)
+                UnofficialLength = i.UnofficialLength,
+                UnofficialWidth = i.UnofficialWidth,
+                UnofficialHeight = i.UnofficialHeight,
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm
             }).ToList()
         };
 
@@ -737,6 +747,10 @@ public class SalesOrderService : ISalesOrderService
         item.UnofficialCostPerKg = model.UnofficialCostPerKg;
         item.UnofficialHandCarryFee = model.UnofficialHandCarryFee;
         item.UnofficialW2WShipping = model.UnofficialW2WShipping;
+        item.UnofficialLength = model.UnofficialLength;
+        item.UnofficialWidth = model.UnofficialWidth;
+        item.UnofficialHeight = model.UnofficialHeight;
+        item.UnofficialCostPerCbm = model.UnofficialCostPerCbm;
 
         // LineCost theo SL còn hiệu lực (đã trừ phần hủy) × giá nhập mới
         var eff = item.Quantity - item.CancelledQty;

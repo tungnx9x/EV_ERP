@@ -247,6 +247,35 @@
                                     <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                            id="calcW2W" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
                                 </div>
+
+                                <!-- Thể tích (CBM): Dài × Rộng × Cao (m) × Phí/CBM -->
+                                <div class="col-12">
+                                    <hr class="my-1" />
+                                    <span class="small fw-semibold text-muted"><i class="bi bi-box me-1"></i>Thể tích (CBM)</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Dài (m)</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcLength" oninput="onCalcInput()" onfocus="this.select()" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rộng (m)</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcWidth" oninput="onCalcInput()" onfocus="this.select()" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Cao (m)</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcHeight" oninput="onCalcInput()" onfocus="this.select()" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Phí / CBM (VND)</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcCostPerCbm" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                </div>
+                                <div class="col-12">
+                                    <div class="small text-muted text-end">CBM = Dài × Rộng × Cao = <span id="calcCbmValue" class="fw-semibold">0</span> m³</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -654,7 +683,11 @@
             UnofficialWeightKg: null,
             UnofficialCostPerKg: null,
             UnofficialHandCarryFee: null,
-            UnofficialW2WShipping: null
+            UnofficialW2WShipping: null,
+            UnofficialLength: null,
+            UnofficialWidth: null,
+            UnofficialHeight: null,
+            UnofficialCostPerCbm: null
         });
         // Jump to the last page so the freshly-added row is visible.
         currentPage = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -932,7 +965,8 @@
                         '</div>' +
                         '<div>' +
                             '<div class="qi-label">Truoc VAT</div>' +
-                            '<div class="qi-val">' + formatNumber(item.AmountExclVat) + '</div>' +
+                            '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
+                                'value="' + formatNumber(item.AmountExclVat) + '" oninput="formatMoneyInput(this)" onchange="updateAmountExclVat(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
                         '<div>' +
                             '<div class="qi-label">VAT %</div>' +
@@ -941,7 +975,8 @@
                         '</div>' +
                         '<div>' +
                             '<div class="qi-label">Sau VAT</div>' +
-                            '<div class="qi-val qi-val-primary">' + formatNumber(item.AmountInclVat) + '</div>' +
+                            '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end fw-bold text-primary" ' +
+                                'value="' + formatNumber(item.AmountInclVat) + '" oninput="formatMoneyInput(this)" onchange="updateAmountInclVat(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
@@ -1033,6 +1068,36 @@
     function updateVat(idx, val) {
         items[idx].VatRate = parseDecimal(val);
         recalcItemLine(idx);
+        renderItems();
+        recalcTotals();
+    }
+
+    // Manual override of "Truoc VAT" (amount before VAT). The server recomputes line totals from
+    // Qty × UnitPrice, so back-derive UnitPrice from the typed amount to make the override persist.
+    function updateAmountExclVat(idx, val) {
+        var item = items[idx];
+        var excl = parseMoney(val);
+        item.AmountExclVat = excl;
+        var qty = item.Quantity > 0 ? item.Quantity : 1;
+        item.UnitPrice = excl / qty;
+        item.AmountInclVat = Math.round(excl * (1 + item.VatRate / 100));
+        item.LineTotal = item.AmountInclVat;
+        renderItems();
+        recalcTotals();
+    }
+
+    // Manual override of "Sau VAT" (amount incl. VAT). Back-derive the before-VAT amount from VAT%,
+    // then UnitPrice from quantity, so the value survives the server-side recompute.
+    function updateAmountInclVat(idx, val) {
+        var item = items[idx];
+        var incl = parseMoney(val);
+        item.AmountInclVat = incl;
+        var factor = 1 + item.VatRate / 100;
+        var excl = factor > 0 ? Math.round(incl / factor) : incl;
+        item.AmountExclVat = excl;
+        var qty = item.Quantity > 0 ? item.Quantity : 1;
+        item.UnitPrice = excl / qty;
+        item.LineTotal = incl;
         renderItems();
         recalcTotals();
     }
@@ -1459,6 +1524,10 @@
         document.getElementById('calcCostPerKg').value = item.UnofficialCostPerKg ? formatNumber(item.UnofficialCostPerKg) : '';
         document.getElementById('calcHandCarry').value = item.UnofficialHandCarryFee ? formatNumber(item.UnofficialHandCarryFee) : '';
         document.getElementById('calcW2W').value = item.UnofficialW2WShipping ? formatNumber(item.UnofficialW2WShipping) : '';
+        document.getElementById('calcLength').value = item.UnofficialLength ? item.UnofficialLength : '';
+        document.getElementById('calcWidth').value = item.UnofficialWidth ? item.UnofficialWidth : '';
+        document.getElementById('calcHeight').value = item.UnofficialHeight ? item.UnofficialHeight : '';
+        document.getElementById('calcCostPerCbm').value = item.UnofficialCostPerCbm ? formatNumber(item.UnofficialCostPerCbm) : '';
         document.getElementById('calcTax').value = item.PurchaseTax ? formatNumber(item.PurchaseTax) : '';
         document.getElementById('calcInspection').value = item.InspectionFee ? formatNumber(item.InspectionFee) : '';
         document.getElementById('calcBanking').value = item.BankingFee ? formatNumber(item.BankingFee) : '';
@@ -1573,6 +1642,10 @@
             costPerKg: parseMoney(document.getElementById('calcCostPerKg').value),
             handCarry: parseMoney(document.getElementById('calcHandCarry').value),
             w2w: parseMoney(document.getElementById('calcW2W').value),
+            length: parseDecimal(document.getElementById('calcLength').value),
+            width: parseDecimal(document.getElementById('calcWidth').value),
+            height: parseDecimal(document.getElementById('calcHeight').value),
+            costPerCbm: parseMoney(document.getElementById('calcCostPerCbm').value),
             tax: parseMoney(document.getElementById('calcTax').value),
             inspection: parseMoney(document.getElementById('calcInspection').value),
             banking: parseMoney(document.getElementById('calcBanking').value),
@@ -1599,8 +1672,10 @@
             shippingVnd = f.offShipping;
             hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Vận chuyển CT + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
         } else {
-            shippingVnd = f.domShipping + f.weight * f.costPerKg + f.handCarry + f.w2w;
-            hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+            var cbm = (f.length || 0) * (f.width || 0) * (f.height || 0);
+            var cbmCost = cbm * f.costPerCbm;
+            shippingVnd = f.domShipping + f.weight * f.costPerKg + f.handCarry + f.w2w + cbmCost;
+            hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + CBM×Phí/CBM + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
         }
         var feesVnd = shippingVnd + f.tax + f.inspection + f.banking + f.other;
         var perUnit = Math.round(f.basePrice * f.rate + feesVnd / qty);
@@ -1613,6 +1688,13 @@
         document.getElementById('calcLineTotal').textContent = formatNumber(r.lineVnd);
         document.getElementById('calcPerUnit').textContent = formatNumber(r.perUnit);
         document.getElementById('calcFormulaHint').textContent = r.hint;
+        // Live CBM (Dài × Rộng × Cao) readout in the unofficial panel
+        var cbmEl = document.getElementById('calcCbmValue');
+        if (cbmEl) {
+            var f = r.fields;
+            var cbm = (f.length || 0) * (f.width || 0) * (f.height || 0);
+            cbmEl.textContent = cbm ? cbm.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '0';
+        }
     }
 
     function confirmCalcModal() {
@@ -1654,6 +1736,10 @@
             item.UnofficialCostPerKg = null;
             item.UnofficialHandCarryFee = null;
             item.UnofficialW2WShipping = null;
+            item.UnofficialLength = null;
+            item.UnofficialWidth = null;
+            item.UnofficialHeight = null;
+            item.UnofficialCostPerCbm = null;
         } else {
             item.OfficialShipping = null;
             item.UnofficialDomesticShipping = f.domShipping || null;
@@ -1661,6 +1747,10 @@
             item.UnofficialCostPerKg = f.costPerKg || null;
             item.UnofficialHandCarryFee = f.handCarry || null;
             item.UnofficialW2WShipping = f.w2w || null;
+            item.UnofficialLength = f.length || null;
+            item.UnofficialWidth = f.width || null;
+            item.UnofficialHeight = f.height || null;
+            item.UnofficialCostPerCbm = f.costPerCbm || null;
         }
 
         recalcUnitPriceFromImport(calcModalIdx);

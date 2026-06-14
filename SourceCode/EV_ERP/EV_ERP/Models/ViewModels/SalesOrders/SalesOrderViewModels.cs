@@ -246,6 +246,11 @@ public class SalesOrderItemDetailViewModel
     public decimal? UnofficialCostPerKg { get; set; }
     public decimal? UnofficialHandCarryFee { get; set; }
     public decimal? UnofficialW2WShipping { get; set; }
+    // v2.10 — Thể tích (CBM)
+    public decimal? UnofficialLength { get; set; }
+    public decimal? UnofficialWidth { get; set; }
+    public decimal? UnofficialHeight { get; set; }
+    public decimal? UnofficialCostPerCbm { get; set; }
 
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
@@ -371,6 +376,11 @@ public class UpdateItemPurchasePriceModel
     public decimal? UnofficialCostPerKg { get; set; }
     public decimal? UnofficialHandCarryFee { get; set; }
     public decimal? UnofficialW2WShipping { get; set; }
+    // v2.10 — Thể tích (CBM)
+    public decimal? UnofficialLength { get; set; }
+    public decimal? UnofficialWidth { get; set; }
+    public decimal? UnofficialHeight { get; set; }
+    public decimal? UnofficialCostPerCbm { get; set; }
 }
 
 public class ReceiveBatchItemModel

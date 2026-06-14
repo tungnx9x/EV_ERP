@@ -389,6 +389,10 @@ namespace EV_ERP.Data
                 e.Property(x => x.UnofficialCostPerKg).HasColumnType("decimal(18,2)");
                 e.Property(x => x.UnofficialHandCarryFee).HasColumnType("decimal(18,2)");
                 e.Property(x => x.UnofficialW2WShipping).HasColumnType("decimal(18,2)");
+                e.Property(x => x.UnofficialLength).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialWidth).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialHeight).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialCostPerCbm).HasColumnType("decimal(18,2)");
                 e.HasOne(x => x.Quotation).WithMany(q => q.Items).HasForeignKey(x => x.QuotationId);
                 e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.PurchaseCurrencyRef).WithMany()
@@ -482,6 +486,10 @@ namespace EV_ERP.Data
                 e.Property(x => x.UnofficialCostPerKg).HasColumnType("decimal(18,2)");
                 e.Property(x => x.UnofficialHandCarryFee).HasColumnType("decimal(18,2)");
                 e.Property(x => x.UnofficialW2WShipping).HasColumnType("decimal(18,2)");
+                e.Property(x => x.UnofficialLength).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialWidth).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialHeight).HasColumnType("decimal(18,3)");
+                e.Property(x => x.UnofficialCostPerCbm).HasColumnType("decimal(18,2)");
                 e.HasOne(x => x.SalesOrder).WithMany(s => s.Items).HasForeignKey(x => x.SalesOrderId);
                 e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
                 e.HasOne(x => x.PurchaseCurrencyRef).WithMany()

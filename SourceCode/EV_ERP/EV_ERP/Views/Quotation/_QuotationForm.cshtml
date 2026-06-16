@@ -174,14 +174,14 @@
                     </div>
                 </div>
 
-                <!-- Currency/Rate (dual-mode) + Base price + Purchase quantity -->
+                <!-- Currency/Rate (dual-mode) + VAT (domestic) + Base price + Purchase quantity -->
                 <div class="row g-2 mb-3">
-                    <div class="col-md-4">
+                    <div class="col-md">
                         <label class="form-label small fw-semibold">Đơn giá gốc</label>
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                id="calcBasePrice" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md">
                         <label class="form-label small fw-semibold d-flex align-items-center justify-content-between" style="gap:4px;">
                             <span id="calcCurrRateLabelText">Tỷ giá</span>
                             <button type="button" class="qi-x-btn" id="calcResetCurrBtn" onclick="resetCalcCurrency()" style="display:none;" title="Đổi lại VND" aria-label="Đổi lại VND">×</button>
@@ -190,7 +190,13 @@
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                id="calcRate" style="display:none;" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" placeholder="Nhập tỷ giá" />
                     </div>
-                    <div class="col-md-4">
+                    <!-- VAT — chỉ áp dụng cho "Mua trong nước" (DOMESTIC) -->
+                    <div class="col-md" id="calcVatCol" style="display:none;">
+                        <label class="form-label small fw-semibold">VAT (%)</label>
+                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcVatPercent" oninput="onCalcInput();" onfocus="this.select()" placeholder="VAT %" />
+                    </div>
+                    <div class="col-md">
                         <label class="form-label small fw-semibold">Số lượng mua</label>
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                id="calcQty" oninput="onCalcInput();" onfocus="this.select()" />
@@ -687,7 +693,8 @@
             UnofficialLength: null,
             UnofficialWidth: null,
             UnofficialHeight: null,
-            UnofficialCostPerCbm: null
+            UnofficialCostPerCbm: null,
+            PurchaseVatPercent: null
         });
         // Jump to the last page so the freshly-added row is visible.
         currentPage = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -1532,6 +1539,7 @@
         document.getElementById('calcInspection').value = item.InspectionFee ? formatNumber(item.InspectionFee) : '';
         document.getElementById('calcBanking').value = item.BankingFee ? formatNumber(item.BankingFee) : '';
         document.getElementById('calcOther').value = item.OtherCosts ? formatNumber(item.OtherCosts) : '';
+        document.getElementById('calcVatPercent').value = item.PurchaseVatPercent ? item.PurchaseVatPercent : '';
 
         document.querySelectorAll('input[name="calcMode"]').forEach(function (r) {
             r.onchange = onCalcModeChange;
@@ -1559,6 +1567,9 @@
         // Domestic formula is just BasePrice + Shipping/Qty, so the extra-costs card is irrelevant.
         var commonCard = document.getElementById('calcCommonCostCard');
         if (commonCard) commonCard.style.display = (mode === 'DOMESTIC') ? 'none' : '';
+        // VAT only applies to domestic purchase.
+        var vatCol = document.getElementById('calcVatCol');
+        if (vatCol) vatCol.style.display = (mode === 'DOMESTIC') ? '' : 'none';
         // Domestic purchase is always priced in VND — force it and lock the currency selector.
         var currSel = document.getElementById('calcCurrency');
         if (mode === 'DOMESTIC') {
@@ -1649,7 +1660,8 @@
             tax: parseMoney(document.getElementById('calcTax').value),
             inspection: parseMoney(document.getElementById('calcInspection').value),
             banking: parseMoney(document.getElementById('calcBanking').value),
-            other: parseMoney(document.getElementById('calcOther').value)
+            other: parseMoney(document.getElementById('calcOther').value),
+            vatPercent: parseDecimal(document.getElementById('calcVatPercent').value)
         };
     }
 
@@ -1658,11 +1670,12 @@
         var qty = f.qty > 0 ? f.qty : 1;
         if (f.mode === 'DOMESTIC') {
             // Domestic: priced in VND (rate = 1), no extra fees. Giá nhập = Đơn giá gốc + (Phí vận chuyển / SL mua)
-            var domPerUnit = Math.round(f.basePrice + f.offShipping / qty);
+            var vatMult = 1 + (f.vatPercent || 0) / 100;
+            var domPerUnit = Math.round(f.basePrice * vatMult + f.offShipping / qty);
             return {
                 lineVnd: domPerUnit * qty,
                 perUnit: domPerUnit,
-                hint: 'Giá nhập = Đơn giá gốc + (Phí vận chuyển / SL mua)',
+                hint: 'Giá nhập = Đơn giá gốc × (1 + VAT%) + (Phí vận chuyển / SL mua)',
                 fields: f
             };
         }
@@ -1718,6 +1731,8 @@
         item.InspectionFee = f.inspection || null;
         item.BankingFee = f.banking || null;
         item.OtherCosts = f.other || null;
+        // VAT chỉ áp dụng cho "Mua trong nước"
+        item.PurchaseVatPercent = (f.mode === 'DOMESTIC') ? (f.vatPercent || null) : null;
 
         // Domestic purchase ignores extra costs (formula = BasePrice + Shipping/Qty) and is always VND.
         if (f.mode === 'DOMESTIC') {
@@ -1876,7 +1891,7 @@
         var moneyIds = ['calcBasePrice', 'calcRate', 'calcOfficialShipping', 'calcDomesticShipping',
                         'calcCostPerKg', 'calcHandCarry', 'calcW2W', 'calcTax', 'calcInspection',
                         'calcBanking', 'calcOther'];
-        var decimalIds = ['calcQty', 'calcWeight'];
+        var decimalIds = ['calcQty', 'calcWeight', 'calcVatPercent'];
         function bind(ids, kind) {
             ids.forEach(function (id) {
                 var el = document.getElementById(id);

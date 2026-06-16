@@ -252,6 +252,7 @@ public class SalesOrderItemDetailViewModel
     public decimal? UnofficialWidth { get; set; }
     public decimal? UnofficialHeight { get; set; }
     public decimal? UnofficialCostPerCbm { get; set; }
+    public decimal? PurchaseVatPercent { get; set; }
 
     public string? SourceUrl { get; set; }
     public string? SourceName { get; set; }
@@ -385,6 +386,7 @@ public class UpdateItemPurchasePriceModel
     public decimal? UnofficialWidth { get; set; }
     public decimal? UnofficialHeight { get; set; }
     public decimal? UnofficialCostPerCbm { get; set; }
+    public decimal? PurchaseVatPercent { get; set; }
 }
 
 public class ReceiveBatchItemModel

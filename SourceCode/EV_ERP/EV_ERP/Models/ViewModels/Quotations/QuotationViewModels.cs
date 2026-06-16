@@ -180,6 +180,7 @@ public class QuotationItemFormModel
     public decimal? UnofficialWidth { get; set; }
     public decimal? UnofficialHeight { get; set; }
     public decimal? UnofficialCostPerCbm { get; set; }
+    public decimal? PurchaseVatPercent { get; set; }
 
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
@@ -317,6 +318,7 @@ public class QuotationItemDetailViewModel
     public decimal? UnofficialWidth { get; set; }
     public decimal? UnofficialHeight { get; set; }
     public decimal? UnofficialCostPerCbm { get; set; }
+    public decimal? PurchaseVatPercent { get; set; }
     public string? DiscountType { get; set; }
     public decimal? DiscountValue { get; set; }
     public decimal DiscountAmount { get; set; }

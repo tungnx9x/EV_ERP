@@ -223,7 +223,8 @@ public class QuotationService : IQuotationService
                 UnofficialLength = i.UnofficialLength,
                 UnofficialWidth = i.UnofficialWidth,
                 UnofficialHeight = i.UnofficialHeight,
-                UnofficialCostPerCbm = i.UnofficialCostPerCbm
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm,
+                PurchaseVatPercent = i.PurchaseVatPercent
             }).ToList(),
             Customers = customers,
             SalesPersons = salesPersons,
@@ -324,7 +325,8 @@ public class QuotationService : IQuotationService
                 UnofficialLength = item.UnofficialLength,
                 UnofficialWidth = item.UnofficialWidth,
                 UnofficialHeight = item.UnofficialHeight,
-                UnofficialCostPerCbm = item.UnofficialCostPerCbm
+                UnofficialCostPerCbm = item.UnofficialCostPerCbm,
+                PurchaseVatPercent = item.PurchaseVatPercent
             });
 
             subTotal += lineTotal;
@@ -451,7 +453,8 @@ public class QuotationService : IQuotationService
                 UnofficialLength = item.UnofficialLength,
                 UnofficialWidth = item.UnofficialWidth,
                 UnofficialHeight = item.UnofficialHeight,
-                UnofficialCostPerCbm = item.UnofficialCostPerCbm
+                UnofficialCostPerCbm = item.UnofficialCostPerCbm,
+                PurchaseVatPercent = item.PurchaseVatPercent
             });
 
             subTotal += lineTotal;
@@ -583,7 +586,8 @@ public class QuotationService : IQuotationService
                 UnofficialLength = i.UnofficialLength,
                 UnofficialWidth = i.UnofficialWidth,
                 UnofficialHeight = i.UnofficialHeight,
-                UnofficialCostPerCbm = i.UnofficialCostPerCbm
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm,
+                PurchaseVatPercent = i.PurchaseVatPercent
             }).ToList()
         };
     }
@@ -760,7 +764,8 @@ public class QuotationService : IQuotationService
                 UnofficialLength = item.UnofficialLength,
                 UnofficialWidth = item.UnofficialWidth,
                 UnofficialHeight = item.UnofficialHeight,
-                UnofficialCostPerCbm = item.UnofficialCostPerCbm
+                UnofficialCostPerCbm = item.UnofficialCostPerCbm,
+                PurchaseVatPercent = item.PurchaseVatPercent
             });
         }
 

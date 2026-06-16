@@ -338,6 +338,7 @@
                                            width = item.UnofficialWidth,
                                            height = item.UnofficialHeight,
                                            costPerCbm = item.UnofficialCostPerCbm,
+                                           vatPercent = item.PurchaseVatPercent,
                                            tax = item.PurchaseTax,
                                            inspection = item.InspectionFee,
                                            banking = item.BankingFee,
@@ -472,7 +473,7 @@
                     </div>
                 </div>
 
-                <!-- OFFICIAL panel — shipping only -->
+                <!-- OFFICIAL / DOMESTIC panel — shipping only -->
                 <div id="cvOfficialPanel">
                     <div class="card border-primary-subtle">
                         <div class="card-header bg-primary-subtle py-2 small fw-semibold">
@@ -480,6 +481,15 @@
                         </div>
                         <div class="card-body py-2">
                             <input type="text" class="form-control form-control-sm text-end" id="cvOfficialShipping" disabled />
+                        </div>
+                    </div>
+                    <!-- VAT — chỉ áp dụng cho "Mua trong nước" (DOMESTIC) -->
+                    <div class="card border-info-subtle mt-2" id="cvVatCard" style="display:none;">
+                        <div class="card-header bg-info-subtle py-2 small fw-semibold">
+                            <i class="bi bi-percent me-1"></i> Thuế VAT (%)
+                        </div>
+                        <div class="card-body py-2">
+                            <input type="text" class="form-control form-control-sm text-end" id="cvVatPercent" disabled />
                         </div>
                     </div>
                 </div>
@@ -717,6 +727,7 @@
             var inspection = Number(d.inspection) || 0;
             var banking = Number(d.banking) || 0;
             var other = Number(d.other) || 0;
+            var vatPercent = Number(d.vatPercent) || 0;
 
             document.getElementById('cvRowNo').textContent = (d.no != null ? d.no : '');
 
@@ -725,6 +736,9 @@
             if (mode === 'UNOFFICIAL') {
                 badge.className = 'badge bg-warning-subtle text-warning-emphasis';
                 badge.textContent = 'Nhập tiểu ngạch';
+            } else if (mode === 'DOMESTIC') {
+                badge.className = 'badge bg-success-subtle text-success-emphasis';
+                badge.textContent = 'Mua trong nước';
             } else {
                 badge.className = 'badge bg-primary-subtle text-primary-emphasis';
                 badge.textContent = 'Nhập chính ngạch';
@@ -751,23 +765,32 @@
             document.getElementById('cvInspection').value = inspection ? cvFmt(inspection) : '';
             document.getElementById('cvBanking').value = banking ? cvFmt(banking) : '';
             document.getElementById('cvOther').value = other ? cvFmt(other) : '';
+            document.getElementById('cvVatPercent').value = vatPercent ? vatPercent : '';
 
-            document.getElementById('cvOfficialPanel').style.display = (mode === 'OFFICIAL') ? '' : 'none';
+            document.getElementById('cvOfficialPanel').style.display = (mode === 'OFFICIAL' || mode === 'DOMESTIC') ? '' : 'none';
             document.getElementById('cvUnofficialPanel').style.display = (mode === 'UNOFFICIAL') ? '' : 'none';
+            document.getElementById('cvVatCard').style.display = (mode === 'DOMESTIC') ? '' : 'none';
 
             // Same formula as the calc popup
-            var shippingVnd, hint;
-            if (mode === 'OFFICIAL') {
-                shippingVnd = offShipping;
-                hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Vận chuyển CT + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+            var perUnit, lineVnd, hint;
+            if (mode === 'DOMESTIC') {
+                // Domestic: priced in VND (rate = 1), VAT on base price, no extra fees.
+                perUnit = Math.round(basePrice * (1 + vatPercent / 100) + offShipping / qty);
+                hint = 'Giá nhập = Đơn giá gốc × (1 + VAT%) + (Phí vận chuyển / SL mua)';
             } else {
-                var cbmCost = (length * width * height) * costPerCbm;
-                shippingVnd = domShipping + weight * costPerKg + handCarry + w2w + cbmCost;
-                hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + CBM×Phí/CBM + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+                var shippingVnd;
+                if (mode === 'OFFICIAL') {
+                    shippingVnd = offShipping;
+                    hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Vận chuyển CT + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+                } else {
+                    var cbmCost = (length * width * height) * costPerCbm;
+                    shippingVnd = domShipping + weight * costPerKg + handCarry + w2w + cbmCost;
+                    hint = 'Giá nhập = (Đơn giá gốc × Tỷ giá) + ((Nội địa + Kg×Phí/kg + CBM×Phí/CBM + Xách tay + Kho→Kho + Thuế + Kiểm định + Ngân hàng + Khác) / SL mua)';
+                }
+                var feesVnd = shippingVnd + tax + inspection + banking + other;
+                perUnit = Math.round(basePrice * rate + feesVnd / qty);
             }
-            var feesVnd = shippingVnd + tax + inspection + banking + other;
-            var perUnit = Math.round(basePrice * rate + feesVnd / qty);
-            var lineVnd = perUnit * qty;
+            lineVnd = perUnit * qty;
 
             document.getElementById('cvLineTotal').textContent = cvFmt(lineVnd);
             document.getElementById('cvPerUnit').textContent = cvFmt(perUnit);

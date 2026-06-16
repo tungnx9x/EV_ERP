@@ -275,6 +275,7 @@ public class SalesOrderService : ISalesOrderService
                 UnofficialWidth = i.UnofficialWidth,
                 UnofficialHeight = i.UnofficialHeight,
                 UnofficialCostPerCbm = i.UnofficialCostPerCbm,
+                PurchaseVatPercent = i.PurchaseVatPercent,
                 BillImageCount = billCountByItem.TryGetValue(i.SOItemId, out var bc) ? bc : 0
             }).ToList(),
             AdvanceSummary = advanceSummary,
@@ -395,7 +396,8 @@ public class SalesOrderService : ISalesOrderService
                 UnofficialLength = i.UnofficialLength,
                 UnofficialWidth = i.UnofficialWidth,
                 UnofficialHeight = i.UnofficialHeight,
-                UnofficialCostPerCbm = i.UnofficialCostPerCbm
+                UnofficialCostPerCbm = i.UnofficialCostPerCbm,
+                PurchaseVatPercent = i.PurchaseVatPercent
             }).ToList()
         };
 
@@ -766,6 +768,7 @@ public class SalesOrderService : ISalesOrderService
         item.UnofficialWidth = model.UnofficialWidth;
         item.UnofficialHeight = model.UnofficialHeight;
         item.UnofficialCostPerCbm = model.UnofficialCostPerCbm;
+        item.PurchaseVatPercent = model.PurchaseVatPercent;
 
         // LineCost theo SL còn hiệu lực (đã trừ phần hủy) × giá nhập mới
         var eff = item.Quantity - item.CancelledQty;

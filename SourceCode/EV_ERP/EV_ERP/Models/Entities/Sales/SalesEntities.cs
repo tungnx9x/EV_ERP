@@ -139,6 +139,8 @@ public class QuotationItem
     public decimal? UnofficialWidth { get; set; }
     public decimal? UnofficialHeight { get; set; }
     public decimal? UnofficialCostPerCbm { get; set; }
+    // v2.13 — Thuế VAT (%) cho chế độ "Mua trong nước" (DOMESTIC)
+    public decimal? PurchaseVatPercent { get; set; }
 
     public virtual Quotation Quotation { get; set; } = null!;
     public virtual Product? Product { get; set; }
@@ -318,6 +320,8 @@ public class SalesOrderItem
     public decimal? UnofficialWidth { get; set; }
     public decimal? UnofficialHeight { get; set; }
     public decimal? UnofficialCostPerCbm { get; set; }
+    // v2.13 — Thuế VAT (%) cho chế độ "Mua trong nước" (DOMESTIC), copy từ QuotationItem khi tạo SO
+    public decimal? PurchaseVatPercent { get; set; }
 
     public virtual SalesOrder SalesOrder { get; set; } = null!;
     public virtual Product? Product { get; set; }

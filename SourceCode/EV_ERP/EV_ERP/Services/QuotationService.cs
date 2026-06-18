@@ -859,8 +859,12 @@ public class QuotationService : IQuotationService
                 ExchangeRate = i.PurchaseExchangeRate ?? 1,
                 PurchaseMode = string.IsNullOrEmpty(i.PurchaseMode) ? "OFFICIAL" : i.PurchaseMode,
                 BasePrice = i.BasePrice,
+                OfficialShipping = i.OfficialShipping,
+                UnofficialDomesticShipping = i.UnofficialDomesticShipping,
                 UnofficialWeightKg = i.UnofficialWeightKg,
                 UnofficialCostPerKg = i.UnofficialCostPerKg,
+                UnofficialHandCarryFee = i.UnofficialHandCarryFee,
+                UnofficialW2WShipping = i.UnofficialW2WShipping,
                 UnofficialLength = i.UnofficialLength,
                 UnofficialWidth = i.UnofficialWidth,
                 UnofficialHeight = i.UnofficialHeight,
@@ -996,11 +1000,14 @@ public class QuotationService : IQuotationService
             var unofficialWidth = (item.UnofficialWidth ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
             var unofficialHeight = (item.UnofficialHeight ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
             ws.Cell(row, 18).FormulaA1 = $"{unofficialLength}*{unofficialWidth}*{unofficialHeight}";
-            ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0.####";
-            // S Vận chuyển tới EV = IF(Q=0, R×Phí/CBM, Q×Phí/kg)
-            var costPerCbm = (item.UnofficialCostPerCbm ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var costPerKg = (item.UnofficialCostPerKg ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            ws.Cell(row, 19).FormulaA1 = $"IF(Q{row}=0,R{row}*{costPerCbm},Q{row}*{costPerKg})";
+            ws.Cell(row, 18).Style.NumberFormat.Format = "#,##0";
+            // S Vận chuyển tới EV = tổng chi phí vận chuyển mua hàng, kèm công thức thành phần.
+            // VD: Nội địa 5 + (Phí/kg 5 × 1 kg) → giá trị 10, công thức "=5 + 5 * 1".
+            var shipFormula = BuildShippingToEvFormula(item);
+            if (shipFormula != null)
+                ws.Cell(row, 19).FormulaA1 = shipFormula;
+            else
+                ws.Cell(row, 19).Value = 0;
             ws.Cell(row, 19).Style.NumberFormat.Format = "#,##0";
             //T Gia von final
             ws.Cell(row, 20).Value = item.ImportPrice;
@@ -1010,7 +1017,7 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 21).Style.NumberFormat.Format = "#,##0";
             // V He so — keep the original (possibly fractional) value, e.g. 0.5
             ws.Cell(row, 22).Value = item.Coefficient;
-            ws.Cell(row, 22).Style.NumberFormat.Format = "#,##0.####";
+            ws.Cell(row, 22).Style.NumberFormat.Format = "#,##0";
             // X — VAT (market-price section); same fraction + "0%" format as the J column
             ws.Cell(row, 24).Value = item.VatRate / 100m;
             ws.Cell(row, 24).Style.NumberFormat.Format = "0%";
@@ -1081,6 +1088,50 @@ public class QuotationService : IQuotationService
     {
         var invalid = Path.GetInvalidFileNameChars();
         return string.Join("", name.Where(c => !invalid.Contains(c))).Trim();
+    }
+
+    /// <summary>
+    /// Tổng chi phí vận chuyển mua hàng (Vận chuyển tới EV) cho cột S, trả về dưới dạng
+    /// công thức Excel để vừa hiển thị giá trị vừa cho thấy cách tính.
+    /// Khớp với phần shippingVnd trong popup máy tính Giá nhập:
+    ///   - UNOFFICIAL: Nội địa + (Phí/kg × Kg) + (Phí/CBM × CBM) + Xách tay + Kho→Kho
+    ///   - OFFICIAL / DOMESTIC: Phí vận chuyển chính thức
+    /// VD: Nội địa 5 + Phí/kg 5 × 1 kg → "=5 + 5 * 1" (giá trị 10).
+    /// Trả về null khi không có chi phí nào (cột để 0).
+    /// </summary>
+    private static string? BuildShippingToEvFormula(QuotationItemFormModel item)
+    {
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        static bool NonZero(decimal v) => v != 0m;
+        string N(decimal v) => v.ToString(ci);
+
+        if (item.PurchaseMode is "OFFICIAL" or "DOMESTIC")
+        {
+            var off = item.OfficialShipping ?? 0m;
+            return NonZero(off) ? "=" + N(off) : null;
+        }
+
+        // UNOFFICIAL — gộp các thành phần khác 0 theo thứ tự của popup.
+        var terms = new List<string>();
+
+        var dom = item.UnofficialDomesticShipping ?? 0m;
+        if (NonZero(dom)) terms.Add(N(dom));
+
+        var costPerKg = item.UnofficialCostPerKg ?? 0m;
+        var weight = item.UnofficialWeightKg ?? 0m;
+        if (NonZero(costPerKg) && NonZero(weight)) terms.Add($"{N(costPerKg)} * {N(weight)}");
+
+        var costPerCbm = item.UnofficialCostPerCbm ?? 0m;
+        var cbm = (item.UnofficialLength ?? 0m) * (item.UnofficialWidth ?? 0m) * (item.UnofficialHeight ?? 0m);
+        if (NonZero(costPerCbm) && NonZero(cbm)) terms.Add($"{N(costPerCbm)} * {N(cbm)}");
+
+        var handCarry = item.UnofficialHandCarryFee ?? 0m;
+        if (NonZero(handCarry)) terms.Add(N(handCarry));
+
+        var w2w = item.UnofficialW2WShipping ?? 0m;
+        if (NonZero(w2w)) terms.Add(N(w2w));
+
+        return terms.Count > 0 ? "=" + string.Join(" + ", terms) : null;
     }
 
     /// <summary>

@@ -1087,6 +1087,10 @@ public class SalesOrderService : ISalesOrderService
             // R: Phí vận chuyển — replace template placeholder
             ws.Cell(row, 18).Value = item.ShippingFee ?? 0;
 
+            // S: Nhà cung cấp — chỉ điền khi có thông tin
+            if (!string.IsNullOrWhiteSpace(item.SourceUrl))
+                ws.Cell(row, 19).Value = item.SourceUrl;
+
             // Format number cells
             ws.Cell(row, 5).Style.NumberFormat.Format = "#";
             ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";

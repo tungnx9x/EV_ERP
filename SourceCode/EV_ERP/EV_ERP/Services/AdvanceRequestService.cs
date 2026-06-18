@@ -587,6 +587,9 @@ public class AdvanceRequestService : IAdvanceRequestService
             ws.Cell(row, 17).Value = perItemShipOffice.TryGetValue(item.SOItemId, out var shipOff) ? shipOff : 0;     // Q: VC về văn phòng
             ws.Cell(row, 18).Value = perItemShipCustomer.TryGetValue(item.SOItemId, out var shipCus) ? shipCus : 0;   // R: VC giao khách
 
+            if (!string.IsNullOrWhiteSpace(item.SourceUrl))
+                ws.Cell(row, 19).Value = item.SourceUrl;                 // S: Nhà cung cấp
+
             ws.Cell(row, 5).Style.NumberFormat.Format = "#";
             ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
             ws.Cell(row, 8).Style.NumberFormat.Format = "#,##0";

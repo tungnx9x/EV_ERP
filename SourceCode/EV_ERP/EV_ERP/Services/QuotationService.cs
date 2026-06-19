@@ -839,6 +839,7 @@ public class QuotationService : IQuotationService
             {
                 ProductName = i.ProductName,
                 Proposal = i.ProductDescription,
+                RequiredDescription = i.RequiredDescription,
                 ImageUrl = i.ImageUrl,
                 RequiredImageUrl = i.RequiredImageUrl,
                 UnitName = i.UnitName,
@@ -939,11 +940,8 @@ public class QuotationService : IQuotationService
             ws.Cell(row, 2).Value = string.Empty;
             EmbedItemPicture(ws, item.RequiredImageUrl, row, 2);
 
-            // C — Product name + Required description (two-line block, wrap)
-            var nameBlock = item.ProductName ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(item.RequiredDescription))
-                nameBlock = nameBlock + "\n\n" + item.RequiredDescription.Trim();
-            ws.Cell(row, 3).Value = nameBlock;
+            // C — Customer required description
+            ws.Cell(row, 3).Value = item.RequiredDescription?.Trim() ?? string.Empty;
             ws.Cell(row, 3).Style.Alignment.WrapText = true;
             ws.Cell(row, 3).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 

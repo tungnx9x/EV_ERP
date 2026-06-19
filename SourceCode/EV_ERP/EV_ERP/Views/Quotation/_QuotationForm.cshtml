@@ -179,7 +179,7 @@
                     <div class="col-md">
                         <label class="form-label small fw-semibold">Đơn giá gốc</label>
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcBasePrice" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                               id="calcBasePrice" oninput="formatDecimalInput(this); onCalcInput();" onfocus="this.select()" />
                     </div>
                     <div class="col-md">
                         <label class="form-label small fw-semibold d-flex align-items-center justify-content-between" style="gap:4px;">
@@ -719,8 +719,8 @@
             var badge = document.getElementById('badge_' + idx);
             if (badge) {
                 badge.className = 'qi-badge-mapped qi-badge-tmp';
-                badge.textContent = 'SP moi';
-                badge.title = 'SP nhap tay (chua co trong he thong)';
+                badge.textContent = 'SP mới';
+                badge.title = 'SP nhập tay (chưa có trong hệ thống)';
             }
         }
         activeSearchIdx = idx;
@@ -740,7 +740,7 @@
                     if (activeSearchIdx !== idx) return;
 
                     if (!data || data.length === 0) {
-                        dd.innerHTML = '<div class="p-3 text-muted small text-center">Khong tim thay san pham — nhap tay thong tin</div>';
+                        dd.innerHTML = '<div class="p-3 text-muted small text-center">Không tìm thấy sản phẩm — nhập tay thông tin</div>';
                     } else {
                         dd.innerHTML = data.map(function (p) {
                             var imgHtml = p.ImageUrl
@@ -752,7 +752,7 @@
                                 '<div class="fw-semibold small">' + escapeHtml(p.ProductName) + '</div>' +
                                 '<div class="text-muted" style="font-size:0.72rem;">' +
                                 escapeHtml(p.ProductCode) + ' &bull; ' + escapeHtml(p.UnitName) +
-                                (p.DefaultPurchasePrice ? ' &bull; Nhap: ' + formatNumber(p.DefaultPurchasePrice) : '') +
+                                (p.DefaultPurchasePrice ? ' &bull; Nhập: ' + formatNumber(p.DefaultPurchasePrice) : '') +
                                 '</div></div></div>';
                         }).join('');
                     }
@@ -827,21 +827,21 @@
         container.innerHTML = pageItems.map(function (item, localIdx) {
             var idx = startIdx + localIdx;
             var badgeClass = item.IsProductMapped ? 'qi-badge-ht' : 'qi-badge-tmp';
-            var badgeText = item.IsProductMapped ? 'OK' : 'SP moi';
-            var badgeTitle = item.IsProductMapped ? 'SP trong he thong' : 'SP nhap tay (chua co trong he thong)';
+            var badgeText = item.IsProductMapped ? 'OK' : 'SP mới';
+            var badgeTitle = item.IsProductMapped ? 'SP trong hệ thống' : 'SP nhập tay (chưa có trong hệ thống)';
             var showBadge = !item.IsProductMapped /* || item.ProductName */;
 
             return '<div class="qi-card">' +
                 // ── HEADER: Number + Search + Badge + Delete ──
                 '<div class="qi-header">' +
-                    '<div class="qi-num">' + (idx + 1) + '</div>' + '<div class="qi-label">Ten san pham</div>' +
+                    '<div class="qi-num">' + (idx + 1) + '</div>' + '<div class="qi-label">Tên sản phẩm</div>' +
                     '<input type="text" class="qi-search" id="req_' + idx + '" ' +
                         'value="' + escapeHtml(item.ProductName) + '" ' +
                         'oninput="onRequestInput(' + idx + ', this)" ' +
                         'onblur="onRequestBlur(' + idx + ')" ' +
-                        'placeholder="Tim san pham hoac nhap ten truc tiep..." autocomplete="off" />' +
+                        'placeholder="Tìm sản phẩm hoặc nhập tên trực tiếp..." autocomplete="off" />' +
                     (showBadge ? '<span class="qi-badge-mapped ' + badgeClass + '" id="badge_' + idx + '" title="' + badgeTitle + '">' + badgeText + '</span>' : '') +
-                    '<button class="qi-delete" onclick="removeItem(' + idx + ')" title="Xoa dong nay">' +
+                    '<button class="qi-delete" onclick="removeItem(' + idx + ')" title="Xóa dòng này">' +
                         '<i class="bi bi-trash3" style="font-size:0.8rem;"></i>' +
                     '</button>' +
                 '</div>' +
@@ -851,86 +851,86 @@
                     '<div class="qi-img-row">' +
                         // ── Customer required image cell (always editable) ──
                         '<div class="qi-img-group">' +
-                            '<div class="qi-img-group-title">Anh KH yeu cau</div>' +
+                            '<div class="qi-img-group-title">Ảnh KH yêu cầu</div>' +
                             '<div class="qi-img-cell-row">' +
                                 '<div class="qi-img-cell" data-paste-idx="' + idx + '" data-paste-kind="required">' +
                                     (item.RequiredImageUrl
                                         ? '<img src="' + escapeHtml(item.RequiredImageUrl) + '" class="qi-img-preview" alt="" />'
-                                        : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
+                                        : '<div class="qi-img-empty-lg" title="Click vào đây rồi Ctrl+V để paste ảnh">' +
                                             '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
                                             '<span>Click + Ctrl+V</span>' +
-                                            '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
+                                            '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste ảnh</span>' +
                                           '</div>') +
                                 '</div>' +
                                 '<div class="qi-img-actions">' +
                                     '<input type="file" id="reqImgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this, \'required\')" />' +
                                     '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ', \'required\')">' +
-                                        '<i class="bi bi-upload"></i> ' + (item.RequiredImageUrl ? 'Doi anh' : 'Chon anh') +
+                                        '<i class="bi bi-upload"></i> ' + (item.RequiredImageUrl ? 'Đổi ảnh' : 'Chọn ảnh') +
                                     '</button>' +
-                                    (item.RequiredImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'required\')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
-                                    '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
+                                    (item.RequiredImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'required\')"><i class="bi bi-x-lg"></i> Xóa ảnh</button>' : '') +
+                                    '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — tối đa 5MB</div>' +
                                 '</div>' +
                             '</div>' +
                         '</div>' +
                         // ── Customer requirement text ──
                         '<div class="qi-img-group" style="min-width:220px;">' +
-                            '<div class="qi-img-group-title">Yeu cau KH</div>' +
+                            '<div class="qi-img-group-title">Yêu cầu KH</div>' +
                             '<textarea rows="3" class="form-control form-control-sm" style="resize:vertical;" ' +
                                 'onchange="updateField(' + idx + ', \'RequiredDescription\', this.value)" ' +
-                                'placeholder="Mo ta yeu cau cua khach hang...">' + escapeHtml(item.RequiredDescription || '') + '</textarea>' +
+                                'placeholder="Mô tả yêu cầu của khách hàng...">' + escapeHtml(item.RequiredDescription || '') + '</textarea>' +
                         '</div>' +
                         // ── Product image cell ──
                         '<div class="qi-img-group">' +
-                            '<div class="qi-img-group-title">Anh SP</div>' +
+                            '<div class="qi-img-group-title">Ảnh SP</div>' +
                             '<div class="qi-img-cell-row">' +
                                 (item.IsProductMapped
                                     ? '<div class="qi-img-cell">' +
                                         (item.ImageUrl
                                             ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
-                                            : '<div class="qi-img-empty-lg qi-img-readonly"><i class="bi bi-image" style="font-size:1.5rem;"></i><span>Khong co anh</span></div>') +
+                                            : '<div class="qi-img-empty-lg qi-img-readonly"><i class="bi bi-image" style="font-size:1.5rem;"></i><span>Không có ảnh</span></div>') +
                                       '</div>' +
                                       '<div class="qi-img-actions">' +
-                                          '<div class="text-muted" style="font-size:0.68rem;"><i class="bi bi-lock me-1"></i>Anh tu he thong</div>' +
+                                          '<div class="text-muted" style="font-size:0.68rem;"><i class="bi bi-lock me-1"></i>Ảnh từ hệ thống</div>' +
                                       '</div>'
                                     : '<div class="qi-img-cell" data-paste-idx="' + idx + '" data-paste-kind="product">' +
                                         (item.ImageUrl
                                             ? '<img src="' + escapeHtml(item.ImageUrl) + '" class="qi-img-preview" alt="" />'
-                                            : '<div class="qi-img-empty-lg" title="Click vao day roi Ctrl+V de paste anh">' +
+                                            : '<div class="qi-img-empty-lg" title="Click vào đây rồi Ctrl+V để paste ảnh">' +
                                                 '<i class="bi bi-clipboard-plus" style="font-size:1.5rem;"></i>' +
                                                 '<span>Click + Ctrl+V</span>' +
-                                                '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste anh</span>' +
+                                                '<span style="font-size:0.62rem; color:#94a3b8; margin-top:2px;">paste ảnh</span>' +
                                               '</div>') +
                                       '</div>' +
                                       '<div class="qi-img-actions">' +
                                           '<input type="file" id="imgFile_' + idx + '" accept="image/*" style="display:none;" onchange="uploadItemImage(' + idx + ', this, \'product\')" />' +
                                           '<button type="button" class="qi-img-upload-btn" onclick="triggerUpload(' + idx + ', \'product\')">' +
-                                              '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Doi anh' : 'Chon anh') +
+                                              '<i class="bi bi-upload"></i> ' + (item.ImageUrl ? 'Đổi ảnh' : 'Chọn ảnh') +
                                           '</button>' +
-                                          (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'product\')"><i class="bi bi-x-lg"></i> Xoa anh</button>' : '') +
-                                          '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — toi da 5MB</div>' +
+                                          (item.ImageUrl ? '<button type="button" class="qi-img-remove-btn" onclick="removeImage(' + idx + ', \'product\')"><i class="bi bi-x-lg"></i> Xóa ảnh</button>' : '') +
+                                          '<div class="text-muted" style="font-size:0.65rem; margin-top:2px;">JPG, PNG — tối đa 5MB</div>' +
                                       '</div>'
                                 ) +
                             '</div>' +
                         '</div>' +
                         '<div class="qi-grid qi-grid-row1" style="flex:1;">' +
                             '<div>' +
-                                '<div class="qi-label">Mo ta / De xuat</div>' +
+                                '<div class="qi-label">Mô tả / Đề xuất</div>' +
                                 '<textarea rows="3" class="form-control form-control-sm"' +
-                                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mo ta san pham...">' + escapeHtml(item.Proposal || '') + '</textarea>' +
+                                    'onchange="updateField(' + idx + ', \'Proposal\', this.value)" placeholder="Mô tả sản phẩm...">' + escapeHtml(item.Proposal || '') + '</textarea>' +
                             '</div>' +
                             '<div>' +
-                                '<div class="qi-label">DVT</div>' +
+                                '<div class="qi-label">ĐVT</div>' +
                                 '<input type="text" class="form-control form-control-sm qi-unit-input" value="' + escapeHtml(item.UnitName) + '" ' +
                                     'onfocus="onUnitFocus(this)" oninput="onUnitInput(this)" ' +
-                                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cai, Bo..." autocomplete="off" />' +
+                                    'onchange="updateField(' + idx + ', \'UnitName\', this.value)" placeholder="Cái, Bộ..." autocomplete="off" />' +
                             '</div>' +
                             '<div>' +
-                                '<div class="qi-label">Link mua hang</div>' +
+                                '<div class="qi-label">Link mua hàng</div>' +
                                 '<input type="url" class="form-control form-control-sm" value="' + escapeHtml(item.SourceUrl || '') + '" ' +
                                     'onchange="updateField(' + idx + ', \'SourceUrl\', this.value)" placeholder="https://..." />' +
                             '</div>' +
                             '<div>' +
-                                '<div class="qi-label">Ghi chu</div>' +
+                                '<div class="qi-label">Ghi chú</div>' +
                                  '<textarea rows="1" class="form-control form-control-sm"' +
                                     'onchange="updateField(' + idx + ', \'Notes\', this.value)" placeholder="5-7 days...">' + escapeHtml(item.Notes || '') + '</textarea>' +
                             '</div>' +
@@ -940,7 +940,7 @@
                     // ── ROW 2: Gia nhap (+ calc) + Van chuyen + He so + Qty + Don gia + Before VAT + VAT% + After VAT ──
                     '<div class="qi-grid qi-grid-row2">' +
                         '<div>' +
-                            '<div class="qi-label">Gia nhap</div>' +
+                            '<div class="qi-label">Giá nhập</div>' +
                             '<div class="input-group input-group-sm qi-import-wrap">' +
                                 '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
                                     (item.ImportPriceCalculated ? '' : 'disabled title="Bấm nút máy tính để tính giá nhập trước" ') +
@@ -951,27 +951,27 @@
                             '</div>' +
                         '</div>' +
                         '<div>' +
-                            '<div class="qi-label">Van chuyen</div>' +
+                            '<div class="qi-label">Vận chuyển</div>' +
                             '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
                                 'value="' + formatNumber(item.Shipping) + '" oninput="formatMoneyInput(this)" onchange="updateShipping(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
                         '<div>' +
-                            '<div class="qi-label">He so</div>' +
+                            '<div class="qi-label">Hệ số</div>' +
                             '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
                                 'value="' + item.Coefficient + '" onchange="updateCoefficient(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
                         '<div>' +
-                            '<div class="qi-label">So luong</div>' +
+                            '<div class="qi-label">Số lượng</div>' +
                             '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" id="qty_' + idx + '" ' +
                                 'value="' + item.Quantity + '" onchange="updateQtyOrPrice(' + idx + ')" onfocus="this.select()" />' +
                         '</div>' +
                         '<div>' +
-                            '<div class="qi-label">Don gia</div>' +
+                            '<div class="qi-label">Đơn giá</div>' +
                             '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
                                 'value="' + formatNumber(item.UnitPrice) + '" oninput="formatMoneyInput(this)" onchange="updateUnitPrice(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
                         '<div>' +
-                            '<div class="qi-label">Truoc VAT</div>' +
+                            '<div class="qi-label">Trước VAT</div>' +
                             '<input type="text" inputmode="decimal" class="form-control form-control-sm text-end" ' +
                                 'value="' + formatNumber(item.AmountExclVat) + '" oninput="formatMoneyInput(this)" onchange="updateAmountExclVat(' + idx + ', this.value)" onfocus="this.select()" />' +
                         '</div>' +
@@ -1212,7 +1212,7 @@
 
     function _doUploadItemImage(idx, file, kind) {
         if (!file) return;
-        if (!/^image\//i.test(file.type)) { appAlert('File khong phai la anh'); return; }
+        if (!/^image\//i.test(file.type)) { appAlert('File không phải là ảnh'); return; }
 
         var formData = new FormData();
         formData.append('file', file, file.name || ('paste-' + Date.now() + '.png'));
@@ -1232,12 +1232,12 @@
                 items[idx][_imgField(kind)] = res.Data.url;
                 renderItems();
             } else {
-                appAlert(res.Message || 'Upload that bai');
+                appAlert(res.Message || 'Upload thất bại');
                 if (cellEl) cellEl.style.opacity = '1';
             }
         })
         .catch(function () {
-            appAlert('Loi ket noi khi upload');
+            appAlert('Lỗi kết nối khi upload');
             if (cellEl) cellEl.style.opacity = '1';
         });
     }
@@ -1324,14 +1324,14 @@
     // EXPORT EXCEL
     // ══════════════════════════════════════════════
     function exportExcel() {
-        if (items.length === 0) { appAlert('Chua co san pham de xuat'); return; }
+        if (items.length === 0) { appAlert('Chưa có sản phẩm để xuất'); return; }
 
         var customerId = parseInt(document.getElementById('frm_customerId').value);
-        if (!customerId) { appAlert('Vui long lua chon khach hang'); return; }
+        if (!customerId) { appAlert('Vui lòng lựa chọn khách hàng'); return; }
 
         var btn = document.getElementById('btnExport');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Dang xuat...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang xuất...';
 
         var payload = {
             CustomerId: customerId,
@@ -1369,11 +1369,11 @@
             window.URL.revokeObjectURL(url);
         })
         .catch(function (err) {
-            appAlert('Loi xuat file: ' + err.message);
+            appAlert('Lỗi xuất file: ' + err.message);
         })
         .finally(function () {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-file-earmark-excel me-1"></i> Xuat file bao gia';
+            btn.innerHTML = '<i class="bi bi-file-earmark-excel me-1"></i> Xuất file báo giá';
         });
     }
 
@@ -1385,13 +1385,13 @@
     function submitForm(stayOnPage) {
         var customerId = parseInt(document.getElementById('frm_customerId').value);
         var deadlineVal = document.getElementById('frm_deadline')?.value;
-        if (!deadlineVal) { appAlert('Vui long chon han xu ly noi bo'); return; }
-        if (!customerId) { appAlert('Vui long chon khach hang'); return; }
-        if (items.length === 0) { appAlert('Vui long them it nhat 1 san pham'); return; }
+        if (!deadlineVal) { appAlert('Vui lòng chọn hạn xử lý nội bộ'); return; }
+        if (!customerId) { appAlert('Vui lòng chọn khách hàng'); return; }
+        if (items.length === 0) { appAlert('Vui lòng thêm ít nhất 1 sản phẩm'); return; }
 
         for (var vi = 0; vi < items.length; vi++) {
             if (!items[vi].ProductName || !items[vi].ProductName.trim()) {
-                appAlert('Dong ' + (vi + 1) + ': Vui long nhap ten san pham');
+                appAlert('Dòng ' + (vi + 1) + ': Vui lòng nhập tên sản phẩm');
                 var inp = document.getElementById('req_' + vi);
                 if (inp) inp.focus();
                 return;
@@ -1460,17 +1460,17 @@
                         try { history.replaceState(null, '', '/Quotation/Edit/' + savedId); } catch (e) {}
                     }
                     setBusy(false);
-                    showQuickSaveToast(data.Message || 'Da luu bao gia');
+                    showQuickSaveToast(data.Message || 'Đã lưu báo giá');
                 } else {
                     window.location.href = '/Quotation/Detail/' + data.Data.QuotationId;
                 }
             } else {
-                appAlert(data.Message || 'Loi luu bao gia');
+                appAlert(data.Message || 'Lỗi lưu báo giá');
                 setBusy(false);
             }
         })
         .catch(function () {
-            appAlert('Loi ket noi');
+            appAlert('Lỗi kết nối');
             setBusy(false);
         });
     }
@@ -1524,7 +1524,7 @@
         document.getElementById('calcModeOfficial').checked = (mode === 'OFFICIAL');
         document.getElementById('calcModeUnofficial').checked = (mode === 'UNOFFICIAL');
 
-        document.getElementById('calcBasePrice').value = item.BasePrice ? formatNumber(item.BasePrice) : '';
+        document.getElementById('calcBasePrice').value = item.BasePrice ? formatDecimalGrouped(item.BasePrice) : '';
         document.getElementById('calcOfficialShipping').value = item.OfficialShipping ? formatNumber(item.OfficialShipping) : '';
         document.getElementById('calcDomesticShipping').value = item.UnofficialDomesticShipping ? formatNumber(item.UnofficialDomesticShipping) : '';
         document.getElementById('calcWeight').value = item.UnofficialWeightKg ? item.UnofficialWeightKg : '';
@@ -1646,7 +1646,7 @@
             currency: document.getElementById('calcCurrency').value || 'VND',
             rate: parseMoney(document.getElementById('calcRate').value) || 1,
             qty: Math.max(parseDecimal(document.getElementById('calcQty').value) || 1, 1),
-            basePrice: parseMoney(document.getElementById('calcBasePrice').value),
+            basePrice: parseDecimal((document.getElementById('calcBasePrice').value || '').replace(/,/g, '')),
             offShipping: parseMoney(document.getElementById('calcOfficialShipping').value),
             domShipping: parseMoney(document.getElementById('calcDomesticShipping').value),
             weight: parseDecimal(document.getElementById('calcWeight').value),
@@ -1886,9 +1886,78 @@
         onCalcInput();
     }
 
+    // Format a decimal number with comma thousand-separators, keeping up to 3 decimals
+    // (no trailing zeros). Used for the calc-popup base price, which may be a foreign-
+    // currency amount with decimals — so en-US grouping (dot = decimal point, comma = group).
+    function formatDecimalGrouped(n) {
+        if (n === null || n === undefined || n === '' || isNaN(n)) return '';
+        return Number(n).toLocaleString('en-US', { maximumFractionDigits: 3 });
+    }
+
+    // Live-format a decimal input while preserving caret position: group the integer part
+    // with commas and keep the typed decimal part intact (e.g. 97000 → 97,000 ; 12.5 → 12.5).
+    function formatDecimalInput(input) {
+        var oldVal = input.value;
+        // Don't reformat mid-expression — parseDecimal evaluates it on blur.
+        if (/[+\-*/()]/.test(oldVal)) return;
+        var caret = input.selectionStart;
+        if (caret === null || caret === undefined) caret = oldVal.length;
+
+        // Count value chars (digits + the decimal dot — everything except grouping commas)
+        // left of the caret, so the caret survives comma changes AND a just-typed trailing dot.
+        // Counting digits only would drop the caret in front of the dot, sending the next
+        // keystroke into the integer part (making decimal entry impossible).
+        var keepLeft = 0;
+        for (var i = 0; i < caret; i++) {
+            if (oldVal.charAt(i) !== ',') keepLeft++;
+        }
+
+        // Keep only digits and the FIRST dot (the decimal point); drop grouping commas / extra dots.
+        var cleaned = oldVal.replace(/,/g, '');
+        var firstDot = cleaned.indexOf('.');
+        if (firstDot !== -1) {
+            cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+        }
+        cleaned = cleaned.replace(/[^\d.]/g, '');
+        if (cleaned === '') { input.value = ''; return; }
+
+        var dotIdx = cleaned.indexOf('.');
+        var hasDot = dotIdx !== -1;
+        var intPart = hasDot ? cleaned.slice(0, dotIdx) : cleaned;
+        var decPart = hasDot ? cleaned.slice(dotIdx + 1) : '';
+
+        var groupedInt = intPart === '' ? '' : parseInt(intPart, 10).toLocaleString('en-US');
+        var formatted = groupedInt + (hasDot ? '.' + decPart : '');
+        input.value = formatted;
+
+        // Restore caret after the same number of non-comma chars in the new string.
+        var newPos = formatted.length, seen = 0;
+        if (keepLeft <= 0) {
+            newPos = 0;
+        } else {
+            for (var p = 0; p < formatted.length; p++) {
+                if (formatted.charAt(p) !== ',') {
+                    seen++;
+                    if (seen === keepLeft) { newPos = p + 1; break; }
+                }
+            }
+        }
+        try { input.setSelectionRange(newPos, newPos); } catch (e) { /* IE/non-text inputs */ }
+    }
+
+    // Blur-commit for the base price: strip grouping, evaluate an arithmetic expression if any,
+    // then re-display grouped (so 97000*2 → 194,000 and grouping survives blur).
+    function commitDecimalGrouped(input) {
+        var raw = (input.value || '').trim();
+        if (raw === '') return;
+        var d = parseDecimal(raw.replace(/,/g, ''));
+        input.value = d ? formatDecimalGrouped(d) : '';
+        onCalcInput();
+    }
+
     // Wire blur-commit on every numeric input inside #calcModal (one-time; the modal markup is static).
     (function wireCalcExprInputs() {
-        var moneyIds = ['calcBasePrice', 'calcRate', 'calcOfficialShipping', 'calcDomesticShipping',
+        var moneyIds = ['calcRate', 'calcOfficialShipping', 'calcDomesticShipping',
                         'calcCostPerKg', 'calcHandCarry', 'calcW2W', 'calcTax', 'calcInspection',
                         'calcBanking', 'calcOther'];
         var decimalIds = ['calcQty', 'calcWeight', 'calcVatPercent'];
@@ -1900,6 +1969,9 @@
         }
         bind(moneyIds, 'money');
         bind(decimalIds, 'decimal');
+        // Base price: decimal value shown with thousand-separator grouping.
+        var bp = document.getElementById('calcBasePrice');
+        if (bp) bp.addEventListener('blur', function () { commitDecimalGrouped(bp); });
     })();
 
     function escapeHtml(str) {
@@ -1927,7 +1999,7 @@
             });
             var html = '';
             if (matches.length === 0) {
-                html = '<div class="text-muted small text-center py-2">Khong tim thay khach hang</div>';
+                html = '<div class="text-muted small text-center py-2">Không tìm thấy khách hàng</div>';
             } else {
                 matches.forEach(function (c) {
                     html += '<div class="cs-item" data-id="' + c.CustomerId + '" style="padding:6px 10px;cursor:pointer;font-size:0.82rem;">'

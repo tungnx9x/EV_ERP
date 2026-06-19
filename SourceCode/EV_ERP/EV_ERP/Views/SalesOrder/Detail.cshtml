@@ -1827,9 +1827,17 @@
                         </div>
                     </div>
 
-                    <div class="small fw-semibold mb-1">Phân bổ theo dòng sản phẩm</div>
+                    <div class="d-flex align-items-center justify-content-between mb-1 gap-2 flex-wrap">
+                        <div class="small fw-semibold">Phân bổ theo dòng sản phẩm</div>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="advFullAmount" onchange="toggleAdvanceFull(this)" />
+                            <label class="form-check-label small fw-semibold" for="advFullAmount">
+                                <i class="bi bi-check2-all me-1 text-warning"></i>Tạm ứng toàn bộ (100% mọi dòng)
+                            </label>
+                        </div>
+                    </div>
                     <div class="text-muted small mb-2">
-                        Nhập <strong>% tạm ứng</strong> cho từng dòng — mỗi sản phẩm tách riêng <strong>Hàng hóa</strong>, <strong>Vận chuyển</strong> (mua) và <strong>Vận chuyển KH</strong>. Số tiền tự tính theo Chi phí × %.
+                        Nhập <strong>% tạm ứng</strong> cho từng dòng — mỗi sản phẩm tách riêng <strong>Hàng hóa</strong>, <strong>Vận chuyển</strong> (mua) và <strong>Vận chuyển KH</strong>. Số tiền tự tính theo Chi phí × %. Tích <strong>"Tạm ứng toàn bộ"</strong> để tạm ứng 100% cho mọi dòng mà không phải nhập từng dòng.
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem;">
@@ -1878,7 +1886,7 @@
                                                    placeholder="0" @(productBasis <= 0 ? "disabled" : "") />
                                         </td>
                                         <td>
-                                            <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                            <input type="text" inputmode="numeric" class="form-control form-control-sm text-end adv-line-amount"
                                                    data-so-item-id="@item.SOItemId"
                                                    data-line-cost="@productBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                                    data-adv-kind="product" placeholder="0" @(productBasis <= 0 ? "disabled" : "") />
@@ -1896,7 +1904,7 @@
                                                    placeholder="0" @(shippingBasis <= 0 ? "disabled" : "") />
                                         </td>
                                         <td>
-                                            <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                            <input type="text" inputmode="numeric" class="form-control form-control-sm text-end adv-line-amount"
                                                    data-so-item-id="@item.SOItemId"
                                                    data-line-cost="@shippingBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                                    data-adv-kind="shipping" placeholder="0" @(shippingBasis <= 0 ? "disabled" : "") />
@@ -1914,7 +1922,7 @@
                                                    placeholder="0" @(customerShipBasis <= 0 ? "disabled" : "") />
                                         </td>
                                         <td>
-                                            <input type="number" min="0" step="1" class="form-control form-control-sm text-end adv-line-amount"
+                                            <input type="text" inputmode="numeric" class="form-control form-control-sm text-end adv-line-amount"
                                                    data-so-item-id="@item.SOItemId"
                                                    data-line-cost="@customerShipBasis.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                                    data-adv-kind="customer_shipping" placeholder="0" @(customerShipBasis <= 0 ? "disabled" : "") />
@@ -3046,8 +3054,11 @@
         if (spw) spw.classList.remove('d-none');
         var sp = document.getElementById('advSelfPaid');
         if (sp) sp.checked = false;
+        var full = document.getElementById('advFullAmount');
+        if (full) full.checked = false;
         document.querySelectorAll('.adv-line-amount').forEach(function (el) { el.value = ''; });
         document.querySelectorAll('.adv-line-percent').forEach(function (el) { el.value = ''; });
+        setAdvLineInputsDisabled(false);
         updateAdvTotal();
         updateAggregatePercent();
     }
@@ -3090,7 +3101,7 @@
                     var pn = (it.Purpose || '').trim().normalize('NFC');
                     var kind = (pn === 'Vận chuyển KH'.normalize('NFC')) ? 'customer_shipping' : ((pn === 'Vận chuyển'.normalize('NFC')) ? 'shipping' : 'product');
                     var input = document.querySelector('.adv-line-amount[data-so-item-id="' + it.SOItemId + '"][data-adv-kind="' + kind + '"]');
-                    if (input) input.value = it.Amount;
+                    if (input) input.value = advFormatAmount(it.Amount);
                 });
                 // Derive each product's % from its amount, then refresh totals.
                 recomputeAllPercents();
@@ -3100,6 +3111,42 @@
                 new bootstrap.Modal(modal).show();
             })
             .catch(function (err) { appAlert('Lỗi tải dữ liệu: ' + err); });
+    }
+
+    // ── Advance-amount display formatting (integer VND, vi-VN thousand grouping) ──
+    // Amounts are whole VND, so we group like the rest of the app (97000 → 97.000).
+    function advFormatAmount(n) {
+        if (n === null || n === undefined || n === '' || isNaN(n)) return '';
+        return Math.round(Number(n)).toLocaleString('vi-VN');
+    }
+    // Parse a grouped amount string back to an integer (strips separators).
+    function advParseAmount(str) {
+        if (str === null || str === undefined) return 0;
+        var digits = String(str).replace(/[^\d]/g, '');
+        return digits === '' ? 0 : parseInt(digits, 10);
+    }
+    // Live-format an amount input while preserving caret position.
+    function advFormatAmountInput(input) {
+        var oldVal = input.value;
+        var caret = input.selectionStart;
+        if (caret === null || caret === undefined) caret = oldVal.length;
+        var digitsLeft = 0;
+        for (var i = 0; i < caret; i++) {
+            var c = oldVal.charCodeAt(i);
+            if (c >= 48 && c <= 57) digitsLeft++;
+        }
+        var rawDigits = oldVal.replace(/\D/g, '');
+        if (rawDigits === '') { input.value = ''; return; }
+        var formatted = parseInt(rawDigits, 10).toLocaleString('vi-VN');
+        input.value = formatted;
+        var newPos = 0, seen = 0;
+        if (digitsLeft > 0) {
+            for (newPos = 0; newPos < formatted.length; newPos++) {
+                var c2 = formatted.charCodeAt(newPos);
+                if (c2 >= 48 && c2 <= 57) { seen++; if (seen === digitsLeft) { newPos++; break; } }
+            }
+        }
+        try { input.setSelectionRange(newPos, newPos); } catch (e) { /* IE/non-text inputs */ }
     }
 
     // Find the amount input on the same row as a given percent/amount input.
@@ -3125,7 +3172,7 @@
         var amountEl = advRowAmountInput(percentEl);
         if (!amountEl) return;
         if (cost > 0 && !isNaN(pct) && pct > 0) {
-            amountEl.value = Math.round(cost * pct / 100);
+            amountEl.value = advFormatAmount(Math.round(cost * pct / 100));
         } else if (percentEl.value === '' || isNaN(pct) || pct <= 0) {
             amountEl.value = '';
         }
@@ -3136,11 +3183,11 @@
     // Số tiền nhập tay ở dòng SP → tính ngược lại % = số tiền / chi phí dòng × 100
     function syncLineFromAmount(amountEl) {
         var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
-        var amt = parseFloat(amountEl.value);
+        var amt = advParseAmount(amountEl.value);
         // Không cho nhập số tiền tạm ứng vượt quá chi phí (100%).
-        if (cost > 0 && !isNaN(amt) && amt > cost) {
+        if (cost > 0 && amt > Math.round(cost)) {
             amt = Math.round(cost);
-            amountEl.value = amt;
+            amountEl.value = advFormatAmount(amt);
             if (typeof appToast === 'function') appToast('Số tiền tạm ứng không được vượt quá chi phí dòng', 'warning');
         }
         var percentEl = advRowPercentInput(amountEl);
@@ -3157,12 +3204,39 @@
     function recomputeAllPercents() {
         document.querySelectorAll('.adv-line-amount').forEach(function (amountEl) {
             var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
-            var amt = parseFloat(amountEl.value);
+            var amt = advParseAmount(amountEl.value);
             var percentEl = advRowPercentInput(amountEl);
             if (percentEl && cost > 0) {
-                percentEl.value = (!isNaN(amt) && amt > 0) ? +(amt / cost * 100).toFixed(2) : '';
+                percentEl.value = (amt > 0) ? +(amt / cost * 100).toFixed(2) : '';
             }
         });
+    }
+
+    // Enable/disable the per-line % & amount inputs — but never re-enable a zero-cost
+    // line (those are disabled in markup because there's nothing to advance).
+    function setAdvLineInputsDisabled(disabled) {
+        document.querySelectorAll('.adv-line-percent, .adv-line-amount').forEach(function (el) {
+            var cost = parseFloat(el.getAttribute('data-line-cost')) || 0;
+            if (cost > 0) el.disabled = disabled;
+        });
+    }
+
+    // "Tạm ứng toàn bộ": tích để điền sẵn 100% cho mọi dòng (số tiền = chi phí dòng);
+    // các dòng vẫn cho phép chỉnh tay sau khi tích. Bỏ tích để xóa các dòng về trống.
+    function toggleAdvanceFull(cb) {
+        if (cb.checked) {
+            document.querySelectorAll('.adv-line-percent').forEach(function (el) {
+                var cost = parseFloat(el.getAttribute('data-line-cost')) || 0;
+                if (cost > 0) { el.value = 100; syncLineFromPercent(el); }
+            });
+        } else {
+            document.querySelectorAll('.adv-line-percent, .adv-line-amount').forEach(function (el) {
+                var cost = parseFloat(el.getAttribute('data-line-cost')) || 0;
+                if (cost > 0) el.value = '';
+            });
+            updateAdvTotal();
+            updateAggregatePercent();
+        }
     }
 
     // % tổng hợp (chỉ hiển thị) = Σ tạm ứng SP / Σ chi phí mua SP × 100
@@ -3170,10 +3244,10 @@
         var totalAmt = 0, totalCost = 0;
         document.querySelectorAll('.adv-line-amount').forEach(function (amountEl) {
             var cost = parseFloat(amountEl.getAttribute('data-line-cost')) || 0;
-            var amt = parseFloat(amountEl.value);
+            var amt = advParseAmount(amountEl.value);
             if (cost > 0) {
                 totalCost += cost;
-                if (!isNaN(amt) && amt > 0) totalAmt += amt;
+                if (amt > 0) totalAmt += amt;
             }
         });
         var pct = totalCost > 0 ? (totalAmt / totalCost * 100) : 0;
@@ -3184,8 +3258,8 @@
     function updateAdvTotal() {
         var total = 0;
         document.querySelectorAll('.adv-line-amount').forEach(function (el) {
-            var v = parseFloat(el.value);
-            if (!isNaN(v) && v > 0) total += v;
+            var v = advParseAmount(el.value);
+            if (v > 0) total += v;
         });
         document.getElementById('advTotalDisplay').value = total.toLocaleString('vi-VN');
     }
@@ -3195,7 +3269,7 @@
         el.addEventListener('input', function () { syncLineFromPercent(el); });
     });
     document.querySelectorAll('.adv-line-amount').forEach(function (el) {
-        el.addEventListener('input', function () { syncLineFromAmount(el); });
+        el.addEventListener('input', function () { advFormatAmountInput(el); syncLineFromAmount(el); });
     });
 
     function confirmCreateAdvance() {
@@ -3203,9 +3277,10 @@
         // Guard: không cho số tiền tạm ứng vượt quá chi phí dòng (>100%).
         var overLimitEl = null;
         document.querySelectorAll('.adv-line-amount').forEach(function (el) {
-            var v = parseFloat(el.value);
+            var v = advParseAmount(el.value);
             var cost = parseFloat(el.getAttribute('data-line-cost')) || 0;
-            if (!isNaN(v) && v > 0 && cost > 0 && v > cost) overLimitEl = el;
+            // Cho phép sai số làm tròn: số tiền đã làm tròn không vượt quá chi phí đã làm tròn.
+            if (v > 0 && cost > 0 && v > Math.round(cost)) overLimitEl = el;
         });
         if (overLimitEl) {
             appAlert('Số tiền tạm ứng không được vượt quá chi phí dòng (tối đa 100%).');
@@ -3213,8 +3288,8 @@
             return;
         }
         document.querySelectorAll('.adv-line-amount').forEach(function (el) {
-            var v = parseFloat(el.value);
-            if (!isNaN(v) && v > 0) {
+            var v = advParseAmount(el.value);
+            if (v > 0) {
                 var raw = el.getAttribute('data-so-item-id');
                 // Mark the shipping allocation row so it can be told apart from the general one.
                 var advKind = el.getAttribute('data-adv-kind');

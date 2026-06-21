@@ -551,7 +551,9 @@
             bool showProgress = Model.Status is "BUYING" or "RECEIVED" or "DELIVERING" or "DELIVERED" or "COMPLETED" or "REPORTED" or "RETURNED";
             bool canAct = canManageStatus && Model.Status is "BUYING" or "RECEIVED" or "DELIVERING";
             bool canCancelEarly = canManageStatus && Model.Status is "DRAFT" or "WAIT";
-            bool showActionsCol = canAct || canCancelEarly;
+            // v2.15 — tăng SL (khách mua thêm): cho phép mọi trạng thái trừ CANCELLED, không áp dụng cho kho.
+            bool canAddQty = canManageStatus && !isWarehouse && Model.Status != "CANCELLED";
+            bool showActionsCol = canAct || canCancelEarly || canAddQty;
             bool showAdvanceCol = Model.Status is not "DRAFT" and not "CANCELLED";
             int totalLines = Model.Items.Count;
             int doneRecv = Model.Items.Count(i => i.LineStatus is "RECEIVED_FULL" or "PARTIAL_DELIVERED" or "DELIVERED");
@@ -664,9 +666,13 @@
                                         {
                                             <span class="badge @item.LineStatusBadge ms-1" style="font-size:0.65rem;">@item.LineStatusText</span>
                                         }
-                                        @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                        @if (item.CancelledQty > 0 && item.EffectiveQty > 0)
                                         {
-                                            <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">Hủy @item.CancelledQty.ToString("0.###")</span>
+                                            <span class="badge bg-danger-subtle text-danger-emphasis ms-1" style="font-size:0.65rem;">-@item.CancelledQty.ToString("0.###")</span>
+                                        }
+                                        @if (item.AddedQty > 0)
+                                        {
+                                            <span class="badge bg-success-subtle text-success-emphasis ms-1" style="font-size:0.65rem;" title="Khách mua thêm so với báo giá">+@item.AddedQty.ToString("0.###")</span>
                                         }
                                     </td>
                                     @if (canEdit && Model.Status == "DRAFT")
@@ -696,10 +702,10 @@
                                     }
                                     <td>@item.UnitName</td>
                                     <td class="text-end">
-                                        @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                        @if (item.EffectiveQty != item.Quantity)
                                         {
-                                            <span class="text-muted text-decoration-line-through">@item.Quantity.ToString("0.###")</span>
-                                            <div class="fw-semibold text-danger-emphasis">@item.EffectiveQty.ToString("0.###")</div>
+                                            <span class="text-muted text-decoration-line-through" title="SL báo giá gốc">@item.Quantity.ToString("0.###")</span>
+                                            <div class="fw-semibold @(item.AddedQty > item.CancelledQty ? "text-success" : "text-danger-emphasis")" title="SL đặt hàng thực tế">@item.EffectiveQty.ToString("0.###")</div>
                                         }
                                         else
                                         {
@@ -796,9 +802,9 @@
                                             }
                                         </td>
                                         <td class="text-end fw-semibold text-success">
-                                            @if (item.CancelledQty > 0 && item.CancelledQty < item.Quantity)
+                                            @if (item.EffectiveQty != item.Quantity && item.Quantity > 0)
                                             {
-                                                var effAmount = item.Quantity > 0 ? Math.Round(item.LineTotal * item.EffectiveQty / item.Quantity) : item.LineTotal;
+                                                var effAmount = Math.Round(item.LineTotal * item.EffectiveQty / item.Quantity);
                                                 <span class="text-muted text-decoration-line-through fw-normal small">@item.LineTotal.ToString("N0")</span>
                                                 <div>@effAmount.ToString("N0")</div>
                                             }
@@ -849,59 +855,70 @@
                                     @if (showActionsCol)
                                     {
                                         <td class="text-center">
-                                            @if (item.LineStatus == "CANCELLED")
-                                            {
-                                                <span class="text-muted small">—</span>
-                                            }
-                                            else if (canCancelEarly)
-                                            {
-                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
-                                                        title="Bỏ sản phẩm này khỏi đơn (khách không mua)"
-                                                        onclick="openCancelItemModal(@item.SOItemId)">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            }
-                                            else
-                                            {
-                                                <div class="btn-group btn-group-sm">
-                                                    @if (item.RemainingReceiveQty > 0)
-                                                    {
-                                                        <button type="button" class="btn btn-outline-info py-0 px-1"
-                                                                title="Nhận hàng cho dòng này"
-                                                                onclick="openReceiveItemModal(@item.SOItemId)">
-                                                            <i class="bi bi-box-arrow-in-down"></i>
-                                                        </button>
-                                                    }
-                                                    @if (item.InStockQty > 0)
-                                                    {
-                                                        <button type="button" class="btn btn-outline-warning py-0 px-1"
-                                                                title="Giao hàng dòng này"
-                                                                onclick="openDeliverItemModal(@item.SOItemId)">
-                                                            <i class="bi bi-truck"></i>
-                                                        </button>
-                                                    }
-                                                    <button type="button" class="btn btn-outline-secondary py-0 px-1 dropdown-toggle"
-                                                            data-bs-toggle="dropdown" aria-expanded="false"
-                                                            data-portal="fixed" title="Khác">
+                                            <div class="btn-group btn-group-sm">
+                                                @if (canAddQty)
+                                                {
+                                                    <button type="button" class="btn btn-outline-success py-0 px-1"
+                                                            title="Tăng SL (khách mua thêm so với báo giá)"
+                                                            onclick="openAddItemQtyModal(@item.SOItemId)">
+                                                        <i class="bi bi-plus-circle"></i>
                                                     </button>
-                                                    <ul class="dropdown-menu dropdown-menu-end">
-                                                        <li>
-                                                            <a class="dropdown-item small" href="#"
-                                                               onclick="openEditItemModal(@item.SOItemId); return false;">
-                                                                <i class="bi bi-pencil me-1"></i> Sửa ngày dự kiến
-                                                            </a>
-                                                        </li>
+                                                }
+                                                @if (item.LineStatus != "CANCELLED")
+                                                {
+                                                    if (canCancelEarly)
+                                                    {
+                                                        <button type="button" class="btn btn-outline-danger py-0 px-2"
+                                                                title="Bỏ sản phẩm này khỏi đơn (khách không mua)"
+                                                                onclick="openCancelItemModal(@item.SOItemId)">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    }
+                                                    else if (canAct)
+                                                    {
                                                         @if (item.RemainingReceiveQty > 0)
                                                         {
+                                                            <button type="button" class="btn btn-outline-info py-0 px-1"
+                                                                    title="Nhận hàng cho dòng này"
+                                                                    onclick="openReceiveItemModal(@item.SOItemId)">
+                                                                <i class="bi bi-box-arrow-in-down"></i>
+                                                            </button>
+                                                        }
+                                                        @if (item.InStockQty > 0)
+                                                        {
+                                                            <button type="button" class="btn btn-outline-warning py-0 px-1"
+                                                                    title="Giao hàng dòng này"
+                                                                    onclick="openDeliverItemModal(@item.SOItemId)">
+                                                                <i class="bi bi-truck"></i>
+                                                            </button>
+                                                        }
+                                                        <button type="button" class="btn btn-outline-secondary py-0 px-1 dropdown-toggle"
+                                                                data-bs-toggle="dropdown" aria-expanded="false"
+                                                                data-portal="fixed" title="Khác">
+                                                        </button>
+                                                        <ul class="dropdown-menu dropdown-menu-end">
                                                             <li>
-                                                                <a class="dropdown-item small text-danger" href="#"
-                                                                   onclick="openCancelItemModal(@item.SOItemId); return false;">
-                                                                    <i class="bi bi-x-circle me-1"></i> Hủy dòng
+                                                                <a class="dropdown-item small" href="#"
+                                                                   onclick="openEditItemModal(@item.SOItemId); return false;">
+                                                                    <i class="bi bi-pencil me-1"></i> Sửa ngày dự kiến
                                                                 </a>
                                                             </li>
-                                                        }
-                                                    </ul>
-                                                </div>
+                                                            @if (item.RemainingReceiveQty > 0)
+                                                            {
+                                                                <li>
+                                                                    <a class="dropdown-item small text-danger" href="#"
+                                                                       onclick="openCancelItemModal(@item.SOItemId); return false;">
+                                                                        <i class="bi bi-x-circle me-1"></i> Hủy sản phẩm
+                                                                    </a>
+                                                                </li>
+                                                            }
+                                                        </ul>
+                                                    }
+                                                }
+                                            </div>
+                                            @if (item.LineStatus == "CANCELLED" && !canAddQty)
+                                            {
+                                                <span class="text-muted small">—</span>
                                             }
                                         </td>
                                     }
@@ -1460,7 +1477,7 @@
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold">Hủy dòng <span id="cancelItemLabel" class="text-muted small ms-1"></span></h6>
+                <h6 class="modal-title fw-bold">Hủy sản phẩm <span id="cancelItemLabel" class="text-muted small ms-1"></span></h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body small">
@@ -1484,6 +1501,42 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
                 <button type="button" class="btn btn-sm btn-danger" onclick="confirmCancelItem()">
                     <i class="bi bi-x-circle me-1"></i> Xác nhận hủy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tăng SL dòng (khách mua thêm) — v2.15 -->
+<div class="modal fade" id="addItemQtyModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Tăng số lượng <span id="addItemQtyLabel" class="text-muted small ms-1"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body small">
+                <input type="hidden" id="addItemQtyId" />
+                <div class="alert alert-success py-2 px-3 mb-2">
+                    Khách mua nhiều hơn SL báo giá. SL gốc được giữ để tham chiếu; mọi nghiệp vụ (nhận/giao/xuất file, tổng tiền) dùng SL đặt hàng mới.
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span>SL báo giá gốc: <span id="addItemQtyOriginal" class="fw-semibold"></span></span>
+                        <span>SL hiện tại: <span id="addItemQtyCurrent" class="fw-semibold"></span></span>
+                    </div>
+                    <label class="form-label fw-semibold mb-1">SL tăng thêm</label>
+                    <input type="number" id="addItemQtyVal" class="form-control form-control-sm text-end" min="0" step="0.001" />
+                </div>
+                <div>
+                    <label class="form-label fw-semibold mb-1">Lý do</label>
+                    <textarea id="addItemQtyReason" class="form-control form-control-sm" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="confirmAddItemQty()">
+                    <i class="bi bi-plus-circle me-1"></i> Xác nhận tăng
                 </button>
             </div>
         </div>
@@ -2827,6 +2880,8 @@
             name = i.ProductName,
             qty = i.Quantity,
             cancelledQty = i.CancelledQty,
+            addedQty = i.AddedQty,
+            effectiveQty = i.EffectiveQty,
             receivedQty = i.ReceivedQty,
             deliveredQty = i.DeliveredQty,
             remainingReceive = i.RemainingReceiveQty,
@@ -2863,7 +2918,7 @@
     // ── Cancel line ──────────────────────────────────
     function openCancelItemModal(soItemId) {
         var it = findItem(soItemId); if (!it) return;
-        var maxCancel = it.qty - it.cancelledQty - it.receivedQty;
+        var maxCancel = it.effectiveQty - it.receivedQty;
         document.getElementById('cancelItemId').value = soItemId;
         document.getElementById('cancelItemLabel').textContent = '— ' + it.name;
         document.getElementById('cancelItemQty').value = '';
@@ -2880,6 +2935,31 @@
             Reason: document.getElementById('cancelItemReason').value.trim()
         };
         postAction('/SalesOrder/CancelItem/' + soId + '?soItemId=' + id, body, function (data) {
+            if (data.Success) location.reload(); else appAlert(data.Message || 'Lỗi');
+        });
+    }
+
+    // ── Tăng SL dòng (khách mua thêm) — v2.15 ─────────
+    function openAddItemQtyModal(soItemId) {
+        var it = findItem(soItemId); if (!it) return;
+        document.getElementById('addItemQtyId').value = soItemId;
+        document.getElementById('addItemQtyLabel').textContent = '— ' + it.name;
+        document.getElementById('addItemQtyOriginal').textContent = (it.qty || 0).toLocaleString('vi-VN');
+        document.getElementById('addItemQtyCurrent').textContent = (it.effectiveQty || 0).toLocaleString('vi-VN');
+        document.getElementById('addItemQtyVal').value = '';
+        document.getElementById('addItemQtyReason').value = '';
+        new bootstrap.Modal(document.getElementById('addItemQtyModal')).show();
+    }
+    function confirmAddItemQty() {
+        var id = parseInt(document.getElementById('addItemQtyId').value);
+        var qtyVal = document.getElementById('addItemQtyVal').value;
+        var qty = qtyVal ? parseFloat(qtyVal) : 0;
+        if (!(qty > 0)) { appAlert('Nhập số lượng tăng thêm lớn hơn 0'); return; }
+        var body = {
+            Qty: qty,
+            Reason: document.getElementById('addItemQtyReason').value.trim()
+        };
+        postAction('/SalesOrder/AddItemQty/' + soId + '?soItemId=' + id, body, function (data) {
             if (data.Success) location.reload(); else appAlert(data.Message || 'Lỗi');
         });
     }

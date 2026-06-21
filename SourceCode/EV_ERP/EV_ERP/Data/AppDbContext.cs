@@ -452,15 +452,22 @@ namespace EV_ERP.Data
                 // v2.3 — hủy 1 phần / toàn bộ dòng
                 e.Property(x => x.CancelledQty).HasColumnType("decimal(18,3)").HasDefaultValue(0m);
                 e.Property(x => x.CancelReason).HasMaxLength(500);
+                // v2.15 — tăng SL (khách mua thêm)
+                e.Property(x => x.AddedQty).HasColumnType("decimal(18,3)").HasDefaultValue(0m);
+                e.Property(x => x.AddReason).HasMaxLength(500);
+                // SL đặt hàng thực tế = Quantity - CancelledQty + AddedQty (computed)
+                e.Property(x => x.OrderedQty)
+                 .HasColumnType("decimal(19,3)")
+                 .HasComputedColumnSql("[Quantity] - [CancelledQty] + [AddedQty]", stored: false);
                 e.Property(x => x.RemainingReceiveQty)
                  .HasColumnType("decimal(19,3)")
-                 .HasComputedColumnSql("([Quantity] - [CancelledQty]) - [ReceivedQty]", stored: false);
+                 .HasComputedColumnSql("([Quantity] - [CancelledQty] + [AddedQty]) - [ReceivedQty]", stored: false);
                 e.Property(x => x.InStockQty)
                  .HasColumnType("decimal(19,3)")
                  .HasComputedColumnSql("[ReceivedQty] - [DeliveredQty]", stored: false);
                 e.Property(x => x.RemainingDeliverQty)
                  .HasColumnType("decimal(19,3)")
-                 .HasComputedColumnSql("([Quantity] - [CancelledQty]) - [DeliveredQty]", stored: false);
+                 .HasComputedColumnSql("([Quantity] - [CancelledQty] + [AddedQty]) - [DeliveredQty]", stored: false);
                 e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.PurchasePrice).HasColumnType("decimal(18,2)");
                 e.Property(x => x.ShippingFee).HasColumnType("decimal(18,2)");

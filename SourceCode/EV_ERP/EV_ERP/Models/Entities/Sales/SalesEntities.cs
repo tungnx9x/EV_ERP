@@ -271,11 +271,18 @@ public class SalesOrderItem
     public string? CancelReason { get; set; }
     public DateTime? CancelledAt { get; set; }
     public int? CancelledBy { get; set; }
-    /// <summary>Computed: (Quantity - CancelledQty) - ReceivedQty</summary>
+    // v2.15 — tăng SL (khách mua nhiều hơn SL báo giá). Đối xứng với CancelledQty.
+    public decimal AddedQty { get; set; }
+    public string? AddReason { get; set; }
+    public DateTime? AddedAt { get; set; }
+    public int? AddedBy { get; set; }
+    /// <summary>Computed: Quantity - CancelledQty + AddedQty (SL đặt hàng thực tế — dùng cho mọi nghiệp vụ downstream; Quantity chỉ là SL báo giá gốc để tham chiếu)</summary>
+    public decimal OrderedQty { get; set; }
+    /// <summary>Computed: (Quantity - CancelledQty + AddedQty) - ReceivedQty</summary>
     public decimal RemainingReceiveQty { get; set; }
     /// <summary>Computed: ReceivedQty - DeliveredQty</summary>
     public decimal InStockQty { get; set; }
-    /// <summary>Computed: (Quantity - CancelledQty) - DeliveredQty</summary>
+    /// <summary>Computed: (Quantity - CancelledQty + AddedQty) - DeliveredQty</summary>
     public decimal RemainingDeliverQty { get; set; }
     // v2.2 — ngày dự kiến riêng cho từng dòng (đợt về khác nhau)
     public DateTime? ExpectedReceiveDate { get; set; }

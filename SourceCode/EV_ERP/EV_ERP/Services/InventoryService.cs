@@ -199,6 +199,7 @@ namespace EV_ERP.Services
                 ReceivedQty = i.ReceivedQty,
                 DeliveredQty = i.DeliveredQty,
                 CancelledQty = i.CancelledQty,
+                AddedQty = i.AddedQty,
                 RemainingReceiveQty = i.RemainingReceiveQty,
                 InStockQty = i.InStockQty,
                 ExpectedReceiveDate = i.ExpectedReceiveDate
@@ -231,7 +232,7 @@ namespace EV_ERP.Services
                 PartialLines = lines.Count(l => l.LineStatus == "PARTIAL"),
                 NotStartedLines = lines.Count(l => l.LineStatus == "NOT_STARTED"),
                 CancelledLines = lines.Count(l => l.LineStatus == "CANCELLED"),
-                TotalOrderedQty = lines.Sum(l => l.Quantity),
+                TotalOrderedQty = lines.Sum(l => l.EffectiveQty),
                 TotalReceivedQty = lines.Sum(l => l.ReceivedQty),
                 TotalRemainingQty = lines.Sum(l => l.RemainingReceiveQty),
                 TotalCancelledQty = lines.Sum(l => l.CancelledQty),

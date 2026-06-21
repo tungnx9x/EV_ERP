@@ -299,7 +299,7 @@ namespace EV_ERP.Services
                         .Where(i => i.ProductId.HasValue)
                         .Select(i =>
                         {
-                            var effective = i.Quantity - i.CancelledQty;
+                            var effective = i.OrderedQty;
                             var remaining = isOutbound
                                 ? Math.Max(0m, i.ReceivedQty - i.DeliveredQty)
                                 : Math.Max(0m, effective - i.ReceivedQty);
@@ -747,10 +747,10 @@ namespace EV_ERP.Services
 
                     if (transactionType == "INBOUND")
                     {
-                        var remaining = line.Quantity - line.CancelledQty - line.ReceivedQty;
+                        var remaining = line.OrderedQty - line.ReceivedQty;
                         if (qty > remaining)
                             return (false,
-                                $"Dòng '{line.ProductName}': tối đa nhập {remaining:N3} (đã nhập {line.ReceivedQty:N3}/{line.Quantity:N3})",
+                                $"Dòng '{line.ProductName}': tối đa nhập {remaining:N3} (đã nhập {line.ReceivedQty:N3}/{line.OrderedQty:N3})",
                                 null);
                     }
                     else // OUTBOUND
@@ -953,7 +953,7 @@ namespace EV_ERP.Services
                 .Where(i => i.ProductId.HasValue)
                 .Select(i =>
                 {
-                    var effective = i.Quantity - i.CancelledQty;
+                    var effective = i.OrderedQty;
                     decimal remaining = txnType == "INBOUND"
                         ? Math.Max(0m, effective - i.ReceivedQty)
                         : Math.Max(0m, i.ReceivedQty - i.DeliveredQty);

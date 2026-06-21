@@ -219,7 +219,12 @@ public class SalesOrderItemDetailViewModel
     public decimal CancelledQty { get; set; }
     public string? CancelReason { get; set; }
     public DateTime? CancelledAt { get; set; }
-    public decimal EffectiveQty => Quantity - CancelledQty;
+    // v2.15 — tăng SL (khách mua thêm)
+    public decimal AddedQty { get; set; }
+    public string? AddReason { get; set; }
+    public DateTime? AddedAt { get; set; }
+    // SL đặt hàng thực tế (dùng cho mọi hiển thị/xuất file). Quantity là SL báo giá gốc — chỉ tham chiếu.
+    public decimal EffectiveQty => Quantity - CancelledQty + AddedQty;
     // Bán
     public decimal UnitPrice { get; set; }
     public decimal? ShippingFee { get; set; }   // phí vận chuyển từ báo giá (mỗi SP)
@@ -275,7 +280,6 @@ public class SalesOrderItemDetailViewModel
     {
         get
         {
-            if (CancelledQty >= Quantity && Quantity > 0) return "CANCELLED";
             var eff = EffectiveQty;
             if (eff <= 0) return "CANCELLED";
             if (DeliveredQty >= eff) return "DELIVERED";
@@ -353,6 +357,13 @@ public class UpdateItemPurchaseModel
 public class CancelItemModel
 {
     public decimal? CancelQty { get; set; }   // null = hủy hết phần còn lại
+    public string? Reason { get; set; }
+}
+
+// v2.15 — tăng SL dòng SO (khách mua nhiều hơn SL báo giá)
+public class AddItemQtyModel
+{
+    public decimal? Qty { get; set; }          // SL tăng thêm (> 0)
     public string? Reason { get; set; }
 }
 

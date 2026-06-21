@@ -44,6 +44,10 @@ public interface ISalesOrderService
     Task<(bool Success, string? ErrorMessage)> CancelItemAsync(
         int salesOrderId, int soItemId, CancelItemModel model, int userId);
 
+    /// <summary>Tăng SL 1 dòng (khách mua nhiều hơn báo giá). Cho phép mọi trạng thái trừ CANCELLED; mở lại đơn đã kết thúc luồng.</summary>
+    Task<(bool Success, string? ErrorMessage)> AddItemQtyAsync(
+        int salesOrderId, int soItemId, AddItemQtyModel model, int userId);
+
     /// <summary>Cập nhật "Giá nhập hiện tại" + breakdown cho 1 dòng SO (popup máy tính giá nhập).</summary>
     Task<(bool Success, string? ErrorMessage)> UpdateItemPurchasePriceAsync(
         int salesOrderId, int soItemId, UpdateItemPurchasePriceModel model, int userId);

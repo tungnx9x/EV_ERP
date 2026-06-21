@@ -50,13 +50,13 @@ public class AdvanceRequestService : IAdvanceRequestService
         if (purchaseCost <= 0)
         {
             purchaseCost = await _uow.Repository<SalesOrderItem>().Query()
-                .Where(i => i.SalesOrderId == salesOrderId && i.CancelledQty < i.Quantity)
-                .SumAsync(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
+                .Where(i => i.SalesOrderId == salesOrderId && i.OrderedQty > 0)
+                .SumAsync(i => i.OrderedQty * (i.PurchasePrice ?? 0));
         }
 
         // Phí vận chuyển KH dự kiến = Σ ShippingFee (alive lines).
         decimal customerShippingCost = await _uow.Repository<SalesOrderItem>().Query()
-            .Where(i => i.SalesOrderId == salesOrderId && i.CancelledQty < i.Quantity)
+            .Where(i => i.SalesOrderId == salesOrderId && i.OrderedQty > 0)
             .SumAsync(i => i.ShippingFee ?? 0);
 
         var summary = new SalesOrderAdvanceSummary
@@ -484,8 +484,8 @@ public class AdvanceRequestService : IAdvanceRequestService
         var so = req.SalesOrder;
         if (so == null || so.Items.Count == 0) return null;
 
-        // Bỏ các dòng đã hủy toàn bộ SL khỏi danh sách hàng hóa của ĐNTU.
-        var soItems = so.Items.Where(i => i.CancelledQty < i.Quantity)
+        // Bỏ các dòng đã hủy hết SL khỏi danh sách hàng hóa của ĐNTU (theo SL đặt hàng thực tế).
+        var soItems = so.Items.Where(i => i.OrderedQty > 0)
                               .OrderBy(i => i.SortOrder).ToList();
         if (soItems.Count == 0) return null;
 
@@ -562,7 +562,7 @@ public class AdvanceRequestService : IAdvanceRequestService
             ws.Cell(row, 2).Value = so.Customer.CustomerName;        // B: Tên dự án/KS
             ws.Cell(row, 3).Value = item.ProductName;                // C: Tên hàng hóa
             ws.Cell(row, 4).Value = item.UnitName;                   // D: ĐVT
-            ws.Cell(row, 5).Value = item.Quantity - item.CancelledQty; // E: SL bán (số lượng còn lại sau khi hủy)
+            ws.Cell(row, 5).Value = item.OrderedQty;                 // E: SL bán (SL đặt hàng thực tế)
             ws.Cell(row, 6).Value = included ? item.UnitPrice : 0;   // F: Đơn giá bán
             ws.Cell(row, 7).Value = 0;                               // G: VAT — luôn = 0
 
@@ -574,7 +574,7 @@ public class AdvanceRequestService : IAdvanceRequestService
             ws.Cell(row, 11).Value = included ? (qItem?.PurchaseExchangeRate ?? 1) : 0;
             // L: Đơn giá mua (VND) — chưa gồm phí vận chuyển, cùng cơ sở với cột J = Đơn giá gốc × Tỷ giá
             ws.Cell(row, 12).FormulaA1 = $"J{row}*K{row}";
-            ws.Cell(row, 13).Value = item.Quantity - item.CancelledQty; // M: SL mua (số lượng còn lại sau khi hủy)
+            ws.Cell(row, 13).Value = item.OrderedQty;                // M: SL mua (SL đặt hàng thực tế)
             ws.Cell(row, 14).Value = 0;                              // N: thuế mua — luôn = 0
             ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})";
 

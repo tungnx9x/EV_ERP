@@ -135,18 +135,19 @@ namespace EV_ERP.Models.ViewModels.Stock
         public decimal ReceivedQty { get; set; }
         public decimal DeliveredQty { get; set; }
         public decimal CancelledQty { get; set; }
+        public decimal AddedQty { get; set; }
         public decimal RemainingReceiveQty { get; set; }
         public decimal InStockQty { get; set; }
         public DateTime? ExpectedReceiveDate { get; set; }
 
-        public decimal EffectiveQty => Quantity - CancelledQty;
+        // SL đặt hàng thực tế (đã trừ hủy, cộng tăng thêm). Quantity là SL báo giá gốc — chỉ tham chiếu.
+        public decimal EffectiveQty => Quantity - CancelledQty + AddedQty;
 
         /// <summary>NOT_STARTED | PARTIAL | RECEIVED | CANCELLED</summary>
         public string LineStatus
         {
             get
             {
-                if (CancelledQty >= Quantity && Quantity > 0) return "CANCELLED";
                 var eff = EffectiveQty;
                 if (eff <= 0) return "CANCELLED";
                 if (ReceivedQty <= 0) return "NOT_STARTED";

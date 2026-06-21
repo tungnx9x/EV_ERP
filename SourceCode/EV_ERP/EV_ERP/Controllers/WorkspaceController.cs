@@ -334,8 +334,8 @@ public class WorkspaceController : Controller
 
         var soReceivedTasks = soReceivedEntities.Select(s =>
         {
-            // SP đã nhận / tổng SP (bỏ qua dòng đã hủy toàn bộ)
-            var activeLines = s.Items.Where(i => i.CancelledQty < i.Quantity).ToList();
+            // SP đã nhận / tổng SP (bỏ qua dòng đã hủy hết theo SL đặt hàng thực tế)
+            var activeLines = s.Items.Where(i => i.OrderedQty > 0).ToList();
             int totalProducts = activeLines.Count;
             int receivedProducts = activeLines.Count(i => i.ReceivedQty > 0);
             return new WorkspaceTaskItem

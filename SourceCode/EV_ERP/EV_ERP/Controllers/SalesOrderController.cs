@@ -281,6 +281,27 @@ public class SalesOrderController : Controller
         }
     }
 
+    // ── v2.15: Per-line tăng SL (khách mua thêm) ─────
+    [HttpPost]
+    public async Task<IActionResult> AddItemQty(int id, int soItemId, [FromBody] AddItemQtyModel model)
+    {
+        try
+        {
+            if (CurrentRoleCode == "WAREHOUSE")
+                return Json(ApiResult<object>.Fail("Bạn không có quyền"));
+            if (!await CanManageStatusAsync(id))
+                return Json(ApiResult<object>.Fail("Chỉ người phụ trách hoặc quản lý mới có quyền thực hiện"));
+
+            var (success, error) = await _salesOrderService.AddItemQtyAsync(id, soItemId, model, CurrentUserId);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã tăng số lượng" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AddItemQty failed for SO #{Id} item #{ItemId}", id, soItemId);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+        }
+    }
+
     // ── v2.9: Per-line update "Giá nhập hiện tại" (popup máy tính) ──
     [HttpPost]
     public async Task<IActionResult> UpdateItemPurchasePrice(int id, int soItemId, [FromBody] UpdateItemPurchasePriceModel model)

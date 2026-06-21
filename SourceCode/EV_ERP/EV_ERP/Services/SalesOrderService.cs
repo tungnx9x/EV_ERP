@@ -237,6 +237,9 @@ public class SalesOrderService : ISalesOrderService
                 CancelledQty = i.CancelledQty,
                 CancelReason = i.CancelReason,
                 CancelledAt = i.CancelledAt,
+                AddedQty = i.AddedQty,
+                AddReason = i.AddReason,
+                AddedAt = i.AddedAt,
                 UnitPrice = i.UnitPrice,
                 ShippingFee = i.ShippingFee,
                 DiscountType = i.DiscountType,
@@ -428,7 +431,7 @@ public class SalesOrderService : ISalesOrderService
         if (so.Status != "DRAFT") return (false, "Chỉ có thể gửi đề nghị tạm ứng ở trạng thái Nháp");
 
         // Validate: all items must be mapped to a real product (bỏ qua dòng đã hủy toàn bộ)
-        var unmappedCount = so.Items.Count(i => !i.IsProductMapped && i.CancelledQty < i.Quantity);
+        var unmappedCount = so.Items.Count(i => !i.IsProductMapped && Eff(i) > 0);
         if (unmappedCount > 0)
             return (false, $"Còn {unmappedCount} sản phẩm chưa được gắn vào hệ thống. Vui lòng hoàn thiện thông tin sản phẩm trước khi gửi DNTU.");
 
@@ -524,6 +527,40 @@ public class SalesOrderService : ISalesOrderService
         return (true, null);
     }
 
+    // SL đặt hàng thực tế của 1 dòng = báo giá gốc − đã hủy + tăng thêm.
+    // Dùng cho mọi tính toán write-path (tránh đọc computed col OrderedQty còn cũ trước SaveChanges).
+    private static decimal Eff(SalesOrderItem i) => i.Quantity - i.CancelledQty + i.AddedQty;
+
+    // Tính lại SubTotal/Discount/Tax/Total của đơn theo SL ĐẶT HÀNG THỰC TẾ (đã hủy/tăng),
+    // giữ nguyên đơn giá báo giá: thành tiền mỗi dòng = LineTotal × (Eff / Quantity gốc).
+    private static void RecomputeSellSideTotals(SalesOrder so)
+    {
+        decimal subTotal = 0;
+        foreach (var line in so.Items)
+        {
+            if (line.Quantity <= 0) continue;
+            var eff = Eff(line);
+            if (eff <= 0) continue;
+            subTotal += line.LineTotal * eff / line.Quantity;
+        }
+
+        decimal orderDiscount;
+        if (so.DiscountType == null || !so.DiscountValue.HasValue || so.DiscountValue <= 0)
+            orderDiscount = 0;
+        else if (so.DiscountType == "PERCENT")
+            orderDiscount = Math.Round(subTotal * so.DiscountValue.Value / 100m, 0);
+        else
+            orderDiscount = Math.Min(so.DiscountValue.Value, subTotal);
+
+        var afterDiscount = subTotal - orderDiscount;
+        var taxAmount = Math.Round(afterDiscount * so.TaxRate / 100m, 0);
+
+        so.SubTotal = subTotal;
+        so.DiscountAmount = orderDiscount;
+        so.TaxAmount = taxAmount;
+        so.TotalAmount = afterDiscount + taxAmount;
+    }
+
     // ══════════════════════════════════════════════════
     // ROLL-UP STATUS (v2.2/2.3) — derive SO.Status from line quantities.
     // Called from StockService after each INBOUND CONFIRMED / OUTBOUND DELIVERED.
@@ -542,8 +579,8 @@ public class SalesOrderService : ISalesOrderService
         var lines = so.Items.ToList();
         if (lines.Count == 0) return (true, so.Status);
 
-        // EffectiveQty = Quantity - CancelledQty
-        decimal totalEff = lines.Sum(i => i.Quantity - i.CancelledQty);
+        // EffectiveQty = Quantity - CancelledQty + AddedQty
+        decimal totalEff = lines.Sum(Eff);
         decimal totalRecv = lines.Sum(i => i.ReceivedQty);
         decimal totalDeliv = lines.Sum(i => i.DeliveredQty);
 
@@ -606,12 +643,12 @@ public class SalesOrderService : ISalesOrderService
 
         var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
         if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
-        if (item.CancelledQty >= item.Quantity) return (false, "Dòng đã hủy");
+        if (Eff(item) <= 0) return (false, "Dòng đã hủy");
 
         if (model.PurchasePrice.HasValue)
         {
             item.PurchasePrice = model.PurchasePrice;
-            item.LineCost = item.Quantity * model.PurchasePrice.Value;
+            item.LineCost = Eff(item) * model.PurchasePrice.Value;
         }
         if (model.SourceUrl != null) item.SourceUrl = model.SourceUrl.Trim();
         if (model.SourceName != null) item.SourceName = model.SourceName.Trim();
@@ -620,7 +657,7 @@ public class SalesOrderService : ISalesOrderService
         if (model.Notes != null) item.Notes = model.Notes.Trim();
 
         // Recompute SO PurchaseCost from sum of line costs (alive lines only)
-        so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
+        so.PurchaseCost = so.Items.Where(i => Eff(i) > 0)
                                   .Sum(i => i.LineCost ?? 0);
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
@@ -647,7 +684,7 @@ public class SalesOrderService : ISalesOrderService
         if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
 
         // Bao nhiêu chưa nhập về thì có thể hủy. Đã nhận về rồi → không cho hủy (phải đi luồng trả hàng).
-        var maxCancelable = item.Quantity - item.CancelledQty - item.ReceivedQty;
+        var maxCancelable = Eff(item) - item.ReceivedQty;
         if (maxCancelable <= 0) return (false, "Dòng đã nhận hết, không thể hủy nữa");
 
         var qty = model.CancelQty ?? maxCancelable;
@@ -664,37 +701,12 @@ public class SalesOrderService : ISalesOrderService
         item.CancelledBy = userId;
 
         // Recompute SO PurchaseCost (alive lines)
-        so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
-                                  .Sum(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
+        so.PurchaseCost = so.Items.Where(i => Eff(i) > 0)
+                                  .Sum(i => Eff(i) * (i.PurchasePrice ?? 0));
 
         // DRAFT/WAIT: sell-side totals not locked yet → recompute from alive (proportional) line totals
         if (so.Status is "DRAFT" or "WAIT")
-        {
-            decimal subTotal = 0;
-            foreach (var line in so.Items)
-            {
-                if (line.Quantity <= 0) continue;
-                var aliveQty = line.Quantity - line.CancelledQty;
-                if (aliveQty <= 0) continue;
-                subTotal += line.LineTotal * aliveQty / line.Quantity;
-            }
-
-            decimal orderDiscount;
-            if (so.DiscountType == null || !so.DiscountValue.HasValue || so.DiscountValue <= 0)
-                orderDiscount = 0;
-            else if (so.DiscountType == "PERCENT")
-                orderDiscount = Math.Round(subTotal * so.DiscountValue.Value / 100m, 0);
-            else
-                orderDiscount = Math.Min(so.DiscountValue.Value, subTotal);
-
-            var afterDiscount = subTotal - orderDiscount;
-            var taxAmount = Math.Round(afterDiscount * so.TaxRate / 100m, 0);
-
-            so.SubTotal = subTotal;
-            so.DiscountAmount = orderDiscount;
-            so.TaxAmount = taxAmount;
-            so.TotalAmount = afterDiscount + taxAmount;
-        }
+            RecomputeSellSideTotals(so);
 
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
@@ -703,7 +715,7 @@ public class SalesOrderService : ISalesOrderService
         await _uow.SaveChangesAsync();
 
         // Auto-cancel whole SO when every line is fully cancelled — customer dropped everything.
-        bool allCancelled = so.Items.Count > 0 && so.Items.All(i => i.CancelledQty >= i.Quantity);
+        bool allCancelled = so.Items.Count > 0 && so.Items.All(i => Eff(i) <= 0);
         if (allCancelled && so.Status != "CANCELLED")
         {
             var oldStatus = so.Status;
@@ -728,6 +740,80 @@ public class SalesOrderService : ISalesOrderService
         }
 
         _logger.LogInformation("SO {No} cancel line {Item}: qty={Qty} by UserId={UserId}",
+            so.SalesOrderNo, item.ProductName, qty, userId);
+        return (true, null);
+    }
+
+    // ══════════════════════════════════════════════════
+    // PER-LINE: Tăng SL (khách mua nhiều hơn SL báo giá) — đối xứng với hủy.
+    // Cho phép ở MỌI trạng thái trừ CANCELLED. Đơn đã kết thúc luồng sẽ được
+    // mở lại (reactivate) để mua/giao phần tăng thêm.
+    // ══════════════════════════════════════════════════
+    public async Task<(bool Success, string? ErrorMessage)> AddItemQtyAsync(
+        int salesOrderId, int soItemId, AddItemQtyModel model, int userId)
+    {
+        var so = await _uow.Repository<SalesOrder>().Query()
+            .Include(s => s.Items)
+            .FirstOrDefaultAsync(s => s.SalesOrderId == salesOrderId);
+        if (so == null) return (false, "Không tìm thấy đơn hàng");
+        if (so.Status == "CANCELLED")
+            return (false, "Đơn đã hủy, không thể tăng số lượng");
+
+        var item = so.Items.FirstOrDefault(i => i.SOItemId == soItemId);
+        if (item == null) return (false, "Không tìm thấy dòng sản phẩm");
+
+        var qty = model.Qty ?? 0;
+        if (qty <= 0) return (false, "Số lượng tăng thêm phải lớn hơn 0");
+
+        item.AddedQty += qty;
+        if (string.IsNullOrWhiteSpace(item.AddReason))
+            item.AddReason = model.Reason?.Trim();
+        else if (!string.IsNullOrWhiteSpace(model.Reason))
+            item.AddReason += " | " + model.Reason.Trim();
+        item.AddedAt = DateTime.Now;
+        item.AddedBy = userId;
+
+        // Giá vốn dòng theo SL đặt hàng thực tế
+        if (item.PurchasePrice.HasValue)
+            item.LineCost = Eff(item) * item.PurchasePrice.Value;
+
+        // Recompute SO PurchaseCost (alive lines)
+        so.PurchaseCost = so.Items.Where(i => Eff(i) > 0)
+                                  .Sum(i => Eff(i) * (i.PurchasePrice ?? 0));
+
+        // Khách trả tiền cho phần tăng thêm → tính lại tổng tiền bán theo SL thực tế (giữ đơn giá báo giá)
+        RecomputeSellSideTotals(so);
+
+        so.UpdatedBy = userId;
+        so.UpdatedAt = DateTime.Now;
+
+        // Đơn đã kết thúc luồng → mở lại để mua/giao phần tăng thêm.
+        bool reactivated = false;
+        string? oldStatus = null;
+        if (so.Status is "DELIVERED" or "COMPLETED" or "REPORTED" or "RETURNED")
+        {
+            oldStatus = so.Status;
+            so.Status = "BUYING";
+            so.DeliveredAt = null;
+            so.CompletedAt = null;
+            so.ReportedAt = null;
+            reactivated = true;
+        }
+
+        _uow.Repository<SalesOrder>().Update(so);
+        await _uow.SaveChangesAsync();
+
+        if (reactivated)
+        {
+            await _slaService.StartTrackingAsync("SALES_ORDER", salesOrderId, "BUYING", so.CreatedBy);
+            _logger.LogInformation("SO {No} reactivated (qty added): {Old} → BUYING by UserId={UserId}",
+                so.SalesOrderNo, oldStatus, userId);
+        }
+
+        // Roll up — SL tăng kéo trạng thái về BUYING/RECEIVED tùy tiến độ nhận/giao hiện tại
+        await RollUpStatusAsync(salesOrderId, userId);
+
+        _logger.LogInformation("SO {No} add qty line {Item}: qty={Qty} by UserId={UserId}",
             so.SalesOrderNo, item.ProductName, qty, userId);
         return (true, null);
     }
@@ -770,13 +856,13 @@ public class SalesOrderService : ISalesOrderService
         item.UnofficialCostPerCbm = model.UnofficialCostPerCbm;
         item.PurchaseVatPercent = model.PurchaseVatPercent;
 
-        // LineCost theo SL còn hiệu lực (đã trừ phần hủy) × giá nhập mới
-        var eff = item.Quantity - item.CancelledQty;
+        // LineCost theo SL đặt hàng thực tế (đã trừ hủy, cộng tăng thêm) × giá nhập mới
+        var eff = Eff(item);
         item.LineCost = (item.PurchasePrice ?? 0) * (eff > 0 ? eff : 0);
 
         // Recompute tổng chi phí mua (alive lines)
-        so.PurchaseCost = so.Items.Where(i => i.CancelledQty < i.Quantity)
-                                  .Sum(i => (i.Quantity - i.CancelledQty) * (i.PurchasePrice ?? 0));
+        so.PurchaseCost = so.Items.Where(i => Eff(i) > 0)
+                                  .Sum(i => Eff(i) * (i.PurchasePrice ?? 0));
 
         so.UpdatedBy = userId;
         so.UpdatedAt = DateTime.Now;
@@ -999,7 +1085,7 @@ public class SalesOrderService : ISalesOrderService
         if (so == null || so.Items.Count == 0) return null;
 
         // Loại các dòng đã hủy toàn bộ SL — không đưa vào danh sách hàng hóa của ĐNTU.
-        var items = so.Items.Where(i => i.CancelledQty < i.Quantity).ToList();
+        var items = so.Items.Where(i => Eff(i) > 0).ToList();
         if (items.Count == 0) return null;
 
         // Pull BasePrice + PurchaseExchangeRate from the source quotation (matched by SortOrder).
@@ -1053,7 +1139,7 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 2).Value = so.Customer.CustomerName;        // B: Tên dự án/KS
             ws.Cell(row, 3).Value = item.ProductName;                // C: Tên hàng hóa
             ws.Cell(row, 4).Value = item.UnitName;                   // D: ĐVT
-            ws.Cell(row, 5).Value = item.Quantity;                   // E: SL bán
+            ws.Cell(row, 5).Value = Eff(item);                       // E: SL bán (SL đặt hàng thực tế)
             ws.Cell(row, 6).Value = item.UnitPrice;                  // F: Đơn giá bán
             ws.Cell(row, 7).Value = so.TaxRate / 100m;               // G: Thuế VAT (decimal)
 
@@ -1065,7 +1151,7 @@ public class SalesOrderService : ISalesOrderService
             ws.Cell(row, 10).Value = qItem?.BasePrice ?? item.PurchasePrice ?? 0;          // J: Đơn giá mua nguyên tệ (Quotation.BasePrice)
             ws.Cell(row, 11).Value = qItem?.PurchaseExchangeRate ?? 1; // K: Tỷ giá (Quotation.PurchaseExchangeRate)
             ws.Cell(row, 12).Value = item.PurchasePrice ?? 0;        // L: Đơn giá mua VNĐ
-            ws.Cell(row, 13).Value = item.Quantity;                  // M: SL mua (giả định = SL bán)
+            ws.Cell(row, 13).Value = Eff(item);                      // M: SL mua (= SL đặt hàng thực tế)
             ws.Cell(row, 14).Value = (item.TaxRate ?? so.TaxRate) / 100m; // N: VAT mua
             ws.Cell(row, 15).FormulaA1 = $"(L{row}*M{row})+(L{row}*M{row}*N{row})"; // O: Thành tiền chi phí
             if (qItem != null) 
@@ -1171,8 +1257,8 @@ public class SalesOrderService : ISalesOrderService
 
         if (so == null || so.Items.Count == 0) return null;
 
-        // Bỏ các dòng đã hủy toàn bộ SL; dòng hủy 1 phần dùng SL còn lại (Quantity - CancelledQty).
-        var items = so.Items.Where(i => i.CancelledQty < i.Quantity)
+        // Bỏ các dòng đã hủy hết SL; dòng còn lại dùng SL đặt hàng thực tế (Quantity - CancelledQty + AddedQty).
+        var items = so.Items.Where(i => Eff(i) > 0)
                             .OrderBy(i => i.SortOrder).ToList();
         if (items.Count == 0) return null;
 
@@ -1216,7 +1302,7 @@ public class SalesOrderService : ISalesOrderService
         {
             var item = items[i];
             int row = dataStartRow + i;
-            var effectiveQty = item.Quantity - item.CancelledQty;              // SL còn lại sau khi hủy 1 phần
+            var effectiveQty = Eff(item);                                      // SL đặt hàng thực tế (đã trừ hủy, cộng tăng thêm)
 
             ws.Cell(row, 1).Value = i + 1;                                     // A: STT
             ws.Cell(row, 2).Value = so.Customer.CustomerName;                  // B: Tên dự án/KS

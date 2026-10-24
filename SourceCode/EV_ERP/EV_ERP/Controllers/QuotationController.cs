@@ -12,11 +12,13 @@ public class QuotationController : Controller
 {
     private readonly IQuotationService _quotationService;
     private readonly ILogger<QuotationController> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public QuotationController(IQuotationService quotationService, ILogger<QuotationController> logger)
+    public QuotationController(IQuotationService quotationService, ILogger<QuotationController> logger, IWebHostEnvironment env)
     {
         _quotationService = quotationService;
         _logger = logger;
+        _env = env;
     }
 
     private int CurrentUserId =>
@@ -284,11 +286,11 @@ public class QuotationController : Controller
             if (!CanEdit)
                 return Json(ApiResult<object>.Fail("Bạn không có quyền thực hiện thao tác này"));
 
-            var (success, message, quotationId) = await _quotationService.ImportFromExcelAsync(
+            var (success, message, quotationId, errors) = await _quotationService.ImportFromExcelAsync(
                 file, customerId, salesPersonId, deadline, CurrentUserId, rfqId);
 
             if (!success)
-                return Json(ApiResult<object>.Fail(message ?? "Import thất bại"));
+                return Json(ApiResult<object>.Fail(message ?? "Import thất bại", errors));
 
             return Json(ApiResult<object>.Ok(new { QuotationId = quotationId }, message));
         }
@@ -298,6 +300,19 @@ public class QuotationController : Controller
             var innerMsg = ex.InnerException?.Message ?? ex.Message;
             return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + innerMsg));
         }
+    }
+
+    // ── Download import template ──────────────────────
+    [HttpGet]
+    public IActionResult ImportTemplate()
+    {
+        var templatePath = Path.Combine(_env.WebRootPath, "templates", "quotation-template.xlsx");
+        if (!System.IO.File.Exists(templatePath))
+            return NotFound("Không tìm thấy file mẫu");
+
+        return PhysicalFile(templatePath,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Mau_Import_BaoGia.xlsx");
     }
 
     // ── Export Excel from Detail (by ID) ───────────────

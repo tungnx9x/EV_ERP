@@ -318,7 +318,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">File Excel <span class="text-danger">*</span></label>
-                            <input type="file" id="rfqImportFile" class="form-control" accept=".xlsx,.xls" required />
+                            <input type="file" id="rfqImportFile" class="form-control" accept=".xlsx,.xlsm" required />
                             <div class="form-text">File Excel cùng định dạng với file xuất báo giá (Export)</div>
                         </div>
                     </form>
@@ -326,6 +326,9 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <a href="/Quotation/ImportTemplate" class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i> Tải file mẫu
+                    </a>
                     <button type="button" class="btn btn-success" id="btnRfqImport" onclick="doRfqImport()">
                         <i class="bi bi-upload me-1"></i> Import
                     </button>
@@ -469,17 +472,7 @@
             .then(function(res) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
-                resultDiv.classList.remove('d-none');
-                if (res.Success) {
-                    var msg = (res.Message || 'Import thành công').replace(/\n/g, '<br/>');
-                    resultDiv.className = 'alert alert-success mt-3';
-                    resultDiv.innerHTML = msg + '<br/><a href="/Quotation/Detail/' + res.Data.QuotationId +
-                        '" class="btn btn-sm btn-primary mt-2"><i class="bi bi-eye me-1"></i>Xem báo giá</a>';
-                } else {
-                    var msg = (res.Message || 'Import thất bại').replace(/\n/g, '<br/>');
-                    resultDiv.className = 'alert alert-danger mt-3';
-                    resultDiv.innerHTML = msg;
-                }
+                renderQuotationImportResult(resultDiv, res);
             })
             .catch(function(err) {
                 btn.disabled = false;

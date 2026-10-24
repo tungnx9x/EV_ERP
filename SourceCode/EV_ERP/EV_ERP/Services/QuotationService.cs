@@ -1304,16 +1304,75 @@ public class QuotationService : IQuotationService
             : Math.Min(discountValue.Value, subTotal);
     }
 
-    // Robustly reads a numeric cell whether it is stored as a number, a formula
-    // result, or text such as "1,000" / "8%". Returns 0 when empty or unparseable.
-    private static decimal ReadDecimal(IXLCell cell)
+    // ── Import cell parsing ───────────────────────────
+    // Distinguishes empty / valid number / non-numeric text / formula error so the
+    // import can point the user at the exact cell instead of silently using 0.
+    private enum ImportCellState { Empty, Ok, Invalid, FormulaError }
+
+    private const decimal ImportMaxNumber = 999_999_999_999m;
+
+    private static ImportCellState TryReadImportNumber(IXLCell cell, out decimal value, out string raw)
     {
-        if (cell.TryGetValue<double>(out var dbl) && !double.IsNaN(dbl) && !double.IsInfinity(dbl))
-            return (decimal)dbl;
-        var s = cell.GetString().Trim().Replace(",", "").Replace("%", "");
-        return decimal.TryParse(s, System.Globalization.NumberStyles.Any,
-            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
+        value = 0m;
+        raw = string.Empty;
+
+        XLCellValue v;
+        try { v = cell.Value; }
+        catch
+        {
+            raw = "không đọc được giá trị";
+            return ImportCellState.Invalid;
+        }
+
+        if (v.IsBlank) return ImportCellState.Empty;
+        if (v.IsError)
+        {
+            raw = v.ToString();
+            return ImportCellState.FormulaError;
+        }
+        if (v.IsNumber)
+        {
+            var d = v.GetNumber();
+            if (double.IsNaN(d) || double.IsInfinity(d) || Math.Abs(d) > (double)ImportMaxNumber)
+            {
+                raw = cell.GetString();
+                return ImportCellState.Invalid;
+            }
+            value = (decimal)d;
+            return ImportCellState.Ok;
+        }
+
+        raw = cell.GetString().Trim();
+        if (raw.Length == 0) return ImportCellState.Empty;
+
+        var s = raw.Replace(" ", "").Replace("%", "");
+        // Vietnamese thousand separators typed as text: "1.000.000" → 1000000
+        s = System.Text.RegularExpressions.Regex.IsMatch(s, @"^-?\d{1,3}(\.\d{3})+$")
+            ? s.Replace(".", "")
+            : s.Replace(",", "");
+        return decimal.TryParse(s, System.Globalization.NumberStyles.Number,
+                   System.Globalization.CultureInfo.InvariantCulture, out value)
+               && Math.Abs(value) <= ImportMaxNumber
+            ? ImportCellState.Ok
+            : ImportCellState.Invalid;
     }
+
+    private static readonly Dictionary<int, string> ImportColumnNames = new()
+    {
+        [1] = "STT", [2] = "Ảnh yêu cầu", [3] = "Tên SP / Yêu cầu KH", [4] = "EVH's Proposal",
+        [5] = "Hình ảnh", [6] = "ĐVT", [7] = "SL", [8] = "Đơn giá", [10] = "VAT",
+        [12] = "Ghi chú", [14] = "Link/NCC", [15] = "Giá RMB", [17] = "Cân nặng (KG)",
+        [20] = "Giá vốn final", [21] = "Vận chuyển khách", [22] = "Hệ số"
+    };
+
+    private static string ImportColumnLabel(int col)
+    {
+        var letter = XLHelper.GetColumnLetterFromNumber(col);
+        return ImportColumnNames.TryGetValue(col, out var name) ? $"{letter} ({name})" : letter;
+    }
+
+    private static string ShortenForMessage(string s) =>
+        s.Length > 40 ? s[..40] + "…" : s;
 
     private static string NormalizePurchaseMode(string? mode)
     {
@@ -1327,25 +1386,45 @@ public class QuotationService : IQuotationService
     // ══════════════════════════════════════════════════
     // IMPORT FROM EXCEL
     // ══════════════════════════════════════════════════
-    public async Task<(bool Success, string? ErrorMessage, int? QuotationId)> ImportFromExcelAsync(
+    // All-or-nothing: every row is validated first; if any cell is wrong no quotation
+    // is created and the full list of "Dòng X, cột Y: ..." errors is returned so the
+    // user can fix the file and import again.
+    private const int ImportMaxErrors = 200;
+
+    public async Task<(bool Success, string? Message, int? QuotationId, List<string>? Errors)> ImportFromExcelAsync(
         IFormFile file, int customerId, int salesPersonId, DateTime? deadline, int createdBy, int? rfqId = null)
     {
         if (file == null || file.Length == 0)
-            return (false, "File không hợp lệ", null);
+            return (false, "File không hợp lệ hoặc rỗng", null, null);
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".xlsx" or ".xlsm"))
+            return (false, $"Định dạng file \"{ext}\" không được hỗ trợ. Vui lòng lưu file dưới dạng Excel .xlsx (File → Save As → Excel Workbook) rồi import lại.", null, null);
 
         // Validate customer
         var customer = await _uow.Repository<Customer>().GetByIdAsync(customerId);
         if (customer == null)
-            return (false, "Khách hàng không tồn tại", null);
+            return (false, "Khách hàng không tồn tại", null, null);
 
         if (!deadline.HasValue)
-            return (false, "Hạn xử lý nội bộ là bắt buộc", null);
+            return (false, "Hạn xử lý nội bộ là bắt buộc", null, null);
 
         using var stream = file.OpenReadStream();
-        using var wb = new XLWorkbook(stream);
-        var ws = wb.Worksheet(1);
+        XLWorkbook loaded;
+        try
+        {
+            loaded = new XLWorkbook(stream);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Quotation import: cannot open file {File}", file.FileName);
+            return (false, "Không đọc được file Excel. File có thể bị hỏng, đang đặt mật khẩu hoặc không đúng định dạng .xlsx. Vui lòng mở file bằng Excel, lưu lại rồi import lại.", null, null);
+        }
+        using var wb = loaded;
+
+        var ws = wb.Worksheets.FirstOrDefault();
         if (ws == null)
-            return (false, "Không đọc được sheet đầu tiên", null);
+            return (false, "File không có sheet nào", null, null);
 
         // Detect data rows: scan from row 2 downward looking for the first row
         // that has a numeric STT in column A (skip header/customer info rows)
@@ -1379,7 +1458,9 @@ public class QuotationService : IQuotationService
         }
 
         if (dataStartRow == 0)
-            return (false, "Không tìm thấy dữ liệu sản phẩm trong file", null);
+            return (false, $"Không tìm thấy bảng sản phẩm trong sheet \"{ws.Name}\". " +
+                "Cột A phải có dòng tiêu đề \"STT\" và các dòng sản phẩm bên dưới (giống file mẫu). " +
+                "Vui lòng dùng nút \"Tải file mẫu\" để lấy đúng định dạng.", null, null);
 
         // Map embedded images to their anchor row, split by column band so the two
         // image columns of the new template are kept apart:
@@ -1408,10 +1489,44 @@ public class QuotationService : IQuotationService
             }
         }
 
-        // Parse items
-        var items = new List<QuotationItem>();
+        // Parse + validate items (pictures are saved only after the whole file is valid,
+        // so a rejected import leaves no orphan image files behind)
+        var items = new List<(QuotationItem Item, int Row)>();
         var errors = new List<string>();
         int sortOrder = 0;
+
+        void AddError(int row, int col, string msg) =>
+            errors.Add($"Dòng {row}, cột {ImportColumnLabel(col)}: {msg}");
+
+        void CheckLength(int row, int col, string? value, int max, string what)
+        {
+            if (value != null && value.Length > max)
+                AddError(row, col, $"{what} dài {value.Length} ký tự, vượt quá giới hạn {max} ký tự");
+        }
+
+        // Reads a non-negative number; records an error and returns null when the cell is wrong.
+        decimal? ReadNumber(int row, int col, bool required)
+        {
+            var state = TryReadImportNumber(ws.Cell(row, col), out var value, out var raw);
+            switch (state)
+            {
+                case ImportCellState.Empty:
+                    if (required) AddError(row, col, "không được để trống");
+                    return null;
+                case ImportCellState.FormulaError:
+                    AddError(row, col, $"công thức đang bị lỗi ({raw}), kiểm tra lại các ô mà công thức tham chiếu tới");
+                    return null;
+                case ImportCellState.Invalid:
+                    AddError(row, col, $"giá trị \"{ShortenForMessage(raw)}\" không phải là số hợp lệ");
+                    return null;
+            }
+            if (value < 0)
+            {
+                AddError(row, col, $"không được là số âm ({value:0.##})");
+                return null;
+            }
+            return value;
+        }
 
         for (int r = dataStartRow; r <= lastRow; r++)
         {
@@ -1433,13 +1548,12 @@ public class QuotationService : IQuotationService
             if (!int.TryParse(sttText, out _) && string.IsNullOrEmpty(nameBlock))
                 continue;
 
-            var rowLabel = $"Dòng {r}";
+            if (errors.Count >= ImportMaxErrors) break;
+
+            int errorsBefore = errors.Count;
 
             if (string.IsNullOrEmpty(nameBlock))
-            {
-                errors.Add($"{rowLabel}: Tên sản phẩm trống");
-                continue;
-            }
+                AddError(r, 3, "tên sản phẩm không được để trống");
 
             // C column mirrors the export's block: "ProductName\n\nRequiredDescription".
             // Split on the first blank line; everything after is the required description.
@@ -1456,6 +1570,8 @@ public class QuotationService : IQuotationService
             {
                 productName = nameBlock;
             }
+            CheckLength(r, 3, productName, 300, "Tên sản phẩm (phần trước dòng trống)");
+            CheckLength(r, 3, requiredDescription, 2000, "Mô tả yêu cầu (phần sau dòng trống)");
 
             // D — EVH proposal / product description
             var proposal = ws.Cell(r, 4).GetString().Trim();
@@ -1463,22 +1579,33 @@ public class QuotationService : IQuotationService
             // F — unit
             var unitName = ws.Cell(r, 6).GetString().Trim();
             if (string.IsNullOrEmpty(unitName)) unitName = "Cái";
+            CheckLength(r, 6, unitName, 50, "Đơn vị tính");
 
-            // G — quantity
-            var qty = ReadDecimal(ws.Cell(r, 7));
-            if (qty <= 0) qty = 1;
+            // G — quantity (required, > 0)
+            var qty = ReadNumber(r, 7, required: true);
+            if (qty == 0)
+            {
+                AddError(r, 7, "số lượng phải lớn hơn 0");
+                qty = null;
+            }
 
-            // H — unit price
-            var unitPrice = ReadDecimal(ws.Cell(r, 8));
+            // H — unit price (empty = 0)
+            var unitPrice = ReadNumber(r, 8, required: false) ?? 0;
 
             // J — VAT. Exported as a fraction (0.1) with "0%" format; users may also
-            // type "8", "8%" or "10". Treat values in (0,1) as fractions.
-            var vatRate = ReadDecimal(ws.Cell(r, 10));
-            if (vatRate <= 0) vatRate = 10;
-            else if (vatRate < 1) vatRate *= 100;
+            // type "8", "8%" or "10". Treat values in (0,1) as fractions. Empty = 10%.
+            var vatRead = ReadNumber(r, 10, required: false);
+            decimal vatRate = 10;
+            if (vatRead.HasValue)
+            {
+                vatRate = vatRead.Value > 0 && vatRead.Value < 1 ? vatRead.Value * 100 : vatRead.Value;
+                if (vatRate > 100)
+                    AddError(r, 10, $"thuế VAT {vatRate:0.##}% không hợp lệ (chỉ từ 0% đến 100%)");
+            }
 
             // L — notes
             var notes = ws.Cell(r, 12).GetString().Trim();
+            CheckLength(r, 12, notes, 500, "Ghi chú");
 
             // N — Link/NCC: a URL goes to SourceUrl, otherwise a supplier name to SourceName
             var supplierRaw = ws.Cell(r, 14).GetString().Trim();
@@ -1486,44 +1613,53 @@ public class QuotationService : IQuotationService
             string? sourceUrl = null;
             if (supplierRaw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 supplierRaw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
                 sourceUrl = supplierRaw;
+                CheckLength(r, 14, sourceUrl, 1000, "Link nguồn");
+            }
             else if (!string.IsNullOrEmpty(supplierRaw))
+            {
                 supplier = supplierRaw;
+                CheckLength(r, 14, supplier, 200, "Tên nhà cung cấp");
+            }
 
             // O — Giá RMB (base purchase price, in the purchase currency)
-            var basePrice = ReadDecimal(ws.Cell(r, 15));
+            var basePrice = ReadNumber(r, 15, required: false) ?? 0;
             // Q — Cân nặng (KG)
-            var weightKg = ReadDecimal(ws.Cell(r, 17));
+            var weightKg = ReadNumber(r, 17, required: false) ?? 0;
             // T — Giá vốn final (final cost price in VND)
-            var importPrice = ReadDecimal(ws.Cell(r, 20));
+            var importPrice = ReadNumber(r, 20, required: false) ?? 0;
             // U — Vận chuyển khách (customer shipping fee)
-            var shipping = ReadDecimal(ws.Cell(r, 21));
-            // V — Hệ số (coefficient)
-            var coefficient = ReadDecimal(ws.Cell(r, 22));
-            if (coefficient <= 0) coefficient = 1;
+            var shipping = ReadNumber(r, 21, required: false) ?? 0;
+            // V — Hệ số (coefficient); empty = 1, explicit 0 would divide by zero
+            var coefficientRead = ReadNumber(r, 22, required: false);
+            decimal coefficient = 1;
+            if (coefficientRead.HasValue)
+            {
+                if (coefficientRead.Value == 0)
+                    AddError(r, 22, "hệ số phải lớn hơn 0 (để trống nếu muốn dùng hệ số 1)");
+                else if (coefficientRead.Value > 999_999)
+                    AddError(r, 22, $"hệ số {coefficientRead.Value:0.##} quá lớn");
+                else
+                    coefficient = coefficientRead.Value;
+            }
+
+            // Row has errors → keep validating the rest of the file, but don't build the item
+            if (errors.Count > errorsBefore || qty == null)
+                continue;
 
             // Calculate line totals
-            var lineTotal = qty * unitPrice;
+            var lineTotal = qty.Value * unitPrice;
             var taxAmount = Math.Round(lineTotal * vatRate / 100m, 0);
             var lineTotalWithTax = lineTotal + taxAmount;
 
-            // Extract embedded images for this row (B = required image, E = product image)
-            string? requiredImageUrl = null;
-            if (requiredPicByRow.TryGetValue(r, out var reqPic))
-                requiredImageUrl = await SaveImportedItemPictureAsync(reqPic);
-            string? imageUrl = null;
-            if (productPicByRow.TryGetValue(r, out var prodPic))
-                imageUrl = await SaveImportedItemPictureAsync(prodPic);
-
-            items.Add(new QuotationItem
+            items.Add((new QuotationItem
             {
                 ProductName = productName,
                 ProductDescription = string.IsNullOrEmpty(proposal) ? null : proposal,
                 RequiredDescription = requiredDescription,
-                ImageUrl = imageUrl,
-                RequiredImageUrl = requiredImageUrl,
                 UnitName = unitName,
-                Quantity = qty,
+                Quantity = qty.Value,
                 UnitPrice = unitPrice,
                 BasePrice = basePrice > 0 ? basePrice : null,
                 UnofficialWeightKg = weightKg > 0 ? weightKg : null,
@@ -1539,17 +1675,35 @@ public class QuotationService : IQuotationService
                 Notes = string.IsNullOrEmpty(notes) ? null : notes,
                 SortOrder = sortOrder++,
                 IsProductMapped = false
-            });
+            }, r));
+        }
+
+        if (errors.Count > 0)
+        {
+            var msg = errors.Count >= ImportMaxErrors
+                ? $"File có quá nhiều lỗi (hiển thị {ImportMaxErrors} lỗi đầu tiên)."
+                : $"File có {errors.Count} lỗi.";
+            msg += " Chưa có báo giá nào được tạo — vui lòng sửa file theo danh sách dưới đây rồi import lại.";
+            return (false, msg, null, errors);
         }
 
         if (items.Count == 0)
-            return (false, "Không tìm thấy sản phẩm nào trong file" +
-                (errors.Count > 0 ? "\n" + string.Join("\n", errors) : ""), null);
+            return (false, $"Không tìm thấy dòng sản phẩm nào bên dưới dòng tiêu đề (từ dòng {dataStartRow} trở đi). " +
+                "Mỗi sản phẩm cần có STT ở cột A và tên sản phẩm ở cột C.", null, null);
+
+        // File is valid → extract embedded images for each row (B = required image, E = product image)
+        foreach (var (item, row) in items)
+        {
+            if (requiredPicByRow.TryGetValue(row, out var reqPic))
+                item.RequiredImageUrl = await SaveImportedItemPictureAsync(reqPic);
+            if (productPicByRow.TryGetValue(row, out var prodPic))
+                item.ImageUrl = await SaveImportedItemPictureAsync(prodPic);
+        }
 
         // Create quotation
         var code = await GenerateQuotationNoAsync();
-        decimal subTotal = items.Sum(i => i.LineTotal);
-        decimal totalTax = items.Sum(i => i.TaxAmount ?? 0);
+        decimal subTotal = items.Sum(i => i.Item.LineTotal);
+        decimal totalTax = items.Sum(i => i.Item.TaxAmount ?? 0);
 
         var quotation = new Quotation
         {
@@ -1560,17 +1714,16 @@ public class QuotationService : IQuotationService
             Deadline = deadline.Value,
             Status = "DRAFT",
             SalesPersonId = salesPersonId,
-            TaxRate = items.First().TaxRate ?? 10,
+            TaxRate = items[0].Item.TaxRate ?? 10,
             SubTotal = subTotal,
             TaxAmount = totalTax,
             TotalAmount = subTotal + totalTax,
-            Notes = errors.Count > 0 ? $"Import cảnh báo: {errors.Count} dòng lỗi" : null,
             CreatedBy = createdBy,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
         };
 
-        foreach (var item in items)
+        foreach (var (item, _) in items)
             quotation.Items.Add(item);
 
         await _uow.Repository<Quotation>().AddAsync(quotation);
@@ -1582,11 +1735,7 @@ public class QuotationService : IQuotationService
         _logger.LogInformation("Quotation imported from Excel: {No}, {Count} items, by UserId={UserId}",
             code, items.Count, createdBy);
 
-        var message = $"Đã tạo báo giá {code} với {items.Count} sản phẩm.";
-        if (errors.Count > 0)
-            message += $"\n\n⚠ {errors.Count} dòng cảnh báo:\n" + string.Join("\n", errors);
-
-        return (true, message, quotation.QuotationId);
+        return (true, $"Đã tạo báo giá {code} với {items.Count} sản phẩm.", quotation.QuotationId, null);
     }
 
     // ══════════════════════════════════════════════════

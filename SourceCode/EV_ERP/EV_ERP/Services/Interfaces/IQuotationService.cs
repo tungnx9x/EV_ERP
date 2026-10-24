@@ -34,7 +34,7 @@ public interface IQuotationService
     Task<(bool Success, string? ErrorMessage)> CancelAsync(int quotationId, int userId, string? reason);
 
     // ── Import from Excel ─────────────────────────────
-    Task<(bool Success, string? ErrorMessage, int? QuotationId)> ImportFromExcelAsync(
+    Task<(bool Success, string? Message, int? QuotationId, List<string>? Errors)> ImportFromExcelAsync(
         IFormFile file, int customerId, int salesPersonId, DateTime? deadline, int createdBy, int? rfqId = null);
 
     // ── Export Excel ───────────────────────────────────

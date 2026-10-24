@@ -13,13 +13,15 @@ public class RfqController : Controller
     private readonly IRfqService _rfqService;
     private readonly IQuotationService _quotationService;
     private readonly IAttachmentService _attachmentService;
+    private readonly ILogger<RfqController> _logger;
 
     public RfqController(IRfqService rfqService, IQuotationService quotationService,
-        IAttachmentService attachmentService)
+        IAttachmentService attachmentService, ILogger<RfqController> logger)
     {
         _rfqService = rfqService;
         _quotationService = quotationService;
         _attachmentService = attachmentService;
+        _logger = logger;
     }
 
     private int CurrentUserId =>
@@ -214,14 +216,22 @@ public class RfqController : Controller
     [HttpPost]
     public async Task<IActionResult> Cancel(int id, [FromBody] ReasonRequest? model)
     {
-        var existing = await _rfqService.GetDetailAsync(id);
-        if (existing == null)
-            return Json(ApiResult<object>.Fail("Không tìm thấy RFQ"));
-        if (!CanManage(existing.CreatedBy))
-            return Json(ApiResult<object>.Fail("Bạn không có quyền hủy RFQ này"));
+        try
+        {
+            var existing = await _rfqService.GetDetailAsync(id);
+            if (existing == null)
+                return Json(ApiResult<object>.Fail("Không tìm thấy RFQ"));
+            if (!CanManage(existing.CreatedBy))
+                return Json(ApiResult<object>.Fail("Bạn không có quyền hủy RFQ này"));
 
-        var (success, error) = await _rfqService.CancelAsync(id, CurrentUserId, model?.Reason);
-        return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy RFQ" : error });
+            var (success, error) = await _rfqService.CancelAsync(id, CurrentUserId, model?.Reason);
+            return Json(new ApiResult<object> { Success = success, Message = success ? "Đã hủy RFQ" : error });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cancel failed for RFQ #{Id}", id);
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + (ex.InnerException?.Message ?? ex.Message)));
+        }
     }
 }
 

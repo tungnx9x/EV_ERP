@@ -272,7 +272,7 @@ public class QuotationController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Cancel failed for Quotation #{Id}", id);
-            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + ex.Message));
+            return Json(ApiResult<object>.Fail("Lỗi hệ thống: " + (ex.InnerException?.Message ?? ex.Message)));
         }
     }
 

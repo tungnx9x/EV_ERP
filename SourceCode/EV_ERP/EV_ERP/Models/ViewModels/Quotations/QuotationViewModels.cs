@@ -47,6 +47,7 @@ public class QuotationRowViewModel
         "REJECTED" => "danger",
         "AMEND" => "warning",
         "EXPIRED" => "dark",
+        "CANCELLED" => "danger",
         _ => "secondary"
     };
     public string StatusText => Status switch
@@ -57,6 +58,7 @@ public class QuotationRowViewModel
         "REJECTED" => "Từ chối",
         "AMEND" => "Chỉnh sửa",
         "EXPIRED" => "Hết hạn",
+        "CANCELLED" => "Đã hủy",
         _ => Status
     };
 }
@@ -232,6 +234,7 @@ public class QuotationDetailViewModel
         "REJECTED" => "danger",
         "AMEND" => "warning",
         "EXPIRED" => "dark",
+        "CANCELLED" => "danger",
         _ => "secondary"
     };
     public string StatusText => Status switch
@@ -242,6 +245,7 @@ public class QuotationDetailViewModel
         "REJECTED" => "Từ chối",
         "AMEND" => "Chỉnh sửa",
         "EXPIRED" => "Hết hạn",
+        "CANCELLED" => "Đã hủy",
         _ => Status
     };
 

@@ -690,7 +690,8 @@
             postAction('/Quotation/Cancel/' + quotationId, { Reason: reason }, function (data) {
                 if (data.Success) {
                     bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
-                    location.reload();
+                    appToast(data.Message || 'Đã hủy báo giá', 'success');
+                    setTimeout(function () { location.reload(); }, 1200);
                 } else {
                     appAlert(data.Message || 'Lỗi');
                 }

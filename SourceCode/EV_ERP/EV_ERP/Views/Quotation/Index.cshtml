@@ -47,7 +47,7 @@
                 <select name="status" class="form-select form-select-sm">
                     <option value="">Tất cả</option>
                     @foreach (var s in new[] { ("DRAFT","Nháp"), ("SENT","Đã gửi"), ("APPROVED","Đã duyệt"),
-                        ("REJECTED","Từ chối"), ("AMEND","Chỉnh sửa"), ("EXPIRED","Hết hạn") })
+                        ("REJECTED","Từ chối"), ("AMEND","Chỉnh sửa"), ("EXPIRED","Hết hạn"), ("CANCELLED","Đã hủy") })
                     {
                         <option value="@s.Item1" selected="@(Model.FilterStatus == s.Item1)">@s.Item2</option>
                     }

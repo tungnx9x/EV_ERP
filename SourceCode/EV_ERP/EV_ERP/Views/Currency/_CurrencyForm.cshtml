@@ -1,0 +1,105 @@
+@model EV_ERP.Models.ViewModels.Reference.CurrencyFormViewModel
+
+<div class="row g-3">
+    <!-- Currency Code (PK — locked after create) -->
+    <div class="col-sm-6">
+        <label asp-for="CurrencyCode" class="form-label fw-semibold small"></label>
+        @if (Model.IsEditMode)
+        {
+            <input type="hidden" asp-for="CurrencyCode" />
+            <input type="text" class="form-control text-uppercase font-monospace" value="@Model.CurrencyCode" disabled />
+            <div class="form-text small">Mã tiền tệ không thể thay đổi sau khi tạo</div>
+        }
+        else
+        {
+            <input asp-for="CurrencyCode" class="form-control text-uppercase font-monospace"
+                   placeholder="VD: HKD, TWD, MYR" maxlength="3" autocomplete="off" autofocus />
+            <div class="form-text small">3 chữ cái theo chuẩn ISO 4217, không trùng</div>
+        }
+        <span asp-validation-for="CurrencyCode" class="text-danger small"></span>
+    </div>
+
+    <!-- Symbol -->
+    <div class="col-sm-6">
+        <label asp-for="Symbol" class="form-label fw-semibold small"></label>
+        <input asp-for="Symbol" class="form-control" placeholder="VD: HK$, NT$, RM" maxlength="10" />
+        <span asp-validation-for="Symbol" class="text-danger small"></span>
+    </div>
+
+    <!-- Currency Name -->
+    <div class="col-12">
+        <label asp-for="CurrencyName" class="form-label fw-semibold small"></label>
+        <input asp-for="CurrencyName" class="form-control" placeholder="VD: Hong Kong Dollar" maxlength="100" />
+        <span asp-validation-for="CurrencyName" class="text-danger small"></span>
+    </div>
+
+    <!-- Decimal places -->
+    <div class="col-sm-6">
+        <label asp-for="DecimalPlaces" class="form-label fw-semibold small"></label>
+        <input asp-for="DecimalPlaces" type="number" min="0" max="4" step="1" class="form-control" />
+        <div class="form-text small">VD: VND, JPY, KRW = 0; USD, EUR, CNY = 2</div>
+        <span asp-validation-for="DecimalPlaces" class="text-danger small"></span>
+    </div>
+
+    <!-- Display order -->
+    <div class="col-sm-6">
+        <label asp-for="DisplayOrder" class="form-label fw-semibold small"></label>
+        <input asp-for="DisplayOrder" type="number" min="0" max="9999" step="1" class="form-control" />
+        <div class="form-text small">Số nhỏ hiển thị trước trong các danh sách chọn</div>
+        <span asp-validation-for="DisplayOrder" class="text-danger small"></span>
+    </div>
+
+    @if (!Model.IsBase)
+    {
+        <!-- Rate to VND (optional) -->
+        <div class="col-12">
+            <label asp-for="RateToVndInput" class="form-label fw-semibold small"></label>
+            <div class="input-group">
+                <span class="input-group-text font-monospace" id="rateFromLabel">1 @(string.IsNullOrEmpty(Model.CurrencyCode) ? "???" : Model.CurrencyCode) =</span>
+                <input asp-for="RateToVndInput" type="text" inputmode="decimal" class="form-control text-end"
+                       placeholder="VD: 3,250" autocomplete="off" />
+                <span class="input-group-text">VND</span>
+            </div>
+            <div class="form-text small">
+                Dùng làm tỷ giá mặc định khi chọn tiền tệ này trong popup tính giá nhập. Để trống nếu chưa có.
+                @if (Model.RateDate.HasValue)
+                {
+                    <span class="d-block">Tỷ giá hiện tại cập nhật ngày @Model.RateDate.Value.ToString("dd/MM/yyyy"). Đổi giá trị sẽ lưu tỷ giá mới cho hôm nay.</span>
+                }
+            </div>
+            <span asp-validation-for="RateToVndInput" class="text-danger small"></span>
+        </div>
+    }
+
+    <!-- IsActive -->
+    <div class="col-12">
+        <div class="form-check form-switch">
+            @if (Model.IsBase)
+            {
+                <input type="hidden" asp-for="IsActive" value="true" />
+                <input class="form-check-input" type="checkbox" role="switch" checked disabled id="IsActiveLocked" />
+                <label class="form-check-label small fw-semibold" for="IsActiveLocked">Kích hoạt</label>
+                <div class="form-text small">VND là tiền tệ gốc của hệ thống, luôn hoạt động</div>
+            }
+            else
+            {
+                <input asp-for="IsActive" class="form-check-input" type="checkbox" role="switch" />
+                <label asp-for="IsActive" class="form-check-label small fw-semibold"></label>
+                <div class="form-text small">Tiền tệ bị vô hiệu sẽ không hiện trong các dropdown chọn tiền tệ</div>
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    // Keep the "1 XXX =" prefix in sync with the code being typed (create mode)
+    (function () {
+        var codeInput = document.getElementById('CurrencyCode');
+        var label = document.getElementById('rateFromLabel');
+        if (!codeInput || !label || codeInput.type === 'hidden') return;
+        codeInput.addEventListener('input', function () {
+            var v = codeInput.value.trim().toUpperCase();
+            label.textContent = '1 ' + (v || '???') + ' =';
+        });
+    })();
+</script>

@@ -1515,6 +1515,12 @@
         sel.innerHTML = opts;
 
         var curr = item.PurchaseCurrency || 'VND';
+        // Currency deactivated by admin after this line was priced → keep it selectable so the
+        // popup doesn't silently fall back to VND while BasePrice is still in the old currency.
+        if (!currencies.some(function (c) { return c.CurrencyCode === curr; })) {
+            opts += '<option value="' + escapeHtml(curr) + '">' + escapeHtml(curr) + ' (đã ngưng sử dụng)</option>';
+            sel.innerHTML = opts;
+        }
         sel.value = curr;
         sel.onchange = onCalcCurrencyChange;
 

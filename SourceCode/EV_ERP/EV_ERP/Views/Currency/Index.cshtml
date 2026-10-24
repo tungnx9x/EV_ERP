@@ -1,0 +1,217 @@
+@model EV_ERP.Models.ViewModels.Reference.CurrencyListViewModel
+@{
+    ViewData["Title"] = "Tiền tệ";
+    ViewData["Breadcrumbs"] = new List<BreadcrumbItem>
+    {
+        new("Trang chủ", "/"),
+        new("Tiền tệ")
+    };
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var paged = Model.Paged;
+}
+
+<!-- Header -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h5 class="mb-0 fw-bold">Tiền tệ</h5>
+        <div class="text-muted small">@paged.TotalCount tiền tệ</div>
+    </div>
+    <a href="/Currency/Create" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Thêm tiền tệ
+    </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-12 col-sm-5 col-md-4">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input name="keyword" value="@Model.SearchKeyword" type="text"
+                           class="form-control border-start-0 ps-0"
+                           placeholder="Tìm mã, tên tiền tệ..." />
+                </div>
+            </div>
+            <div class="col-6 col-sm-4 col-md-3">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" selected="@(string.IsNullOrEmpty(Model.FilterStatus))">Tất cả</option>
+                    <option value="active" selected="@(Model.FilterStatus == "active")">Đang hoạt động</option>
+                    <option value="inactive" selected="@(Model.FilterStatus == "inactive")">Vô hiệu</option>
+                </select>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Lọc</button>
+                <a href="/Currency" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        @if (!paged.Items.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-currency-exchange" style="font-size:2.5rem;opacity:.25;"></i>
+                <p class="mt-3 mb-0">Không tìm thấy tiền tệ nào</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:70px;" class="text-center">Thứ tự</th>
+                            <th style="width:90px;">Mã</th>
+                            <th>Tên tiền tệ</th>
+                            <th class="text-center d-none d-sm-table-cell" style="width:80px;">Ký hiệu</th>
+                            <th class="text-end">Tỷ giá → VND</th>
+                            <th class="text-center" style="width:110px;">Trạng thái</th>
+                            <th style="width:100px;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in paged.Items)
+                        {
+                            <tr>
+                                <td class="text-center text-muted small">@c.DisplayOrder</td>
+                                <td class="fw-semibold font-monospace">@c.CurrencyCode</td>
+                                <td>
+                                    @c.CurrencyName
+                                    @if (c.IsBase)
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary-emphasis ms-1" style="font-size:0.65rem;">Tiền tệ gốc</span>
+                                    }
+                                </td>
+                                <td class="text-center d-none d-sm-table-cell">@(c.Symbol ?? "—")</td>
+                                <td class="text-end">
+                                    @if (c.IsBase)
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                    else if (c.RateToVnd.HasValue)
+                                    {
+                                        <div class="fw-semibold">@c.RateToVnd.Value.ToString("#,##0.####", inv)</div>
+                                        <div class="text-muted" style="font-size:0.72rem;">@c.RateDate?.ToString("dd/MM/yyyy")</div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning-emphasis" title="Chưa có tỷ giá — popup tính giá nhập sẽ mặc định tỷ giá = 1">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Chưa có
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-@c.StatusBadge-subtle text-@c.StatusBadge-emphasis rounded-pill">
+                                        <i class="bi bi-circle-fill me-1" style="font-size:0.45rem;vertical-align:middle;"></i>
+                                        @c.StatusText
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/Currency/Edit/@c.CurrencyCode"
+                                           class="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        @if (!c.IsBase)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Xóa"
+                                                    data-code="@c.CurrencyCode" data-name="@c.CurrencyName"
+                                                    onclick="deleteCurrency(this)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (paged.TotalPages > 1)
+            {
+                <nav class="d-flex justify-content-center py-3">
+                    <ul class="pagination pagination-sm mb-0">
+                        @if (paged.HasPrevious)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(paged.PageIndex - 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        }
+                        @for (int pg = 1; pg <= paged.TotalPages; pg++)
+                        {
+                            <li class="page-item @(pg == paged.PageIndex ? "active" : "")">
+                                <a class="page-link" href="@BuildPageUrl(pg)">@pg</a>
+                            </li>
+                        }
+                        @if (paged.HasNext)
+                        {
+                            <li class="page-item">
+                                <a class="page-link" href="@BuildPageUrl(paged.PageIndex + 1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        }
+    </div>
+</div>
+
+@functions {
+    string BuildPageUrl(int page)
+    {
+        var qs = new Dictionary<string, string?> {
+            ["keyword"] = Model.SearchKeyword,
+            ["status"] = Model.FilterStatus,
+            ["page"] = page.ToString()
+        };
+        return "/Currency?" + string.Join("&", qs.Where(kv => !string.IsNullOrEmpty(kv.Value))
+            .Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value!)}"));
+    }
+}
+
+<style>
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .text-success-emphasis { color: #166534 !important; }
+    .bg-secondary-subtle { background-color: #f1f5f9 !important; }
+    .text-secondary-emphasis { color: #475569 !important; }
+</style>
+
+@section Scripts {
+    <script>
+        async function deleteCurrency(btn) {
+            var code = btn.dataset.code, name = btn.dataset.name;
+            if (!await appConfirm('Bạn có chắc muốn xóa tiền tệ ' + code + ' (' + name + ')? ' +
+                'Lịch sử tỷ giá của tiền tệ này cũng sẽ bị xóa. Thao tác này không thể hoàn tác.')) return;
+
+            var form = new FormData();
+            form.append('__RequestVerificationToken',
+                document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '');
+
+            fetch('/Currency/Delete/' + encodeURIComponent(code), { method: 'POST', body: form })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.Success) {
+                        appToast(data.Message || 'Đã xóa tiền tệ');
+                        setTimeout(function () { location.reload(); }, 600);
+                    } else {
+                        appAlert(data.Message || 'Xóa thất bại');
+                    }
+                })
+                .catch(err => appAlert('Lỗi: ' + err.message));
+        }
+    </script>
+    @Html.AntiForgeryToken()
+}

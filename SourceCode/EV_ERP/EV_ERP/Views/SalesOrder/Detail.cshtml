@@ -3625,8 +3625,13 @@
             var c = soCalcCurrencies[i];
             opts += '<option value="' + escapeHtmlAp(c.CurrencyCode) + '">' + escapeHtmlAp(c.CurrencyCode) + ' - ' + escapeHtmlAp(c.CurrencyName) + '</option>';
         }
+        var curr = it.currency || 'VND';
+        // Currency deactivated by admin after this line was priced → keep it selectable
+        if (!soCalcCurrencies.some(function (c) { return c.CurrencyCode === curr; })) {
+            opts += '<option value="' + escapeHtmlAp(curr) + '">' + escapeHtmlAp(curr) + ' (đã ngưng sử dụng)</option>';
+        }
         sel.innerHTML = opts;
-        sel.value = it.currency || 'VND';
+        sel.value = curr;
         sel.onchange = onCalcCurrencyChange;
 
         document.getElementById('calcItemId').value = soItemId;

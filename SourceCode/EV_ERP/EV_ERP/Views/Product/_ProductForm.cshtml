@@ -86,6 +86,14 @@
                     @c.CurrencyCode — @c.CurrencyName
                 </option>
             }
+            @if (!string.IsNullOrEmpty(Model.DefaultPurchaseCurrency)
+                 && !Model.Currencies.Any(c => c.CurrencyCode == Model.DefaultPurchaseCurrency))
+            {
+                @* Currency deactivated by admin — keep the saved value instead of silently switching *@
+                <option value="@Model.DefaultPurchaseCurrency" data-symbol="@Model.DefaultPurchaseCurrency" selected>
+                    @Model.DefaultPurchaseCurrency (đã ngưng sử dụng)
+                </option>
+            }
         </select>
         <span asp-validation-for="DefaultPurchaseCurrency" class="text-danger small"></span>
     </div>

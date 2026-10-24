@@ -6,6 +6,7 @@ using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.SalesOrders;
+using EV_ERP.Models.ViewModels.Shared;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -91,7 +92,12 @@ public class SalesOrderService : ISalesOrderService
                 PurchaseCost = s.PurchaseCost,
                 Currency = s.Currency,
                 ItemCount = s.Items.Count,
-                CustomerPoNo = s.CustomerPoNo
+                CustomerPoNo = s.CustomerPoNo,
+                Products = s.Items
+                    .Where(i => i.OrderedQty > 0)
+                    .OrderBy(i => i.SortOrder)
+                    .Select(i => new ProductQtyLine { ProductName = i.ProductName, Quantity = i.OrderedQty })
+                    .ToList()
             })
             .ToListAsync();
 

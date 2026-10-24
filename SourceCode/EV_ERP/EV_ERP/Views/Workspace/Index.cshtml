@@ -255,6 +255,7 @@
                             @:slaClass: '@slaClass',
                             @:slaTimeRemaining: @(task.SlaTimeRemaining != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.SlaTimeRemaining)}'" : "null"),
                             @:slaBadge: '@slaBadge',
+                            @:productTooltip: @(task.ProductTooltip != null ? $"'{System.Web.HttpUtility.JavaScriptStringEncode(task.ProductTooltip)}'" : "null"),
                             @:extraInfos: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(task.ExtraInfos.Select(ei => new { title = ei.Title ?? "", value = ei.Value, cssClass = ei.CssClass }))),
                             @:createdAt: @(task.CreatedAt.HasValue ? $"'{task.CreatedAt.Value.ToString("o")}'" : "null")
                         @:},
@@ -493,10 +494,14 @@
             }
 
             var soHtml = t.soNo ? ' <span class="text-muted fw-normal">/ ' + escHtml(t.soNo) + '</span>' : '';
+            var productTipAttr = t.productTooltip
+                ? ' data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-custom-class="product-tooltip"' +
+                  ' data-bs-title="' + escAttr(t.productTooltip) + '"'
+                : '';
 
             html += '<div class="task-item ' + t.slaClass + '">' +
                 '<div class="d-flex align-items-start justify-content-between">' +
-                    '<a href="' + t.detailUrl + '" class="text-decoration-none flex-grow-1" style="min-width:0;">' +
+                    '<a href="' + t.detailUrl + '" class="text-decoration-none flex-grow-1" style="min-width:0;"' + productTipAttr + '>' +
                         '<div class="fw-semibold text-dark" style="font-size:0.8rem;">' + escHtml(t.rfqNo) + soHtml + '</div>' +
                         '<div class="text-muted text-truncate" style="font-size:0.75rem;">' + escHtml(t.customerName) + '</div>' +
                     '</a>' +

@@ -96,6 +96,7 @@
                             <th style="width:40px;">#</th>
                             <th>Mã SO</th>
                             <th>Khách hàng</th>
+                            <th class="d-none d-md-table-cell">Sản phẩm</th>
                             <th class="d-none d-md-table-cell">PO KH</th>
                             <th class="d-none d-md-table-cell">Ngày tạo</th>
                             <th>Trạng thái</th>
@@ -120,6 +121,9 @@
                                 <td>
                                     <div>@r.CustomerName</div>
                                     <div class="text-muted small">@r.CustomerCode</div>
+                                </td>
+                                <td class="d-none d-md-table-cell small">
+                                    <div class="product-summary" title="@r.ProductSummary">@r.ProductSummary</div>
                                 </td>
                                 <td class="d-none d-md-table-cell text-muted small">
                                     @(r.CustomerPoNo ?? "—")

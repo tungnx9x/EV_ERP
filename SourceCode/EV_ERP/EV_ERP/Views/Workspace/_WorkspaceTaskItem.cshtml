@@ -7,10 +7,16 @@
         _ => ""
     };
     var showElapsed = Model.IsShowElapsed;
+    var hasProductTip = !string.IsNullOrEmpty(Model.ProductTooltip);
 }
 <div class="task-item @(showElapsed ? "" : slaClass)">
     <div class="d-flex align-items-start justify-content-between">
-        <a href="@Model.DetailUrl" class="text-decoration-none flex-grow-1" style="min-width:0;">
+        @* Product tooltip sits on the link only, so it doesn't stack with the note button's tooltip *@
+        <a href="@Model.DetailUrl" class="text-decoration-none flex-grow-1" style="min-width:0;"
+           data-bs-toggle="@(hasProductTip ? "tooltip" : null)"
+           data-bs-placement="@(hasProductTip ? "auto" : null)"
+           data-bs-custom-class="@(hasProductTip ? "product-tooltip" : null)"
+           data-bs-title="@(hasProductTip ? Model.ProductTooltip : null)">
             <div class="fw-semibold text-dark" style="font-size:0.8rem;">
                 @Model.RfqNo
                 @if (Model.SalesOrderNo != null)

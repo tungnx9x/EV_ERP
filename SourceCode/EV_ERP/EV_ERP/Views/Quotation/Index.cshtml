@@ -118,7 +118,7 @@
                             <th>Mã báo giá</th>
                             <th>Khách hàng</th>
                             <th class="d-none d-md-table-cell">Ngày BG</th>
-                            <th class="d-none d-lg-table-cell">SP</th>
+                            <th class="d-none d-md-table-cell">Sản phẩm</th>
                             <th class="d-none d-md-table-cell">Phụ trách</th>
                             <th>Trạng thái</th>
                             <th class="text-end">Tổng tiền</th>
@@ -150,7 +150,9 @@
                                         </div>
                                     }
                                 </td>
-                                <td class="d-none d-lg-table-cell text-muted small">@q.ItemCount</td>                              
+                                <td class="d-none d-md-table-cell small">
+                                    <div class="product-summary" title="@q.ProductSummary">@q.ProductSummary</div>
+                                </td>                              
                                 <td class="d-none d-md-table-cell text-muted small">@q.SalesPersonName</td>
                                 <td>
                                     <span class="badge bg-@(q.StatusBadge)-subtle text-@(q.StatusBadge)-emphasis rounded-pill">

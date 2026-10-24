@@ -1,4 +1,5 @@
 using EV_ERP.Models.Common;
+using EV_ERP.Models.ViewModels.Shared;
 
 namespace EV_ERP.Models.ViewModels.SalesOrders;
 
@@ -31,6 +32,9 @@ public class SalesOrderRowViewModel
     public string Currency { get; set; } = "VND";
     public int ItemCount { get; set; }
     public string? CustomerPoNo { get; set; }
+    /// <summary>Active lines only (OrderedQty &gt; 0), quantity = OrderedQty.</summary>
+    public List<ProductQtyLine> Products { get; set; } = [];
+    public string ProductSummary => ProductQtyLine.Summarize(Products);
 
     public string StatusBadge => Status switch
     {

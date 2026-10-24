@@ -7,6 +7,7 @@ using EV_ERP.Models.Entities.Products;
 using EV_ERP.Models.Entities.Reference;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.ViewModels.Quotations;
+using EV_ERP.Models.ViewModels.Shared;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -89,7 +90,11 @@ public class QuotationService : IQuotationService
                 TotalAmount = q.TotalAmount,
                 Currency = q.Currency,
                 ItemCount = q.Items.Count,
-                CreatedBy = q.CreatedBy
+                CreatedBy = q.CreatedBy,
+                Products = q.Items
+                    .OrderBy(i => i.SortOrder)
+                    .Select(i => new ProductQtyLine { ProductName = i.ProductName, Quantity = i.Quantity })
+                    .ToList()
             })
             .ToListAsync();
 

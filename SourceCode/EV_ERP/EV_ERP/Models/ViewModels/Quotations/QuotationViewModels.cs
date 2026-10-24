@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using EV_ERP.Models.Common;
+using EV_ERP.Models.ViewModels.Shared;
 
 namespace EV_ERP.Models.ViewModels.Quotations;
 
@@ -35,6 +36,8 @@ public class QuotationRowViewModel
     public string Currency { get; set; } = "VND";
     public int ItemCount { get; set; }
     public int? CreatedBy { get; set; }
+    public List<ProductQtyLine> Products { get; set; } = [];
+    public string ProductSummary => ProductQtyLine.Summarize(Products);
 
     public string StatusBadge => Status switch
     {

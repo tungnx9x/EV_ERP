@@ -7,6 +7,7 @@ using EV_ERP.Models.Entities.Inventory;
 using EV_ERP.Models.Entities.Sales;
 using EV_ERP.Models.Entities.System;
 using EV_ERP.Models.ViewModels.Workspace;
+using EV_ERP.Models.ViewModels.Shared;
 using EV_ERP.Repositories.Interfaces;
 using EV_ERP.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -99,6 +100,7 @@ public class WorkspaceController : Controller
         {
             await BuildManagerOverviewAsync(vm);
             vm.AdvanceCards = await BuildAdvanceCardsAsync();
+            await ApplyProductTooltipsAsync(vm.AdvanceCards);
             return View(vm);
         }
 
@@ -455,6 +457,7 @@ public class WorkspaceController : Controller
 
         // ── SLA: Batch query severity for all workspace tasks ──
         await ApplySlaSeverityAsync(vm);
+        await ApplyProductTooltipsAsync(vm.Cards);
 
         return View(vm);
     }
@@ -581,6 +584,7 @@ public class WorkspaceController : Controller
 
         var cards = await BuildAdvanceCardsAsync();
         cards.Add(await BuildSettlementCardAsync());
+        await ApplyProductTooltipsAsync(cards);
 
         var vm = new WorkspaceViewModel
         {
@@ -1049,6 +1053,66 @@ public class WorkspaceController : Controller
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Batch-loads the product lines of every QUOTATION / SALES_ORDER task (2 queries total)
+    /// and fills <see cref="WorkspaceTaskItem.ProductTooltip"/> for the hover tooltip.
+    /// </summary>
+    private async Task ApplyProductTooltipsAsync(IEnumerable<WorkspaceCard> cards)
+    {
+        const int maxLines = 15;
+
+        var tasks = cards.SelectMany(c => c.Tasks).ToList();
+        var quotIds = tasks.Where(t => t.EntityType == "QUOTATION").Select(t => t.EntityId).Distinct().ToList();
+        var soIds = tasks.Where(t => t.EntityType == "SALES_ORDER").Select(t => t.EntityId).Distinct().ToList();
+
+        var quotLines = new Dictionary<int, List<ProductQtyLine>>();
+        if (quotIds.Count > 0)
+        {
+            quotLines = (await _uow.Repository<QuotationItem>().Query()
+                    .Where(i => quotIds.Contains(i.QuotationId))
+                    .OrderBy(i => i.SortOrder)
+                    .Select(i => new { i.QuotationId, i.ProductName, i.Quantity })
+                    .ToListAsync())
+                .GroupBy(i => i.QuotationId)
+                .ToDictionary(g => g.Key,
+                    g => g.Select(i => new ProductQtyLine { ProductName = i.ProductName, Quantity = i.Quantity }).ToList());
+        }
+
+        var soLines = new Dictionary<int, List<ProductQtyLine>>();
+        if (soIds.Count > 0)
+        {
+            // Active lines only, at the effective ordered quantity (Quantity − Cancelled + Added)
+            soLines = (await _uow.Repository<SalesOrderItem>().Query()
+                    .Where(i => soIds.Contains(i.SalesOrderId) && i.OrderedQty > 0)
+                    .OrderBy(i => i.SortOrder)
+                    .Select(i => new { i.SalesOrderId, i.ProductName, i.OrderedQty })
+                    .ToListAsync())
+                .GroupBy(i => i.SalesOrderId)
+                .ToDictionary(g => g.Key,
+                    g => g.Select(i => new ProductQtyLine { ProductName = i.ProductName, Quantity = i.OrderedQty }).ToList());
+        }
+
+        foreach (var task in tasks)
+        {
+            var map = task.EntityType switch
+            {
+                "QUOTATION" => quotLines,
+                "SALES_ORDER" => soLines,
+                _ => null
+            };
+            if (map == null || !map.TryGetValue(task.EntityId, out var lines) || lines.Count == 0)
+                continue;
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"Sản phẩm ({lines.Count}):");
+            foreach (var l in lines.Take(maxLines))
+                sb.Append($"\n• {l.ProductName} x {ProductQtyLine.FormatQty(l.Quantity)}");
+            if (lines.Count > maxLines)
+                sb.Append($"\n… và {lines.Count - maxLines} sản phẩm khác");
+            task.ProductTooltip = sb.ToString();
         }
     }
 

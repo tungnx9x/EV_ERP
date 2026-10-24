@@ -53,6 +53,9 @@ public class WorkspaceTaskItem
     public string DetailUrl { get; set; } = string.Empty;
     public List<TaskExtraInfo> ExtraInfos { get; set; } = [];
 
+    // Hover tooltip listing the products of the quotation / sales order (multi-line text)
+    public string? ProductTooltip { get; set; }
+
     // SLA
     public string? SlaSeverity { get; set; }          // NORMAL, WARNING, DANGER
     public string? SlaTimeRemaining { get; set; }     // VD: "2.5h", "Quá hạn 1.2h"

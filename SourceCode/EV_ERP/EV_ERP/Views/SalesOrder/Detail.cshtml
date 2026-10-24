@@ -1577,8 +1577,8 @@
                 <div class="row g-2 mb-3">
                     <div class="col-md">
                         <label class="form-label small fw-semibold">Đơn giá gốc</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcBasePrice" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcBasePrice" />
                     </div>
                     <div class="col-md">
                         <label class="form-label small fw-semibold d-flex align-items-center justify-content-between" style="gap:4px;">
@@ -1586,8 +1586,8 @@
                             <button type="button" class="btn btn-sm btn-link p-0 text-danger" id="calcResetCurrBtn" onclick="resetCalcCurrency()" style="display:none;" title="Đổi lại VND">×</button>
                         </label>
                         <select class="form-select form-select-sm" id="calcCurrency"></select>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcRate" style="display:none;" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" placeholder="Nhập tỷ giá" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcRate" style="display:none;" placeholder="Nhập tỷ giá" />
                     </div>
                     <!-- VAT — chỉ áp dụng cho "Mua trong nước" (DOMESTIC). Chỉ ghi nhận mức VAT đã gồm
                          trong đơn giá gốc, KHÔNG cộng thêm VAT vào giá nhập. -->
@@ -1600,13 +1600,13 @@
                     </div>
                     <div class="col-md" id="calcVatPercentCol" style="display:none;">
                         <label class="form-label small fw-semibold" for="calcVatPercent">VAT đã gồm (%)</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcVatPercent" oninput="onCalcInput();" onfocus="this.select()" placeholder="VAT %" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcVatPercent" placeholder="VAT %" />
                     </div>
                     <div class="col-md">
                         <label class="form-label small fw-semibold">Số lượng mua</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcQty" oninput="onCalcInput();" onfocus="this.select()" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcQty" />
                     </div>
                 </div>
 
@@ -1619,8 +1619,8 @@
                         <div class="card-body py-2">
                             <div class="row g-2">
                                 <div class="col-md-12">
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcOfficialShipping" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcOfficialShipping" />
                                 </div>
                             </div>
                         </div>
@@ -1637,28 +1637,28 @@
                             <div class="row g-2">
                                 <div class="col-md-6">
                                     <label class="form-label small">Phí vận chuyển nội địa <span class="text-muted">(VND)</span></label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcDomesticShipping" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcDomesticShipping" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Cân nặng (kg)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcWeight" onchange="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcWeight" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Phí / kg (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcCostPerKg" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcCostPerKg" />
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small">Phí xách tay (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcHandCarry" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcHandCarry" />
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small">Kho trung gian → kho công ty (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcW2W" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcW2W" />
                                 </div>
 
                                 <!-- Thể tích (CBM): Dài × Rộng × Cao (m) × Phí/CBM -->
@@ -1668,23 +1668,23 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Dài (m)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcLength" oninput="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcLength" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Rộng (m)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcWidth" oninput="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcWidth" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Cao (m)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcHeight" oninput="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcHeight" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Phí / CBM (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcCostPerCbm" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcCostPerCbm" />
                                 </div>
                                 <div class="col-12">
                                     <div class="small text-muted text-end">CBM = Dài × Rộng × Cao = <span id="calcCbmValue" class="fw-semibold">0</span> m³</div>
@@ -1703,23 +1703,23 @@
                         <div class="row g-2">
                             <div class="col-md-3">
                                 <label class="form-label small">Thuế</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcTax" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcTax" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small">Phí kiểm định</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcInspection" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcInspection" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small">Phí ngân hàng</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcBanking" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcBanking" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small">Chi phí khác</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcOther" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcOther" />
                             </div>
                         </div>
                     </div>
@@ -3636,8 +3636,8 @@
 
         document.getElementById('calcItemId').value = soItemId;
         document.getElementById('calcRowLabel').textContent = it.name || '';
-        document.getElementById('calcRate').value = formatNumber(it.rate || 1);
-        document.getElementById('calcQty').value = (it.pqty != null && it.pqty > 0) ? it.pqty : '';
+        document.getElementById('calcRate').value = formatCalcNumber(it.rate || 1);
+        document.getElementById('calcQty').value = (it.pqty != null && it.pqty > 0) ? formatCalcNumber(it.pqty) : '';
 
         updateCalcCurrRateUI();
 
@@ -3646,24 +3646,24 @@
         document.getElementById('calcModeOfficial').checked = (mode === 'OFFICIAL');
         document.getElementById('calcModeUnofficial').checked = (mode === 'UNOFFICIAL');
 
-        document.getElementById('calcBasePrice').value = it.basePrice ? formatNumber(it.basePrice) : '';
-        document.getElementById('calcOfficialShipping').value = it.offShip ? formatNumber(it.offShip) : '';
-        document.getElementById('calcDomesticShipping').value = it.domShip ? formatNumber(it.domShip) : '';
-        document.getElementById('calcWeight').value = it.weight ? it.weight : '';
-        document.getElementById('calcCostPerKg').value = it.costPerKg ? formatNumber(it.costPerKg) : '';
-        document.getElementById('calcHandCarry').value = it.handCarry ? formatNumber(it.handCarry) : '';
-        document.getElementById('calcW2W').value = it.w2w ? formatNumber(it.w2w) : '';
-        document.getElementById('calcLength').value = it.length ? it.length : '';
-        document.getElementById('calcWidth').value = it.width ? it.width : '';
-        document.getElementById('calcHeight').value = it.height ? it.height : '';
-        document.getElementById('calcCostPerCbm').value = it.costPerCbm ? formatNumber(it.costPerCbm) : '';
-        document.getElementById('calcTax').value = it.tax ? formatNumber(it.tax) : '';
-        document.getElementById('calcInspection').value = it.inspection ? formatNumber(it.inspection) : '';
-        document.getElementById('calcBanking').value = it.banking ? formatNumber(it.banking) : '';
-        document.getElementById('calcOther').value = it.other ? formatNumber(it.other) : '';
+        document.getElementById('calcBasePrice').value = it.basePrice ? formatCalcNumber(it.basePrice) : '';
+        document.getElementById('calcOfficialShipping').value = it.offShip ? formatCalcNumber(it.offShip) : '';
+        document.getElementById('calcDomesticShipping').value = it.domShip ? formatCalcNumber(it.domShip) : '';
+        document.getElementById('calcWeight').value = it.weight ? formatCalcNumber(it.weight) : '';
+        document.getElementById('calcCostPerKg').value = it.costPerKg ? formatCalcNumber(it.costPerKg) : '';
+        document.getElementById('calcHandCarry').value = it.handCarry ? formatCalcNumber(it.handCarry) : '';
+        document.getElementById('calcW2W').value = it.w2w ? formatCalcNumber(it.w2w) : '';
+        document.getElementById('calcLength').value = it.length ? formatCalcNumber(it.length) : '';
+        document.getElementById('calcWidth').value = it.width ? formatCalcNumber(it.width) : '';
+        document.getElementById('calcHeight').value = it.height ? formatCalcNumber(it.height) : '';
+        document.getElementById('calcCostPerCbm').value = it.costPerCbm ? formatCalcNumber(it.costPerCbm) : '';
+        document.getElementById('calcTax').value = it.tax ? formatCalcNumber(it.tax) : '';
+        document.getElementById('calcInspection').value = it.inspection ? formatCalcNumber(it.inspection) : '';
+        document.getElementById('calcBanking').value = it.banking ? formatCalcNumber(it.banking) : '';
+        document.getElementById('calcOther').value = it.other ? formatCalcNumber(it.other) : '';
         // vatPercent != null ⇔ đơn giá gốc đã gồm VAT (giá trị = mức VAT đã gồm)
         document.getElementById('calcVatIncluded').value = (it.vatPercent != null) ? '1' : '0';
-        document.getElementById('calcVatPercent').value = it.vatPercent ? it.vatPercent : '';
+        document.getElementById('calcVatPercent').value = it.vatPercent ? formatCalcNumber(it.vatPercent) : '';
 
         document.querySelectorAll('input[name="calcMode"]').forEach(function (r) { r.onchange = onCalcModeChange; });
         updateCalcPanels();
@@ -3696,7 +3696,7 @@
             (mode === 'DOMESTIC' && document.getElementById('calcVatIncluded').value === '1') ? '' : 'none';
         var currSel = document.getElementById('calcCurrency');
         if (mode === 'DOMESTIC') {
-            if (currSel.value !== 'VND') { currSel.value = 'VND'; document.getElementById('calcRate').value = formatNumber(1); }
+            if (currSel.value !== 'VND') { currSel.value = 'VND'; document.getElementById('calcRate').value = formatCalcNumber(1); }
             currSel.disabled = true;
             updateCalcCurrRateUI();
         } else { currSel.disabled = false; }
@@ -3705,18 +3705,18 @@
     function onCalcCurrencyChange() {
         var code = document.getElementById('calcCurrency').value || 'VND';
         if (code === 'VND') {
-            document.getElementById('calcRate').value = formatNumber(1);
+            document.getElementById('calcRate').value = formatCalcNumber(1);
             updateCalcCurrRateUI(); onCalcInput(); return;
         }
         fetch('/Quotation/GetCurrencyRate?code=' + encodeURIComponent(code), { cache: 'no-store' })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 var rate = (res && res.Success && res.Data && res.Data.rate) ? Number(res.Data.rate) : 1;
-                document.getElementById('calcRate').value = formatNumber(rate > 0 ? rate : 1);
+                document.getElementById('calcRate').value = formatCalcNumber(rate > 0 ? rate : 1);
                 updateCalcCurrRateUI(); onCalcInput();
             })
             .catch(function () {
-                document.getElementById('calcRate').value = formatNumber(1);
+                document.getElementById('calcRate').value = formatCalcNumber(1);
                 updateCalcCurrRateUI(); onCalcInput();
             });
     }
@@ -3738,7 +3738,7 @@
 
     function resetCalcCurrency() {
         document.getElementById('calcCurrency').value = 'VND';
-        document.getElementById('calcRate').value = formatNumber(1);
+        document.getElementById('calcRate').value = formatCalcNumber(1);
         updateCalcCurrRateUI(); onCalcInput();
     }
 
@@ -3746,25 +3746,25 @@
         return {
             mode: document.querySelector('input[name="calcMode"]:checked')?.value || 'OFFICIAL',
             currency: document.getElementById('calcCurrency').value || 'VND',
-            rate: parseMoney(document.getElementById('calcRate').value) || 1,
-            qty: Math.max(parseDecimal(document.getElementById('calcQty').value) || 1, 1),
-            basePrice: parseMoney(document.getElementById('calcBasePrice').value),
-            offShipping: parseMoney(document.getElementById('calcOfficialShipping').value),
-            domShipping: parseMoney(document.getElementById('calcDomesticShipping').value),
-            weight: parseDecimal(document.getElementById('calcWeight').value),
-            costPerKg: parseMoney(document.getElementById('calcCostPerKg').value),
-            handCarry: parseMoney(document.getElementById('calcHandCarry').value),
-            w2w: parseMoney(document.getElementById('calcW2W').value),
-            length: parseDecimal(document.getElementById('calcLength').value),
-            width: parseDecimal(document.getElementById('calcWidth').value),
-            height: parseDecimal(document.getElementById('calcHeight').value),
-            costPerCbm: parseMoney(document.getElementById('calcCostPerCbm').value),
-            tax: parseMoney(document.getElementById('calcTax').value),
-            inspection: parseMoney(document.getElementById('calcInspection').value),
-            banking: parseMoney(document.getElementById('calcBanking').value),
-            other: parseMoney(document.getElementById('calcOther').value),
+            rate: parseCalcNumber(document.getElementById('calcRate').value) || 1,
+            qty: Math.max(parseCalcNumber(document.getElementById('calcQty').value) || 1, 1),
+            basePrice: parseCalcNumber(document.getElementById('calcBasePrice').value),
+            offShipping: parseCalcNumber(document.getElementById('calcOfficialShipping').value),
+            domShipping: parseCalcNumber(document.getElementById('calcDomesticShipping').value),
+            weight: parseCalcNumber(document.getElementById('calcWeight').value),
+            costPerKg: parseCalcNumber(document.getElementById('calcCostPerKg').value),
+            handCarry: parseCalcNumber(document.getElementById('calcHandCarry').value),
+            w2w: parseCalcNumber(document.getElementById('calcW2W').value),
+            length: parseCalcNumber(document.getElementById('calcLength').value),
+            width: parseCalcNumber(document.getElementById('calcWidth').value),
+            height: parseCalcNumber(document.getElementById('calcHeight').value),
+            costPerCbm: parseCalcNumber(document.getElementById('calcCostPerCbm').value),
+            tax: parseCalcNumber(document.getElementById('calcTax').value),
+            inspection: parseCalcNumber(document.getElementById('calcInspection').value),
+            banking: parseCalcNumber(document.getElementById('calcBanking').value),
+            other: parseCalcNumber(document.getElementById('calcOther').value),
             vatIncluded: document.getElementById('calcVatIncluded').value === '1',
-            vatPercent: parseDecimal(document.getElementById('calcVatPercent').value)
+            vatPercent: parseCalcNumber(document.getElementById('calcVatPercent').value)
         };
     }
 
@@ -3844,19 +3844,10 @@
         });
     }
 
-    // blur-commit arithmetic expressions inside the calc modal
-    (function wireCalcExprInputs() {
-        function commitCalcExpr(input, kind) {
-            var raw = (input.value || '').trim();
-            if (raw === '') return;
-            if (kind === 'decimal') { var d = parseDecimal(raw); input.value = d ? String(Math.round(d * 1000) / 1000) : ''; }
-            else { var m = parseMoney(raw); input.value = m ? formatNumber(m) : ''; }
-            onCalcInput();
-        }
-        var moneyIds = ['calcBasePrice', 'calcRate', 'calcOfficialShipping', 'calcDomesticShipping',
-                        'calcCostPerKg', 'calcHandCarry', 'calcW2W', 'calcCostPerCbm', 'calcTax', 'calcInspection', 'calcBanking', 'calcOther'];
-        var decimalIds = ['calcQty', 'calcWeight', 'calcLength', 'calcWidth', 'calcHeight', 'calcVatPercent'];
-        moneyIds.forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener('blur', function () { commitCalcExpr(el, 'money'); }); });
-        decimalIds.forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener('blur', function () { commitCalcExpr(el, 'decimal'); }); });
-    })();
+    // Every numeric input in #calcModal (marked data-calc-num) shares one convention from site.js:
+    // "," groups thousands, "." is the decimal point, arithmetic expressions evaluate on blur.
+    // site.js loads after the page body, so wire on DOMContentLoaded.
+    document.addEventListener('DOMContentLoaded', function () {
+        wireCalcNumberInputs(document.getElementById('calcModal'), onCalcInput);
+    });
 </script>

@@ -178,8 +178,8 @@
                 <div class="row g-2 mb-3">
                     <div class="col-md">
                         <label class="form-label small fw-semibold">Đơn giá gốc</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcBasePrice" oninput="formatDecimalInput(this); onCalcInput();" onfocus="this.select()" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcBasePrice" />
                     </div>
                     <div class="col-md">
                         <label class="form-label small fw-semibold d-flex align-items-center justify-content-between" style="gap:4px;">
@@ -187,8 +187,8 @@
                             <button type="button" class="qi-x-btn" id="calcResetCurrBtn" onclick="resetCalcCurrency()" style="display:none;" title="Đổi lại VND" aria-label="Đổi lại VND">×</button>
                         </label>
                         <select class="form-select form-select-sm" id="calcCurrency"></select>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcRate" style="display:none;" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" placeholder="Nhập tỷ giá" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcRate" style="display:none;" placeholder="Nhập tỷ giá" />
                     </div>
                     <!-- VAT — chỉ áp dụng cho "Mua trong nước" (DOMESTIC). Chỉ ghi nhận mức VAT đã gồm
                          trong đơn giá gốc, KHÔNG cộng thêm VAT vào giá nhập. -->
@@ -201,13 +201,13 @@
                     </div>
                     <div class="col-md" id="calcVatPercentCol" style="display:none;">
                         <label class="form-label small fw-semibold" for="calcVatPercent">VAT đã gồm (%)</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcVatPercent" oninput="onCalcInput();" onfocus="this.select()" placeholder="VAT %" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcVatPercent" placeholder="VAT %" />
                     </div>
                     <div class="col-md">
                         <label class="form-label small fw-semibold">Số lượng mua</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                               id="calcQty" oninput="onCalcInput();" onfocus="this.select()" />
+                        <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                               id="calcQty" />
                     </div>
                 </div>
 
@@ -220,8 +220,8 @@
                         <div class="card-body py-2">
                             <div class="row g-2">
                                 <div class="col-md-12">
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcOfficialShipping" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcOfficialShipping" />
                                 </div>
                             </div>
                         </div>
@@ -238,28 +238,28 @@
                             <div class="row g-2">
                                 <div class="col-md-6">
                                     <label class="form-label small">Phí vận chuyển nội địa <span class="text-muted">(VND)</span></label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcDomesticShipping" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcDomesticShipping" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Cân nặng (kg)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcWeight" onchange="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcWeight" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Phí / kg (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcCostPerKg" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcCostPerKg" />
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small">Phí xách tay (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcHandCarry" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcHandCarry" />
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small">Kho trung gian → kho công ty (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcW2W" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcW2W" />
                                 </div>
 
                                 <!-- Thể tích (CBM): Dài × Rộng × Cao (m) × Phí/CBM -->
@@ -269,23 +269,23 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Dài (m)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcLength" oninput="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcLength" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Rộng (m)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcWidth" oninput="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcWidth" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Cao (m)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcHeight" oninput="onCalcInput()" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcHeight" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Phí / CBM (VND)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                           id="calcCostPerCbm" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                    <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                           id="calcCostPerCbm" />
                                 </div>
                                 <div class="col-12">
                                     <div class="small text-muted text-end">CBM = Dài × Rộng × Cao = <span id="calcCbmValue" class="fw-semibold">0</span> m³</div>
@@ -304,23 +304,23 @@
                         <div class="row g-2">
                             <div class="col-md-3">
                                 <label class="form-label small">Thuế</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcTax" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcTax" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small">Phí kiểm định</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcInspection" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcInspection" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small">Phí ngân hàng</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcBanking" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcBanking" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small">Chi phí khác</label>
-                                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
-                                       id="calcOther" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" />
+                                <input type="text" data-calc-num inputmode="decimal" class="form-control form-control-sm text-end"
+                                       id="calcOther" />
                             </div>
                         </div>
                     </div>
@@ -1525,9 +1525,9 @@
         sel.onchange = onCalcCurrencyChange;
 
         var rate = item.ExchangeRate || 1;
-        document.getElementById('calcRate').value = formatNumber(rate);
+        document.getElementById('calcRate').value = formatCalcNumber(rate);
         // Purchase qty is independent of the outer quotation Quantity — only show the saved value, never seed from outer.
-        document.getElementById('calcQty').value = (item.PurchaseQuantity != null && item.PurchaseQuantity > 0) ? item.PurchaseQuantity : '';
+        document.getElementById('calcQty').value = (item.PurchaseQuantity != null && item.PurchaseQuantity > 0) ? formatCalcNumber(item.PurchaseQuantity) : '';
         document.getElementById('calcRowNo').textContent = (idx + 1);
 
         // Dual-mode currency/rate: VND → show dropdown; non-VND → show rate input + label "Tỷ giá - <code>" + × button
@@ -1538,25 +1538,25 @@
         document.getElementById('calcModeOfficial').checked = (mode === 'OFFICIAL');
         document.getElementById('calcModeUnofficial').checked = (mode === 'UNOFFICIAL');
 
-        document.getElementById('calcBasePrice').value = item.BasePrice ? formatDecimalGrouped(item.BasePrice) : '';
-        document.getElementById('calcOfficialShipping').value = item.OfficialShipping ? formatNumber(item.OfficialShipping) : '';
-        document.getElementById('calcDomesticShipping').value = item.UnofficialDomesticShipping ? formatNumber(item.UnofficialDomesticShipping) : '';
-        document.getElementById('calcWeight').value = item.UnofficialWeightKg ? item.UnofficialWeightKg : '';
-        document.getElementById('calcCostPerKg').value = item.UnofficialCostPerKg ? formatNumber(item.UnofficialCostPerKg) : '';
-        document.getElementById('calcHandCarry').value = item.UnofficialHandCarryFee ? formatNumber(item.UnofficialHandCarryFee) : '';
-        document.getElementById('calcW2W').value = item.UnofficialW2WShipping ? formatNumber(item.UnofficialW2WShipping) : '';
-        document.getElementById('calcLength').value = item.UnofficialLength ? item.UnofficialLength : '';
-        document.getElementById('calcWidth').value = item.UnofficialWidth ? item.UnofficialWidth : '';
-        document.getElementById('calcHeight').value = item.UnofficialHeight ? item.UnofficialHeight : '';
-        document.getElementById('calcCostPerCbm').value = item.UnofficialCostPerCbm ? formatNumber(item.UnofficialCostPerCbm) : '';
-        document.getElementById('calcTax').value = item.PurchaseTax ? formatNumber(item.PurchaseTax) : '';
-        document.getElementById('calcInspection').value = item.InspectionFee ? formatNumber(item.InspectionFee) : '';
-        document.getElementById('calcBanking').value = item.BankingFee ? formatNumber(item.BankingFee) : '';
-        document.getElementById('calcOther').value = item.OtherCosts ? formatNumber(item.OtherCosts) : '';
+        document.getElementById('calcBasePrice').value = item.BasePrice ? formatCalcNumber(item.BasePrice) : '';
+        document.getElementById('calcOfficialShipping').value = item.OfficialShipping ? formatCalcNumber(item.OfficialShipping) : '';
+        document.getElementById('calcDomesticShipping').value = item.UnofficialDomesticShipping ? formatCalcNumber(item.UnofficialDomesticShipping) : '';
+        document.getElementById('calcWeight').value = item.UnofficialWeightKg ? formatCalcNumber(item.UnofficialWeightKg) : '';
+        document.getElementById('calcCostPerKg').value = item.UnofficialCostPerKg ? formatCalcNumber(item.UnofficialCostPerKg) : '';
+        document.getElementById('calcHandCarry').value = item.UnofficialHandCarryFee ? formatCalcNumber(item.UnofficialHandCarryFee) : '';
+        document.getElementById('calcW2W').value = item.UnofficialW2WShipping ? formatCalcNumber(item.UnofficialW2WShipping) : '';
+        document.getElementById('calcLength').value = item.UnofficialLength ? formatCalcNumber(item.UnofficialLength) : '';
+        document.getElementById('calcWidth').value = item.UnofficialWidth ? formatCalcNumber(item.UnofficialWidth) : '';
+        document.getElementById('calcHeight').value = item.UnofficialHeight ? formatCalcNumber(item.UnofficialHeight) : '';
+        document.getElementById('calcCostPerCbm').value = item.UnofficialCostPerCbm ? formatCalcNumber(item.UnofficialCostPerCbm) : '';
+        document.getElementById('calcTax').value = item.PurchaseTax ? formatCalcNumber(item.PurchaseTax) : '';
+        document.getElementById('calcInspection').value = item.InspectionFee ? formatCalcNumber(item.InspectionFee) : '';
+        document.getElementById('calcBanking').value = item.BankingFee ? formatCalcNumber(item.BankingFee) : '';
+        document.getElementById('calcOther').value = item.OtherCosts ? formatCalcNumber(item.OtherCosts) : '';
         // PurchaseVatPercent != null ⇔ đơn giá gốc đã gồm VAT (giá trị = mức VAT đã gồm)
         var vatIncluded = item.PurchaseVatPercent != null;
         document.getElementById('calcVatIncluded').value = vatIncluded ? '1' : '0';
-        document.getElementById('calcVatPercent').value = item.PurchaseVatPercent ? item.PurchaseVatPercent : '';
+        document.getElementById('calcVatPercent').value = item.PurchaseVatPercent ? formatCalcNumber(item.PurchaseVatPercent) : '';
 
         document.querySelectorAll('input[name="calcMode"]').forEach(function (r) {
             r.onchange = onCalcModeChange;
@@ -1603,7 +1603,7 @@
         if (mode === 'DOMESTIC') {
             if (currSel.value !== 'VND') {
                 currSel.value = 'VND';
-                document.getElementById('calcRate').value = formatNumber(1);
+                document.getElementById('calcRate').value = formatCalcNumber(1);
             }
             currSel.disabled = true;
             updateCalcCurrRateUI();
@@ -1616,7 +1616,7 @@
         var code = document.getElementById('calcCurrency').value || 'VND';
         updateCalcDomShipCurrencyLabel();
         if (code === 'VND') {
-            document.getElementById('calcRate').value = formatNumber(1);
+            document.getElementById('calcRate').value = formatCalcNumber(1);
             updateCalcCurrRateUI();
             onCalcInput();
             return;
@@ -1625,12 +1625,12 @@
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 var rate = (res && res.Success && res.Data && res.Data.rate) ? Number(res.Data.rate) : 1;
-                document.getElementById('calcRate').value = formatNumber(rate > 0 ? rate : 1);
+                document.getElementById('calcRate').value = formatCalcNumber(rate > 0 ? rate : 1);
                 updateCalcCurrRateUI();
                 onCalcInput();
             })
             .catch(function () {
-                document.getElementById('calcRate').value = formatNumber(1);
+                document.getElementById('calcRate').value = formatCalcNumber(1);
                 updateCalcCurrRateUI();
                 onCalcInput();
             });
@@ -1658,7 +1658,7 @@
 
     function resetCalcCurrency() {
         document.getElementById('calcCurrency').value = 'VND';
-        document.getElementById('calcRate').value = formatNumber(1);
+        document.getElementById('calcRate').value = formatCalcNumber(1);
         updateCalcDomShipCurrencyLabel();
         updateCalcCurrRateUI();
         onCalcInput();
@@ -1672,25 +1672,25 @@
         return {
             mode: document.querySelector('input[name="calcMode"]:checked')?.value || 'OFFICIAL',
             currency: document.getElementById('calcCurrency').value || 'VND',
-            rate: parseMoney(document.getElementById('calcRate').value) || 1,
-            qty: Math.max(parseDecimal(document.getElementById('calcQty').value) || 1, 1),
-            basePrice: parseDecimal((document.getElementById('calcBasePrice').value || '').replace(/,/g, '')),
-            offShipping: parseMoney(document.getElementById('calcOfficialShipping').value),
-            domShipping: parseMoney(document.getElementById('calcDomesticShipping').value),
-            weight: parseDecimal(document.getElementById('calcWeight').value),
-            costPerKg: parseMoney(document.getElementById('calcCostPerKg').value),
-            handCarry: parseMoney(document.getElementById('calcHandCarry').value),
-            w2w: parseMoney(document.getElementById('calcW2W').value),
-            length: parseDecimal(document.getElementById('calcLength').value),
-            width: parseDecimal(document.getElementById('calcWidth').value),
-            height: parseDecimal(document.getElementById('calcHeight').value),
-            costPerCbm: parseMoney(document.getElementById('calcCostPerCbm').value),
-            tax: parseMoney(document.getElementById('calcTax').value),
-            inspection: parseMoney(document.getElementById('calcInspection').value),
-            banking: parseMoney(document.getElementById('calcBanking').value),
-            other: parseMoney(document.getElementById('calcOther').value),
+            rate: parseCalcNumber(document.getElementById('calcRate').value) || 1,
+            qty: Math.max(parseCalcNumber(document.getElementById('calcQty').value) || 1, 1),
+            basePrice: parseCalcNumber(document.getElementById('calcBasePrice').value),
+            offShipping: parseCalcNumber(document.getElementById('calcOfficialShipping').value),
+            domShipping: parseCalcNumber(document.getElementById('calcDomesticShipping').value),
+            weight: parseCalcNumber(document.getElementById('calcWeight').value),
+            costPerKg: parseCalcNumber(document.getElementById('calcCostPerKg').value),
+            handCarry: parseCalcNumber(document.getElementById('calcHandCarry').value),
+            w2w: parseCalcNumber(document.getElementById('calcW2W').value),
+            length: parseCalcNumber(document.getElementById('calcLength').value),
+            width: parseCalcNumber(document.getElementById('calcWidth').value),
+            height: parseCalcNumber(document.getElementById('calcHeight').value),
+            costPerCbm: parseCalcNumber(document.getElementById('calcCostPerCbm').value),
+            tax: parseCalcNumber(document.getElementById('calcTax').value),
+            inspection: parseCalcNumber(document.getElementById('calcInspection').value),
+            banking: parseCalcNumber(document.getElementById('calcBanking').value),
+            other: parseCalcNumber(document.getElementById('calcOther').value),
             vatIncluded: document.getElementById('calcVatIncluded').value === '1',
-            vatPercent: parseDecimal(document.getElementById('calcVatPercent').value)
+            vatPercent: parseCalcNumber(document.getElementById('calcVatPercent').value)
         };
     }
 
@@ -1900,108 +1900,12 @@
         try { input.setSelectionRange(newPos, newPos); } catch (e) { /* IE/non-text inputs */ }
     }
 
-    // After an arithmetic expression is typed in a calc-popup input, evaluate it on blur
-    // and show the computed result directly in the input (money → vi-VN formatted, decimal → up to 3dp).
-    function commitCalcExpr(input, kind) {
-        var raw = (input.value || '').trim();
-        if (raw === '') return;
-        if (kind === 'decimal') {
-            var d = parseDecimal(raw);
-            input.value = d ? String(Math.round(d * 1000) / 1000) : '';
-        } else {
-            var m = parseMoney(raw);
-            input.value = m ? formatNumber(m) : '';
-        }
-        onCalcInput();
-    }
-
-    // Format a decimal number with comma thousand-separators, keeping up to 3 decimals
-    // (no trailing zeros). Used for the calc-popup base price, which may be a foreign-
-    // currency amount with decimals — so en-US grouping (dot = decimal point, comma = group).
-    function formatDecimalGrouped(n) {
-        if (n === null || n === undefined || n === '' || isNaN(n)) return '';
-        return Number(n).toLocaleString('en-US', { maximumFractionDigits: 3 });
-    }
-
-    // Live-format a decimal input while preserving caret position: group the integer part
-    // with commas and keep the typed decimal part intact (e.g. 97000 → 97,000 ; 12.5 → 12.5).
-    function formatDecimalInput(input) {
-        var oldVal = input.value;
-        // Don't reformat mid-expression — parseDecimal evaluates it on blur.
-        if (/[+\-*/()]/.test(oldVal)) return;
-        var caret = input.selectionStart;
-        if (caret === null || caret === undefined) caret = oldVal.length;
-
-        // Count value chars (digits + the decimal dot — everything except grouping commas)
-        // left of the caret, so the caret survives comma changes AND a just-typed trailing dot.
-        // Counting digits only would drop the caret in front of the dot, sending the next
-        // keystroke into the integer part (making decimal entry impossible).
-        var keepLeft = 0;
-        for (var i = 0; i < caret; i++) {
-            if (oldVal.charAt(i) !== ',') keepLeft++;
-        }
-
-        // Keep only digits and the FIRST dot (the decimal point); drop grouping commas / extra dots.
-        var cleaned = oldVal.replace(/,/g, '');
-        var firstDot = cleaned.indexOf('.');
-        if (firstDot !== -1) {
-            cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
-        }
-        cleaned = cleaned.replace(/[^\d.]/g, '');
-        if (cleaned === '') { input.value = ''; return; }
-
-        var dotIdx = cleaned.indexOf('.');
-        var hasDot = dotIdx !== -1;
-        var intPart = hasDot ? cleaned.slice(0, dotIdx) : cleaned;
-        var decPart = hasDot ? cleaned.slice(dotIdx + 1) : '';
-
-        var groupedInt = intPart === '' ? '' : parseInt(intPart, 10).toLocaleString('en-US');
-        var formatted = groupedInt + (hasDot ? '.' + decPart : '');
-        input.value = formatted;
-
-        // Restore caret after the same number of non-comma chars in the new string.
-        var newPos = formatted.length, seen = 0;
-        if (keepLeft <= 0) {
-            newPos = 0;
-        } else {
-            for (var p = 0; p < formatted.length; p++) {
-                if (formatted.charAt(p) !== ',') {
-                    seen++;
-                    if (seen === keepLeft) { newPos = p + 1; break; }
-                }
-            }
-        }
-        try { input.setSelectionRange(newPos, newPos); } catch (e) { /* IE/non-text inputs */ }
-    }
-
-    // Blur-commit for the base price: strip grouping, evaluate an arithmetic expression if any,
-    // then re-display grouped (so 97000*2 → 194,000 and grouping survives blur).
-    function commitDecimalGrouped(input) {
-        var raw = (input.value || '').trim();
-        if (raw === '') return;
-        var d = parseDecimal(raw.replace(/,/g, ''));
-        input.value = d ? formatDecimalGrouped(d) : '';
-        onCalcInput();
-    }
-
-    // Wire blur-commit on every numeric input inside #calcModal (one-time; the modal markup is static).
-    (function wireCalcExprInputs() {
-        var moneyIds = ['calcRate', 'calcOfficialShipping', 'calcDomesticShipping',
-                        'calcCostPerKg', 'calcHandCarry', 'calcW2W', 'calcTax', 'calcInspection',
-                        'calcBanking', 'calcOther'];
-        var decimalIds = ['calcQty', 'calcWeight', 'calcVatPercent'];
-        function bind(ids, kind) {
-            ids.forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) el.addEventListener('blur', function () { commitCalcExpr(el, kind); });
-            });
-        }
-        bind(moneyIds, 'money');
-        bind(decimalIds, 'decimal');
-        // Base price: decimal value shown with thousand-separator grouping.
-        var bp = document.getElementById('calcBasePrice');
-        if (bp) bp.addEventListener('blur', function () { commitDecimalGrouped(bp); });
-    })();
+    // Every numeric input in #calcModal (marked data-calc-num) shares one convention from site.js:
+    // "," groups thousands, "." is the decimal point, arithmetic expressions evaluate on blur.
+    // site.js loads after the page body, so wire on DOMContentLoaded.
+    document.addEventListener('DOMContentLoaded', function () {
+        wireCalcNumberInputs(document.getElementById('calcModal'), onCalcInput);
+    });
 
     function escapeHtml(str) {
         if (!str) return '';

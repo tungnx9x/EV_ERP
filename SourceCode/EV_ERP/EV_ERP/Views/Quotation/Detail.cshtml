@@ -131,9 +131,17 @@
             }
             @if (Model.SalesOrderNo != null)
             {
-                <a href="/SalesOrder/Detail/@Model.SalesOrderId" class="btn btn-sm btn-outline-success">
-                    <i class="bi bi-receipt me-1"></i> SO: @Model.SalesOrderNo
+                <a href="/SalesOrder/Detail/@Model.SalesOrderId" class="btn btn-sm btn-success" id="btnGoSalesOrder"
+                   data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="SO: @Model.SalesOrderNo"
+                   aria-label="Thực hiện mua hàng (SO: @Model.SalesOrderNo)">
+                    <i class="bi bi-cart-check me-1"></i> Thực hiện mua hàng
                 </a>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        var el = document.getElementById('btnGoSalesOrder');
+                        if (el && window.bootstrap) bootstrap.Tooltip.getOrCreateInstance(el);
+                    });
+                </script>
             }
         }
     </div>

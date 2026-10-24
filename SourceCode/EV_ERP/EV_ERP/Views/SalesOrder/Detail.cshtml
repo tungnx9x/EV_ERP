@@ -1589,9 +1589,17 @@
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                id="calcRate" style="display:none;" oninput="formatMoneyInput(this); onCalcInput();" onfocus="this.select()" placeholder="Nhập tỷ giá" />
                     </div>
-                    <!-- VAT — chỉ áp dụng cho "Mua trong nước" (DOMESTIC) -->
+                    <!-- VAT — chỉ áp dụng cho "Mua trong nước" (DOMESTIC). Chỉ ghi nhận mức VAT đã gồm
+                         trong đơn giá gốc, KHÔNG cộng thêm VAT vào giá nhập. -->
                     <div class="col-md" id="calcVatCol" style="display:none;">
-                        <label class="form-label small fw-semibold">VAT (%)</label>
+                        <label class="form-label small fw-semibold" for="calcVatIncluded">Giá gốc gồm VAT?</label>
+                        <select class="form-select form-select-sm" id="calcVatIncluded" onchange="onCalcVatIncludedChange()">
+                            <option value="0">Chưa gồm VAT</option>
+                            <option value="1">Đã gồm VAT</option>
+                        </select>
+                    </div>
+                    <div class="col-md" id="calcVatPercentCol" style="display:none;">
+                        <label class="form-label small fw-semibold" for="calcVatPercent">VAT đã gồm (%)</label>
                         <input type="text" inputmode="decimal" class="form-control form-control-sm text-end"
                                id="calcVatPercent" oninput="onCalcInput();" onfocus="this.select()" placeholder="VAT %" />
                     </div>
@@ -3648,6 +3656,8 @@
         document.getElementById('calcInspection').value = it.inspection ? formatNumber(it.inspection) : '';
         document.getElementById('calcBanking').value = it.banking ? formatNumber(it.banking) : '';
         document.getElementById('calcOther').value = it.other ? formatNumber(it.other) : '';
+        // vatPercent != null ⇔ đơn giá gốc đã gồm VAT (giá trị = mức VAT đã gồm)
+        document.getElementById('calcVatIncluded').value = (it.vatPercent != null) ? '1' : '0';
         document.getElementById('calcVatPercent').value = it.vatPercent ? it.vatPercent : '';
 
         document.querySelectorAll('input[name="calcMode"]').forEach(function (r) { r.onchange = onCalcModeChange; });
@@ -3660,6 +3670,14 @@
 
     function onCalcModeChange() { updateCalcPanels(); onCalcInput(); }
 
+    function onCalcVatIncludedChange() {
+        updateCalcPanels();
+        if (document.getElementById('calcVatIncluded').value === '1') {
+            document.getElementById('calcVatPercent').focus();
+        }
+        onCalcInput();
+    }
+
     function updateCalcPanels() {
         var mode = document.querySelector('input[name="calcMode"]:checked')?.value || 'OFFICIAL';
         document.getElementById('calcOfficialPanel').style.display = (mode === 'OFFICIAL' || mode === 'DOMESTIC') ? '' : 'none';
@@ -3668,6 +3686,9 @@
         if (commonCard) commonCard.style.display = (mode === 'DOMESTIC') ? 'none' : '';
         var vatCol = document.getElementById('calcVatCol');
         if (vatCol) vatCol.style.display = (mode === 'DOMESTIC') ? '' : 'none';
+        var vatPctCol = document.getElementById('calcVatPercentCol');
+        if (vatPctCol) vatPctCol.style.display =
+            (mode === 'DOMESTIC' && document.getElementById('calcVatIncluded').value === '1') ? '' : 'none';
         var currSel = document.getElementById('calcCurrency');
         if (mode === 'DOMESTIC') {
             if (currSel.value !== 'VND') { currSel.value = 'VND'; document.getElementById('calcRate').value = formatNumber(1); }
@@ -3737,6 +3758,7 @@
             inspection: parseMoney(document.getElementById('calcInspection').value),
             banking: parseMoney(document.getElementById('calcBanking').value),
             other: parseMoney(document.getElementById('calcOther').value),
+            vatIncluded: document.getElementById('calcVatIncluded').value === '1',
             vatPercent: parseDecimal(document.getElementById('calcVatPercent').value)
         };
     }
@@ -3745,10 +3767,10 @@
         var f = calcReadFields();
         var qty = f.qty > 0 ? f.qty : 1;
         if (f.mode === 'DOMESTIC') {
-            var vatMult = 1 + (f.vatPercent || 0) / 100;
-            var domPerUnit = Math.round(f.basePrice * vatMult + f.offShipping / qty);
+            // VAT is only recorded (whether the base price includes it) — never added on top.
+            var domPerUnit = Math.round(f.basePrice + f.offShipping / qty);
             return { lineVnd: domPerUnit * qty, perUnit: domPerUnit,
-                hint: 'Giá nhập = Đơn giá gốc × (1 + VAT%) + (Phí vận chuyển / SL mua)', fields: f };
+                hint: 'Giá nhập = Đơn giá gốc' + (f.vatIncluded ? ' (đã gồm VAT)' : ' (chưa gồm VAT)') + ' + (Phí vận chuyển / SL mua)', fields: f };
         }
         var shippingVnd, hint;
         if (f.mode === 'OFFICIAL') {
@@ -3805,7 +3827,8 @@
             UnofficialWidth: isOffOrDom ? null : (f.width || null),
             UnofficialHeight: isOffOrDom ? null : (f.height || null),
             UnofficialCostPerCbm: isOffOrDom ? null : (f.costPerCbm || null),
-            PurchaseVatPercent: isDom ? (f.vatPercent || null) : null
+            // null = giá gốc chưa gồm VAT, có giá trị = đã gồm VAT (mức %)
+            PurchaseVatPercent: (isDom && f.vatIncluded) ? (f.vatPercent || 0) : null
         };
 
         var btn = document.getElementById('calcConfirmBtn');
